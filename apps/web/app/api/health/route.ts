@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/health

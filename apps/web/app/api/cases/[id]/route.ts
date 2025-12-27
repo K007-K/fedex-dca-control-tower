@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+
+import { createClient } from '@/lib/supabase/server';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .select(`
         *,
         assigned_dca:dcas(id, name, status, performance_score, recovery_rate),
-        assigned_agent:users(id, full_name, email, role)
+        assigned_agent:users!cases_assigned_agent_id_fkey(id, full_name, email, role)
       `)
             .eq('id', id)
             .single();
@@ -61,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const updateData: Record<string, any> = {};
         const allowedFields = [
             'status', 'priority', 'assigned_dca_id', 'assigned_agent_id',
-            'outstanding_amount', 'recovered_amount', 'internal_notes', 'tags',
+            'outstanding_amount', 'recovered_amount', 'internal_notes', 'notes', 'tags',
             'is_disputed', 'dispute_reason', 'high_priority_flag', 'vip_customer'
         ];
 

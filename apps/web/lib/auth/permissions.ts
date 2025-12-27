@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+
 import { hasPermission, type Permission, type UserRole, ROLE_PERMISSIONS, isFedExRole, isDCARole } from './rbac';
 
 /**
@@ -21,6 +22,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     if (authError || !user) {
         return null;
     }

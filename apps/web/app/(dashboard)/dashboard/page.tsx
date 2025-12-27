@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/lib/supabase/database.types';
+import { createClient } from '@/lib/supabase/server';
 
 type Case = Database['public']['Tables']['cases']['Row'];
 type DCA = Database['public']['Tables']['dcas']['Row'];
@@ -43,8 +43,8 @@ async function getDashboardData(): Promise<{
         .select('*')
         .eq('status', 'ACTIVE');
 
-    if (casesError || dcasError) {
-        console.error('Dashboard data error:', casesError || dcasError);
+    if (casesError ?? dcasError) {
+        console.error('Dashboard data error:', casesError ?? dcasError);
         return {
             metrics: {
                 totalCases: 0,
@@ -294,8 +294,8 @@ function MetricCard({
                 <span className="text-2xl p-2 rounded-lg bg-primary/5">{icon}</span>
                 {trend && (
                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${trendUp === true ? 'bg-success/10 text-success' :
-                            trendUp === false ? 'bg-danger/10 text-danger' :
-                                'bg-gray-100 text-gray-600'
+                        trendUp === false ? 'bg-danger/10 text-danger' :
+                            'bg-gray-100 text-gray-600'
                         }`}>
                         {trend}
                     </span>

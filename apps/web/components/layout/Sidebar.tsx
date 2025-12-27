@@ -58,8 +58,8 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
                                 <Link
                                     href={item.href}
                                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group ${isActive
-                                            ? 'bg-primary text-white shadow-md'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                        ? 'bg-primary text-white shadow-md'
+                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                         }`}
                                 >
                                     <item.icon
@@ -81,13 +81,13 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
                 <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
                         <span className="text-primary font-semibold text-sm">
-                            {userEmail?.charAt(0).toUpperCase() || 'U'}
+                            {userEmail?.charAt(0).toUpperCase() ?? 'U'}
                         </span>
                     </div>
                     {!collapsed && (
                         <div className="flex-1 min-w-0 animate-fade-in">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                                {userEmail || 'User'}
+                                {userEmail ?? 'User'}
                             </p>
                             <p className="text-xs text-primary font-medium">{userRole}</p>
                         </div>

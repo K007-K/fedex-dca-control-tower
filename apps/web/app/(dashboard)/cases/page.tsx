@@ -1,4 +1,113 @@
-export default function CasesPage() {
+import { Suspense } from 'react';
+
+import { CaseFilters, CaseTable } from '@/components/cases';
+import { Pagination } from '@/components/ui/pagination';
+import { createClient } from '@/lib/supabase/server';
+
+interface PageProps {
+    searchParams: Promise<{
+        page?: string;
+        search?: string;
+        status?: string;
+        priority?: string;
+        dca_id?: string;
+    }>;
+}
+
+async function CasesContent({ searchParams }: { searchParams: PageProps['searchParams'] }) {
+    const params = await searchParams;
+    const supabase = await createClient();
+
+    const page = parseInt(params.page ?? '1');
+    const limit = 15;
+    const offset = (page - 1) * limit;
+
+    // Build query with filters
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (supabase as any)
+        .from('cases')
+        .select('*, assigned_dca:dcas(id, name)', { count: 'exact' });
+
+    if (params.search) {
+        query = query.or(`case_number.ilike.%${params.search}%,customer_name.ilike.%${params.search}%`);
+    }
+    if (params.status) {
+        query = query.eq('status', params.status);
+    }
+    if (params.priority) {
+        query = query.eq('priority', params.priority);
+    }
+    if (params.dca_id) {
+        query = query.eq('assigned_dca_id', params.dca_id);
+    }
+
+    query = query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+    const { data: cases, count, error } = await query;
+
+    if (error) {
+        console.error('Cases fetch error:', error);
+    }
+
+    // Fetch DCAs for filter dropdown
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: dcas } = await (supabase as any)
+        .from('dcas')
+        .select('id, name')
+        .eq('status', 'ACTIVE')
+        .order('name');
+
+    const totalPages = Math.ceil((count ?? 0) / limit);
+
+    // Build search params for pagination
+    const currentSearchParams: Record<string, string> = {};
+    if (params.search) currentSearchParams.search = params.search;
+    if (params.status) currentSearchParams.status = params.status;
+    if (params.priority) currentSearchParams.priority = params.priority;
+    if (params.dca_id) currentSearchParams.dca_id = params.dca_id;
+
+    return (
+        <>
+            <CaseFilters dcas={dcas ?? []} />
+            <CaseTable cases={cases ?? []} />
+            <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={count ?? 0}
+                itemsPerPage={limit}
+                baseUrl="/cases"
+                searchParams={currentSearchParams}
+            />
+        </>
+    );
+}
+
+function CasesLoading() {
+    return (
+        <div className="space-y-6">
+            {/* Filters skeleton */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-10 bg-gray-100 rounded-md animate-pulse" />
+                    ))}
+                </div>
+            </div>
+            {/* Table skeleton */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="space-y-3">
+                    {[...Array(10)].map((_, i) => (
+                        <div key={i} className="h-12 bg-gray-50 rounded animate-pulse" />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default async function CasesPage({ searchParams }: PageProps) {
     return (
         <div className="space-y-6">
             {/* Page Header */}
@@ -7,50 +116,20 @@ export default function CasesPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Cases</h1>
                     <p className="text-gray-500">Manage and track all debt collection cases</p>
                 </div>
-                <button className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-700 transition-colors">
-                    + New Case
-                </button>
-            </div>
-
-            {/* Filters */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="flex flex-wrap gap-4">
-                    <input
-                        type="text"
-                        placeholder="Search cases..."
-                        className="flex-1 min-w-64 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                    <select className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option>All Statuses</option>
-                        <option>Pending</option>
-                        <option>In Progress</option>
-                        <option>Resolved</option>
-                    </select>
-                    <select className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option>All Priorities</option>
-                        <option>Critical</option>
-                        <option>High</option>
-                        <option>Medium</option>
-                        <option>Low</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* Placeholder Content */}
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                <div className="text-6xl mb-4">📋</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Cases List Coming Soon</h3>
-                <p className="text-gray-500 max-w-md mx-auto">
-                    The full cases management interface with filtering, sorting, and bulk operations is under development.
-                </p>
                 <a
-                    href="/api/cases"
-                    target="_blank"
-                    className="inline-block mt-4 text-primary font-medium hover:underline"
+                    href="/cases/new"
+                    className="inline-flex items-center px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-700 transition-colors"
                 >
-                    View Cases API →
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    New Case
                 </a>
             </div>
+
+            <Suspense fallback={<CasesLoading />}>
+                <CasesContent searchParams={searchParams} />
+            </Suspense>
         </div>
     );
 }

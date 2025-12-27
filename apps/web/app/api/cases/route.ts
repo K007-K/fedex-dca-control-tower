@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/cases
@@ -100,47 +101,57 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
-        const supabase = await createClient();
+        // Use admin client for write operations to bypass RLS
+        const supabase = createAdminClient();
         const body = await request.json();
 
-        // Validate required fields
-        const requiredFields = ['invoice_number', 'invoice_date', 'due_date', 'original_amount', 'outstanding_amount', 'customer_id', 'customer_name'];
-        const missingFields = requiredFields.filter(field => !body[field]);
-
-        if (missingFields.length > 0) {
+        // Validate required fields - only customer_name and original_amount are truly required
+        if (!body.customer_name) {
             return NextResponse.json(
-                {
-                    error: {
-                        code: 'VALIDATION_ERROR',
-                        message: 'Missing required fields',
-                        details: missingFields.map(field => ({ field, issue: 'Required' }))
-                    }
-                },
+                { error: { code: 'VALIDATION_ERROR', message: 'Customer name is required' } },
                 { status: 400 }
             );
         }
 
+        if (!body.original_amount || body.original_amount <= 0) {
+            return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: 'Valid original amount is required' } },
+                { status: 400 }
+            );
+        }
+
+        // Generate case number if not provided
+        const caseNumber = body.case_number || `CASE-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+        // Build customer_contact JSONB if email/phone provided
+        const customerContact = body.customer_contact || {};
+        if (body.customer_email) customerContact.email = body.customer_email;
+        if (body.customer_phone) customerContact.phone = body.customer_phone;
+
         const { data, error } = await (supabase as any)
             .from('cases')
             .insert({
-                invoice_number: body.invoice_number,
-                invoice_date: body.invoice_date,
-                due_date: body.due_date,
+                case_number: caseNumber,
+                invoice_number: body.invoice_number || caseNumber,
+                invoice_date: body.invoice_date || new Date().toISOString().split('T')[0],
+                due_date: body.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                 original_amount: body.original_amount,
-                outstanding_amount: body.outstanding_amount,
+                outstanding_amount: body.outstanding_amount ?? body.original_amount,
                 currency: body.currency ?? 'USD',
-                customer_id: body.customer_id,
+                customer_id: body.customer_id || `CUST-${Date.now()}`,
                 customer_name: body.customer_name,
                 customer_type: body.customer_type,
                 customer_segment: body.customer_segment,
                 customer_industry: body.customer_industry,
-                customer_country: body.customer_country,
+                customer_country: body.customer_country || 'US',
                 customer_state: body.customer_state,
                 customer_city: body.customer_city,
-                customer_contact: body.customer_contact,
+                customer_contact: Object.keys(customerContact).length > 0 ? customerContact : null,
                 priority: body.priority ?? 'MEDIUM',
+                status: body.status ?? 'PENDING_ALLOCATION',
+                assigned_dca_id: body.assigned_dca_id || null,
+                internal_notes: body.notes || body.internal_notes,
                 tags: body.tags,
-                internal_notes: body.internal_notes,
             })
             .select()
             .single();

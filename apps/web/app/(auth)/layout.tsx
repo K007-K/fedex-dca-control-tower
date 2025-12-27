@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function AuthLayout({
     children,
 }: {
@@ -8,7 +10,7 @@ export default function AuthLayout({
             {/* Left side - Branding */}
             <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-700 p-12">
                 <div className="flex flex-col justify-between w-full">
-                    <div className="flex items-center gap-3">
+                    <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20">
                             <span className="text-2xl font-bold text-white">F</span>
                         </div>
@@ -16,7 +18,7 @@ export default function AuthLayout({
                             <h1 className="text-xl font-bold text-white">FedEx</h1>
                             <p className="text-sm text-white/80">DCA Control Tower</p>
                         </div>
-                    </div>
+                    </Link>
 
                     <div className="space-y-6">
                         <h2 className="text-4xl font-bold text-white leading-tight">

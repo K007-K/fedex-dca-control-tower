@@ -118,7 +118,7 @@ export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', brea
                                 <img src={userAvatarUrl} alt="Avatar" className="h-8 w-8 object-cover" />
                             ) : (
                                 <span className="text-primary font-medium text-sm">
-                                    {userEmail?.charAt(0).toUpperCase() || 'U'}
+                                    {userEmail?.charAt(0).toUpperCase() ?? 'U'}
                                 </span>
                             )}
                         </div>

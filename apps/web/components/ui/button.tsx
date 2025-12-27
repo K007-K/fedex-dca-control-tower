@@ -1,6 +1,7 @@
-import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
+import * as React from 'react';
+
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
@@ -52,6 +53,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             <Comp
                 className={cn(buttonVariants({ variant, size, className }))}
                 ref={ref}
+                // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
                 disabled={disabled || isLoading}
                 {...props}
             >

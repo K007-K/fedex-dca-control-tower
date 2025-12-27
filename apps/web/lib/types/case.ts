@@ -253,5 +253,5 @@ export interface CaseAction {
 
 // Forward declarations for relations
 import type { DCA } from './dca';
-import type { User, UserRole } from './user';
 import type { SLALog } from './sla';
+import type { User, UserRole } from './user';
