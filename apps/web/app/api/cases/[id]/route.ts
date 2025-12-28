@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -56,13 +56,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        // Use admin client to bypass RLS for updates
+        const supabase = createAdminClient();
         const body = await request.json();
 
         const updateData: Record<string, any> = {};
         const allowedFields = [
             'status', 'priority', 'assigned_dca_id', 'assigned_agent_id',
-            'outstanding_amount', 'recovered_amount', 'internal_notes', 'notes', 'tags',
+            'outstanding_amount', 'recovered_amount', 'internal_notes', 'tags',
             'is_disputed', 'dispute_reason', 'high_priority_flag', 'vip_customer'
         ];
 
@@ -70,6 +71,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             if (body[field] !== undefined) {
                 updateData[field] = body[field];
             }
+        }
+
+        // Map 'notes' from form to 'internal_notes' in database
+        if (body.notes !== undefined) {
+            updateData['internal_notes'] = body.notes;
         }
 
         if (body.assigned_dca_id !== undefined && updateData['assigned_dca_id']) {
@@ -123,7 +129,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        // Use admin client to bypass RLS for updates
+        const supabase = createAdminClient();
 
         const result = await (supabase as any)
             .from('cases')

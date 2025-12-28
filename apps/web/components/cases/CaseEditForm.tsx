@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui';
 
 interface CaseFormProps {
     caseData: {
@@ -40,8 +41,7 @@ const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 export function CaseEditForm({ caseData, dcas, agents }: CaseFormProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
+    const toast = useToast();
 
     const [formData, setFormData] = useState({
         status: caseData.status,
@@ -58,8 +58,6 @@ export function CaseEditForm({ caseData, dcas, agents }: CaseFormProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
-        setSuccess(false);
 
         startTransition(async () => {
             try {
@@ -77,33 +75,23 @@ export function CaseEditForm({ caseData, dcas, agents }: CaseFormProps) {
 
                 if (!response.ok) {
                     const data = await response.json();
-                    throw new Error(data.error || 'Failed to update case');
+                    const errorMessage = data.error?.message || data.error || 'Failed to update case';
+                    throw new Error(errorMessage);
                 }
 
-                setSuccess(true);
+                toast.success('Case Updated', 'Case has been saved successfully.');
                 setTimeout(() => {
                     router.push(`/cases/${caseData.id}`);
                     router.refresh();
-                }, 1500);
+                }, 1000);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'An error occurred');
+                toast.error('Update Failed', err instanceof Error ? err.message : 'An error occurred');
             }
         });
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                    {error}
-                </div>
-            )}
-            {success && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-                    Case updated successfully! Redirecting...
-                </div>
-            )}
-
             {/* Case Info (Read-only) */}
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Case Information</h2>

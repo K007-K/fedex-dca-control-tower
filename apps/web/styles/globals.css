@@ -110,7 +110,12 @@
   }
 
   /* Typography defaults */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold tracking-tight;
   }
 
@@ -146,6 +151,7 @@
    =========================================== */
 
 @layer components {
+
   /* Page container */
   .page-container {
     @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
@@ -234,6 +240,7 @@
    =========================================== */
 
 @layer utilities {
+
   /* Text gradient */
   .text-gradient {
     @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
@@ -312,6 +319,56 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+}
+
+/* ===========================================
+   Animations for Toast and Modal
+   =========================================== */
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
 }
 
 /* ===========================================
