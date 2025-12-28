@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui';
 
 interface DCAFormProps {
     dca: {
@@ -30,8 +31,7 @@ const STATUS_OPTIONS = ['ACTIVE', 'SUSPENDED', 'TERMINATED', 'PENDING_APPROVAL']
 export function DCAEditForm({ dca }: DCAFormProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
+    const toast = useToast();
 
     const [formData, setFormData] = useState({
         name: dca.name,
@@ -57,8 +57,6 @@ export function DCAEditForm({ dca }: DCAFormProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
-        setSuccess(false);
 
         startTransition(async () => {
             try {
@@ -79,30 +77,19 @@ export function DCAEditForm({ dca }: DCAFormProps) {
                     throw new Error(data.error?.message || 'Failed to update DCA');
                 }
 
-                setSuccess(true);
+                toast.success('DCA Updated', 'DCA has been saved successfully');
                 setTimeout(() => {
                     router.push(`/dcas/${dca.id}`);
                     router.refresh();
-                }, 1500);
+                }, 1000);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'An error occurred');
+                toast.error('Update Failed', err instanceof Error ? err.message : 'An error occurred');
             }
         });
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                    {error}
-                </div>
-            )}
-            {success && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-                    DCA updated successfully! Redirecting...
-                </div>
-            )}
-
             {/* Basic Information */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>

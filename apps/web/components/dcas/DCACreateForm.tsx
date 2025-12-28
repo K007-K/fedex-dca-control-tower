@@ -4,14 +4,14 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui';
 
 const STATUS_OPTIONS = ['ACTIVE', 'PENDING_APPROVAL'];
 
 export function DCACreateForm() {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
+    const toast = useToast();
 
     const [formData, setFormData] = useState({
         name: '',
@@ -34,11 +34,9 @@ export function DCACreateForm() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
-        setSuccess(false);
 
         if (!formData.name.trim()) {
-            setError('DCA name is required');
+            toast.error('Validation Error', 'DCA name is required');
             return;
         }
 
@@ -68,30 +66,19 @@ export function DCACreateForm() {
                 }
 
                 const { data } = await response.json();
-                setSuccess(true);
+                toast.success('DCA Created', 'DCA has been created successfully');
                 setTimeout(() => {
                     router.push(`/dcas/${data.id}`);
                     router.refresh();
-                }, 1500);
+                }, 1000);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'An error occurred');
+                toast.error('Creation Failed', err instanceof Error ? err.message : 'An error occurred');
             }
         });
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                    {error}
-                </div>
-            )}
-            {success && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-                    DCA created successfully! Redirecting...
-                </div>
-            )}
-
             {/* Basic Information */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>

@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
+import { SkeletonCard } from '@/components/ui';
 import { createClient } from '@/lib/supabase/server';
 
 const statusColors: Record<string, { bg: string; text: string }> = {
@@ -10,7 +12,29 @@ const statusColors: Record<string, { bg: string; text: string }> = {
     PENDING_APPROVAL: { bg: 'bg-blue-100', text: 'text-blue-800' },
 };
 
-export default async function DCAsPage() {
+function DCAsLoading() {
+    return (
+        <div className="space-y-6">
+            {/* Stats skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <div key={i} className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-2" />
+                        <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+                    </div>
+                ))}
+            </div>
+            {/* Cards skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                    <SkeletonCard key={i} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+async function DCAsContent() {
     const supabase = await createClient();
 
     // Fetch DCAs with case counts
@@ -48,18 +72,7 @@ export default async function DCAsPage() {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Page Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">DCAs</h1>
-                    <p className="text-gray-500">Manage debt collection agencies and their performance</p>
-                </div>
-                <Link href="/dcas/new">
-                    <Button>+ Add DCA</Button>
-                </Link>
-            </div>
-
+        <>
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -183,6 +196,28 @@ export default async function DCAsPage() {
                     </Link>
                 </div>
             )}
+        </>
+    );
+}
+
+export default async function DCAsPage() {
+    return (
+        <div className="space-y-6">
+            {/* Page Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">DCAs</h1>
+                    <p className="text-gray-500">Manage debt collection agencies and their performance</p>
+                </div>
+                <Link href="/dcas/new">
+                    <Button>+ Add DCA</Button>
+                </Link>
+            </div>
+
+            <Suspense fallback={<DCAsLoading />}>
+                <DCAsContent />
+            </Suspense>
         </div>
     );
 }
+
