@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
+import { CaseDeleteButton } from '@/components/cases/CaseDeleteButton';
+import { CaseActions } from '@/components/cases/CaseActions';
+import { EscalationList } from '@/components/cases/EscalationList';
 import { createClient } from '@/lib/supabase/server';
 
 interface PageProps {
@@ -60,6 +63,14 @@ export default async function CaseDetailPage({ params }: PageProps) {
         .order('performed_at', { ascending: false })
         .limit(20);
 
+    // Fetch escalations
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: escalations } = await (supabase as any)
+        .from('escalations')
+        .select('*')
+        .eq('case_id', id)
+        .order('created_at', { ascending: false });
+
     const status = statusConfig[caseData.status] ?? { bg: 'bg-gray-100', text: 'text-gray-800', label: caseData.status };
     const priority = priorityConfig[caseData.priority] ?? { bg: 'bg-gray-100', text: 'text-gray-800' };
 
@@ -84,10 +95,16 @@ export default async function CaseDetailPage({ params }: PageProps) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <CaseActions
+                        caseId={id}
+                        caseNumber={caseData.case_number}
+                        status={caseData.status}
+                        hasAssignedDca={!!caseData.assigned_dca}
+                    />
+                    <CaseDeleteButton caseId={id} caseNumber={caseData.case_number} />
                     <Link href={`/cases/${id}/edit`}>
                         <Button variant="outline">Edit Case</Button>
                     </Link>
-                    <Button>Record Action</Button>
                 </div>
             </div>
 
@@ -215,6 +232,19 @@ export default async function CaseDetailPage({ params }: PageProps) {
                                 <span className="font-medium">{actions?.length ?? 0}</span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Escalations */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900">Escalations</h2>
+                            {escalations && escalations.length > 0 && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                    {escalations.filter((e: { status: string }) => e.status === 'OPEN').length} Open
+                                </span>
+                            )}
+                        </div>
+                        <EscalationList escalations={escalations || []} />
                     </div>
                 </div>
             </div>

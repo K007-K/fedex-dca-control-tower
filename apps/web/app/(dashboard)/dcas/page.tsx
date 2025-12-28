@@ -209,9 +209,14 @@ export default async function DCAsPage() {
                     <h1 className="text-2xl font-bold text-gray-900">DCAs</h1>
                     <p className="text-gray-500">Manage debt collection agencies and their performance</p>
                 </div>
-                <Link href="/dcas/new">
-                    <Button>+ Add DCA</Button>
-                </Link>
+                <div className="flex items-center gap-3">
+                    <Link href="/dcas/compare">
+                        <Button variant="outline">📊 Compare</Button>
+                    </Link>
+                    <Link href="/dcas/new">
+                        <Button>+ Add DCA</Button>
+                    </Link>
+                </div>
             </div>
 
             <Suspense fallback={<DCAsLoading />}>

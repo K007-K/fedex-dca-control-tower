@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
+import { DCADeleteButton } from '@/components/dcas/DCADeleteButton';
 import { createClient } from '@/lib/supabase/server';
 
 interface PageProps {
@@ -31,11 +32,11 @@ export default async function DCADetailPage({ params }: PageProps) {
         notFound();
     }
 
-    // Fetch assigned cases
+    // Fetch assigned cases with count
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: cases } = await (supabase as any)
+    const { data: cases, count: caseCount } = await (supabase as any)
         .from('cases')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('assigned_dca_id', id)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -74,6 +75,7 @@ export default async function DCADetailPage({ params }: PageProps) {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    <DCADeleteButton dcaId={id} dcaName={dca.name} />
                     <Link href={`/dcas/${id}/edit`}>
                         <Button variant="outline">Edit DCA</Button>
                     </Link>
@@ -136,10 +138,14 @@ export default async function DCADetailPage({ params }: PageProps) {
                     {/* Recent Cases */}
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">Assigned Cases</h2>
-                            <Link href={`/cases?dcaId=${id}`} className="text-sm text-primary hover:underline">
-                                View All →
-                            </Link>
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                Assigned Cases {caseCount ? `(${caseCount})` : ''}
+                            </h2>
+                            {caseCount && caseCount > 10 && (
+                                <Link href={`/cases?dca_id=${id}`} className="text-sm text-primary hover:underline">
+                                    View All {caseCount} →
+                                </Link>
+                            )}
                         </div>
                         {cases && cases.length > 0 ? (
                             <div className="space-y-3">

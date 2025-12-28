@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
-import { AnalyticsCharts } from '@/components/analytics';
+import { AnalyticsCharts, DateFilter } from '@/components/analytics';
+import { Suspense } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {
@@ -18,12 +19,29 @@ type DCA = {
     sla_compliance_rate: number;
 };
 
-export default async function AnalyticsPage() {
+interface PageProps {
+    searchParams: Promise<{ days?: string }>;
+}
+
+export default async function AnalyticsPage({ searchParams }: PageProps) {
+    const params = await searchParams;
+    const days = params.days || '30';
     const supabase = await createClient();
 
-    // Fetch all cases for analytics
+    // Calculate date filter
+    let dateFilter: Date | null = null;
+    if (days !== 'all') {
+        dateFilter = new Date();
+        dateFilter.setDate(dateFilter.getDate() - parseInt(days));
+    }
+
+    // Fetch all cases for analytics (with optional date filter)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: cases } = await (supabase as any).from('cases').select('*');
+    let casesQuery = (supabase as any).from('cases').select('*');
+    if (dateFilter) {
+        casesQuery = casesQuery.gte('created_at', dateFilter.toISOString());
+    }
+    const { data: cases } = await casesQuery;
 
     // Fetch all DCAs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,14 +113,9 @@ export default async function AnalyticsPage() {
                     <p className="text-gray-500">Track recovery trends and DCA performance metrics</p>
                 </div>
                 <div className="flex gap-2">
-                    <select className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option>Last 30 days</option>
-                        <option>Last 90 days</option>
-                        <option>This year</option>
-                    </select>
-                    <button className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-                        Export Report
-                    </button>
+                    <Suspense fallback={<div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />}>
+                        <DateFilter currentRange={days} />
+                    </Suspense>
                 </div>
             </div>
 
@@ -158,8 +171,8 @@ export default async function AnalyticsPage() {
                                     <td className="py-3 font-medium text-gray-900">{dca.name}</td>
                                     <td className="py-3 text-center">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${dca.performance_score >= 80 ? 'bg-green-100 text-green-800' :
-                                                dca.performance_score >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
+                                            dca.performance_score >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
                                             }`}>
                                             {dca.performance_score || 0}
                                         </span>
@@ -168,8 +181,8 @@ export default async function AnalyticsPage() {
                                     <td className="py-3 text-center text-gray-600">{dca.sla_compliance_rate || 0}%</td>
                                     <td className="py-3 text-center">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${dca.sla_compliance_rate >= 90 ? 'bg-green-100 text-green-800' :
-                                                dca.sla_compliance_rate >= 70 ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
+                                            dca.sla_compliance_rate >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
                                             }`}>
                                             {dca.sla_compliance_rate >= 90 ? 'Excellent' :
                                                 dca.sla_compliance_rate >= 70 ? 'Good' : 'Needs Improvement'}

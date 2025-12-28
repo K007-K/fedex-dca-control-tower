@@ -68,16 +68,16 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
 
     const markAllAsRead = async () => {
         startTransition(async () => {
-            const unreadIds = localNotifications.filter(n => !n.is_read).map(n => n.id);
-            for (const id of unreadIds) {
-                await fetch(`/api/notifications/${id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_read: true }),
+            try {
+                // Use batch API for better performance
+                await fetch('/api/notifications/mark-all-read', {
+                    method: 'POST',
                 });
+                setLocalNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                router.refresh();
+            } catch (error) {
+                console.error('Failed to mark all as read:', error);
             }
-            setLocalNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-            router.refresh();
         });
     };
 

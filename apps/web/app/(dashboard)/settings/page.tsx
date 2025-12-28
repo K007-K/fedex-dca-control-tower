@@ -15,6 +15,9 @@ export default function SettingsPage() {
                         <a href="#profile" className="flex items-center px-3 py-2 text-sm font-medium text-primary bg-primary/5 rounded-lg">
                             Profile
                         </a>
+                        <a href="/settings/users" className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
+                            Users
+                        </a>
                         <a href="#notifications" className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg">
                             Notifications
                         </a>

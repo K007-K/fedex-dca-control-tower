@@ -1,5 +1,6 @@
 import type { Database } from '@/lib/supabase/database.types';
 import { createClient } from '@/lib/supabase/server';
+import { SLABreachAlerts } from '@/components/sla';
 
 type Case = Database['public']['Tables']['cases']['Row'];
 type DCA = Database['public']['Tables']['dcas']['Row'];
@@ -108,6 +109,9 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-6">
+            {/* SLA Breach Alerts */}
+            <SLABreachAlerts />
+
             {/* Welcome Banner */}
             <div className="bg-gradient-to-r from-primary via-primary-600 to-accent rounded-2xl p-6 text-white shadow-lg">
                 <h2 className="text-2xl font-bold mb-2">

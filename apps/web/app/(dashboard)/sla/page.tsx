@@ -74,9 +74,12 @@ export default async function SLAPage() {
                     <h1 className="text-2xl font-bold text-gray-900">SLA Management</h1>
                     <p className="text-gray-500">Monitor SLA compliance and manage templates</p>
                 </div>
-                <button className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                <Link
+                    href="/sla/new"
+                    className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                >
                     + New SLA Template
-                </button>
+                </Link>
             </div>
 
             {/* Metrics Cards */}
@@ -126,9 +129,17 @@ export default async function SLAPage() {
                                     <span className="text-gray-500">
                                         ⏱️ {template.duration_hours}h {template.business_hours_only ? '(business)' : ''}
                                     </span>
-                                    {template.auto_escalate_on_breach && (
-                                        <span className="text-amber-600">⚡ Auto-escalate</span>
-                                    )}
+                                    <div className="flex items-center gap-3">
+                                        {template.auto_escalate_on_breach && (
+                                            <span className="text-amber-600">⚡ Auto-escalate</span>
+                                        )}
+                                        <Link
+                                            href={`/sla/${template.id}/edit`}
+                                            className="text-primary hover:underline"
+                                        >
+                                            Edit
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
                         ))}

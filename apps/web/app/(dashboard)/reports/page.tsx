@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase/server';
+import { ReportCard } from '@/components/reports/ReportCard';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {
@@ -38,20 +39,6 @@ const REPORT_TEMPLATES = [
         icon: '📅',
         category: 'Financial',
     },
-    {
-        id: 'collections-forecast',
-        name: 'Collections Forecast',
-        description: 'Predicted recovery based on historical patterns',
-        icon: '🔮',
-        category: 'Planning',
-    },
-    {
-        id: 'audit-trail',
-        name: 'Audit Trail Report',
-        description: 'Complete activity log for compliance',
-        icon: '📋',
-        category: 'Compliance',
-    },
 ];
 
 export default async function ReportsPage() {
@@ -75,9 +62,6 @@ export default async function ReportsPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
                     <p className="text-gray-500">Generate and download detailed reports</p>
                 </div>
-                <button className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-700 transition-colors">
-                    + Custom Report
-                </button>
             </div>
 
             {/* Quick Stats */}
@@ -120,33 +104,9 @@ export default async function ReportsPage() {
             {/* Report Templates */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Report Templates</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                     {REPORT_TEMPLATES.map((report) => (
-                        <div
-                            key={report.id}
-                            className="border border-gray-200 rounded-lg p-4 hover:border-primary hover:shadow-sm transition-all cursor-pointer group"
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className="text-3xl">{report.icon}</div>
-                                <div className="flex-1">
-                                    <h3 className="font-medium text-gray-900 group-hover:text-primary transition-colors">
-                                        {report.name}
-                                    </h3>
-                                    <p className="text-sm text-gray-500 mt-1">{report.description}</p>
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 mt-2">
-                                        {report.category}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="mt-4 pt-3 border-t border-gray-100 flex gap-2">
-                                <button className="flex-1 px-3 py-1.5 text-sm text-primary border border-primary rounded hover:bg-primary/5 transition-colors">
-                                    Preview
-                                </button>
-                                <button className="flex-1 px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-700 transition-colors">
-                                    Generate
-                                </button>
-                            </div>
-                        </div>
+                        <ReportCard key={report.id} report={report} />
                     ))}
                 </div>
             </div>

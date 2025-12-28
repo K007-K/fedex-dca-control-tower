@@ -135,3 +135,61 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         );
     }
 }
+
+/**
+ * DELETE /api/dcas/[id]
+ * Soft delete a DCA (mark as TERMINATED)
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+    try {
+        const { id } = await params;
+        // Use admin client to bypass RLS for updates
+        const supabase = createAdminClient();
+
+        // First check if DCA has active cases
+        const casesResult = await (supabase as any)
+            .from('cases')
+            .select('id')
+            .eq('assigned_dca_id', id)
+            .not('status', 'in', '("CLOSED","WRITTEN_OFF","FULL_RECOVERY")')
+            .limit(1);
+
+        if (casesResult.data && casesResult.data.length > 0) {
+            return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: 'Cannot terminate DCA with active cases. Please reassign cases first.' } },
+                { status: 400 }
+            );
+        }
+
+        const result = await (supabase as any)
+            .from('dcas')
+            .update({
+                status: 'TERMINATED',
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (result.error) {
+            if (result.error.code === 'PGRST116') {
+                return NextResponse.json(
+                    { error: { code: 'NOT_FOUND', message: 'DCA not found' } },
+                    { status: 404 }
+                );
+            }
+            return NextResponse.json(
+                { error: { code: 'DATABASE_ERROR', message: result.error.message } },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({ data: result.data, message: 'DCA terminated successfully' });
+    } catch (error) {
+        console.error('DCA API error:', error);
+        return NextResponse.json(
+            { error: { code: 'INTERNAL_ERROR', message: 'Failed to terminate DCA' } },
+            { status: 500 }
+        );
+    }
+}

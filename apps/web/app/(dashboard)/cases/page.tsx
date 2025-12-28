@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 
-import { CaseFilters, CaseTable } from '@/components/cases';
+import { CaseFilters, CaseTableWithSelection } from '@/components/cases';
 import { Pagination } from '@/components/ui/pagination';
 import { createClient } from '@/lib/supabase/server';
 
@@ -51,7 +51,7 @@ async function CasesContent({ searchParams }: { searchParams: PageProps['searchP
         console.error('Cases fetch error:', error);
     }
 
-    // Fetch DCAs for filter dropdown
+    // Fetch DCAs for filter dropdown and bulk assignment
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: dcas } = await (supabase as any)
         .from('dcas')
@@ -71,7 +71,7 @@ async function CasesContent({ searchParams }: { searchParams: PageProps['searchP
     return (
         <>
             <CaseFilters dcas={dcas ?? []} />
-            <CaseTable cases={cases ?? []} />
+            <CaseTableWithSelection cases={cases ?? []} dcas={dcas ?? []} />
             <Pagination
                 currentPage={page}
                 totalPages={totalPages}

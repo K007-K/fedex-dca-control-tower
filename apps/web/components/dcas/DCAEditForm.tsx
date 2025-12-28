@@ -60,16 +60,29 @@ export function DCAEditForm({ dca }: DCAFormProps) {
 
         startTransition(async () => {
             try {
+                // Convert empty strings to null for optional fields
+                const payload = {
+                    name: formData.name,
+                    legal_name: formData.legal_name || null,
+                    registration_number: formData.registration_number || null,
+                    status: formData.status,
+                    capacity_limit: parseInt(String(formData.capacity_limit)),
+                    commission_rate: parseFloat(String(formData.commission_rate)),
+                    min_case_value: formData.min_case_value ? parseFloat(String(formData.min_case_value)) : null,
+                    max_case_value: formData.max_case_value ? parseFloat(String(formData.max_case_value)) : null,
+                    primary_contact_name: formData.primary_contact_name || null,
+                    primary_contact_email: formData.primary_contact_email || null,
+                    primary_contact_phone: formData.primary_contact_phone || null,
+                    // Convert empty date strings to null
+                    contract_start_date: formData.contract_start_date || null,
+                    contract_end_date: formData.contract_end_date || null,
+                    license_expiry: formData.license_expiry || null,
+                };
+
                 const response = await fetch(`/api/dcas/${dca.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...formData,
-                        capacity_limit: parseInt(String(formData.capacity_limit)),
-                        commission_rate: parseFloat(String(formData.commission_rate)),
-                        min_case_value: formData.min_case_value ? parseFloat(String(formData.min_case_value)) : null,
-                        max_case_value: formData.max_case_value ? parseFloat(String(formData.max_case_value)) : null,
-                    }),
+                    body: JSON.stringify(payload),
                 });
 
                 if (!response.ok) {

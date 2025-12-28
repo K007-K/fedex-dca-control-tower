@@ -152,9 +152,9 @@ export default function LoginPage() {
 
                 <div className="mt-6 text-center text-sm text-muted-foreground">
                     Need access?{' '}
-                    <Link href="/register" className="text-primary font-medium hover:underline">
+                    <span className="text-primary font-medium">
                         Contact your administrator
-                    </Link>
+                    </span>
                 </div>
             </CardContent>
         </Card>
