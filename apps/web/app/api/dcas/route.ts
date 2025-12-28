@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/dcas
@@ -95,22 +95,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
-        const supabase = await createClient();
+        // Use admin client for write operations
+        const supabase = createAdminClient();
         const body = await request.json();
 
-        // Validate required fields
-        const requiredFields = ['name', 'capacity_limit', 'primary_contact_name', 'primary_contact_email'];
-        const missingFields = requiredFields.filter(field => !body[field]);
-
-        if (missingFields.length > 0) {
+        // Only name is truly required
+        if (!body.name) {
             return NextResponse.json(
-                {
-                    error: {
-                        code: 'VALIDATION_ERROR',
-                        message: 'Missing required fields',
-                        details: missingFields.map(field => ({ field, issue: 'Required' }))
-                    }
-                },
+                { error: { code: 'VALIDATION_ERROR', message: 'DCA name is required' } },
                 { status: 400 }
             );
         }
@@ -119,18 +111,22 @@ export async function POST(request: NextRequest) {
             .from('dcas')
             .insert({
                 name: body.name,
-                legal_name: body.legal_name,
-                registration_number: body.registration_number,
-                status: 'PENDING_APPROVAL',
-                capacity_limit: body.capacity_limit,
-                max_case_value: body.max_case_value,
-                min_case_value: body.min_case_value,
-                specializations: body.specializations,
-                geographic_coverage: body.geographic_coverage,
-                commission_rate: body.commission_rate,
-                primary_contact_name: body.primary_contact_name,
-                primary_contact_email: body.primary_contact_email,
-                primary_contact_phone: body.primary_contact_phone,
+                legal_name: body.legal_name || null,
+                registration_number: body.registration_number || null,
+                status: body.status || 'PENDING_APPROVAL',
+                capacity_limit: body.capacity_limit || 100,
+                capacity_used: 0,
+                max_case_value: body.max_case_value || null,
+                min_case_value: body.min_case_value || null,
+                specializations: body.specializations || null,
+                geographic_coverage: body.geographic_coverage || null,
+                commission_rate: body.commission_rate || 15,
+                primary_contact_name: body.primary_contact_name || null,
+                primary_contact_email: body.primary_contact_email || null,
+                primary_contact_phone: body.primary_contact_phone || null,
+                performance_score: 50,
+                recovery_rate: 0,
+                sla_compliance_rate: 100,
             })
             .select()
             .single();

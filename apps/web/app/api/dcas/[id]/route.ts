@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -79,15 +79,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        // Use admin client for write operations
+        const supabase = createAdminClient();
         const body = await request.json();
 
         const updateData: Record<string, any> = {};
         const allowedFields = [
-            'name', 'legal_name', 'status', 'capacity_limit', 'max_case_value', 'min_case_value',
+            'name', 'legal_name', 'registration_number', 'status', 'capacity_limit', 'max_case_value', 'min_case_value',
             'specializations', 'geographic_coverage', 'commission_rate',
             'primary_contact_name', 'primary_contact_email', 'primary_contact_phone',
-            'license_expiry', 'insurance_valid_until'
+            'license_expiry', 'insurance_valid_until', 'contract_start_date', 'contract_end_date'
         ];
 
         for (const field of allowedFields) {
