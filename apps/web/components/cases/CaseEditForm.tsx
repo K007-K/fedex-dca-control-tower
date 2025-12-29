@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui';
+import { Button } from '@/components/ui/button';
 
 interface CaseFormProps {
     caseData: {
@@ -46,9 +46,9 @@ export function CaseEditForm({ caseData, dcas, agents }: CaseFormProps) {
     const [formData, setFormData] = useState({
         status: caseData.status,
         priority: caseData.priority,
-        notes: caseData.notes || '',
-        assigned_dca_id: caseData.assigned_dca_id || '',
-        assigned_agent_id: caseData.assigned_agent_id || '',
+        notes: caseData.notes ?? '',
+        assigned_dca_id: caseData.assigned_dca_id ?? '',
+        assigned_agent_id: caseData.assigned_agent_id ?? '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {

@@ -1,6 +1,6 @@
+import { SLABreachAlerts } from '@/components/sla';
 import type { Database } from '@/lib/supabase/database.types';
 import { createClient } from '@/lib/supabase/server';
-import { SLABreachAlerts } from '@/components/sla';
 
 type Case = Database['public']['Tables']['cases']['Row'];
 type DCA = Database['public']['Tables']['dcas']['Row'];

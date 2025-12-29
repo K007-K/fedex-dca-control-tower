@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui';
+import { Button } from '@/components/ui/button';
 
 interface DCAFormProps {
     dca: {
@@ -35,19 +35,19 @@ export function DCAEditForm({ dca }: DCAFormProps) {
 
     const [formData, setFormData] = useState({
         name: dca.name,
-        legal_name: dca.legal_name || '',
-        registration_number: dca.registration_number || '',
+        legal_name: dca.legal_name ?? '',
+        registration_number: dca.registration_number ?? '',
         status: dca.status,
-        capacity_limit: dca.capacity_limit || 100,
-        commission_rate: dca.commission_rate || 0,
-        min_case_value: dca.min_case_value || '',
-        max_case_value: dca.max_case_value || '',
-        primary_contact_name: dca.primary_contact_name || '',
-        primary_contact_email: dca.primary_contact_email || '',
-        primary_contact_phone: dca.primary_contact_phone || '',
-        contract_start_date: dca.contract_start_date || '',
-        contract_end_date: dca.contract_end_date || '',
-        license_expiry: dca.license_expiry || '',
+        capacity_limit: dca.capacity_limit ?? 100,
+        commission_rate: dca.commission_rate ?? 0,
+        min_case_value: dca.min_case_value ?? '',
+        max_case_value: dca.max_case_value ?? '',
+        primary_contact_name: dca.primary_contact_name ?? '',
+        primary_contact_email: dca.primary_contact_email ?? '',
+        primary_contact_phone: dca.primary_contact_phone ?? '',
+        contract_start_date: dca.contract_start_date ?? '',
+        contract_end_date: dca.contract_end_date ?? '',
+        license_expiry: dca.license_expiry ?? '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

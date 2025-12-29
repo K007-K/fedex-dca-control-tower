@@ -1,8 +1,8 @@
-import { Suspense } from 'react';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { SkeletonCard } from '@/components/ui';
+import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
 
 const statusColors: Record<string, { bg: string; text: string }> = {

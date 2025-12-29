@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-import { createClient } from '@/lib/supabase/server';
 import { ReportCard } from '@/components/reports/ReportCard';
+import { createClient } from '@/lib/supabase/server';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+
 import { useToast } from '@/components/ui';
 
 interface ReportTemplate {

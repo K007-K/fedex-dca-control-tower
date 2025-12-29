@@ -1,8 +1,9 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { ToastProvider, ConfirmProvider } from '@/components/ui';
+
 import { PermissionProvider } from '@/components/auth/PermissionGate';
+import { ToastProvider, ConfirmProvider } from '@/components/ui';
 
 interface ProvidersProps {
     children: ReactNode;

@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
 import { NotificationsList } from '@/components/notifications';
+import { createClient } from '@/lib/supabase/server';
 
 export default async function NotificationsPage() {
     const supabase = await createClient();

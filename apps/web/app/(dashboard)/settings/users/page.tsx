@@ -1,4 +1,5 @@
 import Link from 'next/link';
+
 import { createClient } from '@/lib/supabase/server';
 
 const roleColors: Record<string, { bg: string; text: string }> = {

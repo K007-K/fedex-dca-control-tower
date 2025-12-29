@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { Button } from '@/components/ui/button';
-import { CaseDeleteButton } from '@/components/cases/CaseDeleteButton';
 import { CaseActions } from '@/components/cases/CaseActions';
+import { CaseDeleteButton } from '@/components/cases/CaseDeleteButton';
 import { EscalationList } from '@/components/cases/EscalationList';
+import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
 
 interface PageProps {

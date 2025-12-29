@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-import { createClient } from '@/lib/supabase/client';
 import { type Permission, type UserRole, ROLE_PERMISSIONS, hasPermission } from '@/lib/auth/rbac';
+import { createClient } from '@/lib/supabase/client';
 
 interface PermissionContextType {
     role: UserRole | null;

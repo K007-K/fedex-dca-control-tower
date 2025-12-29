@@ -1,6 +1,7 @@
-import { createClient } from '@/lib/supabase/server';
-import { AnalyticsCharts, DateFilter } from '@/components/analytics';
 import { Suspense } from 'react';
+
+import { AnalyticsCharts, DateFilter } from '@/components/analytics';
+import { createClient } from '@/lib/supabase/server';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {
@@ -25,7 +26,7 @@ interface PageProps {
 
 export default async function AnalyticsPage({ searchParams }: PageProps) {
     const params = await searchParams;
-    const days = params.days || '30';
+    const days = params.days ?? '30';
     const supabase = await createClient();
 
     // Calculate date filter

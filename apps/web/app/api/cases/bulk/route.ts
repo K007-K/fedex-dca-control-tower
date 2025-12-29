@@ -143,7 +143,7 @@ export async function POST(request: Request) {
                     customer_segment: c.customer_segment,
                     customer_industry: c.customer_industry,
                     days_past_due: c.days_past_due,
-                    assigned_dca: (c.assigned_dca as { name: string } | null)?.name || 'Unassigned',
+                    assigned_dca: (c.assigned_dca as { name: string } | null)?.name ?? 'Unassigned',
                     created_at: c.created_at,
                 }));
 

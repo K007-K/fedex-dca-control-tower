@@ -1,11 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 
-import { Button } from '@/components/ui/button';
 import { useToast, useConfirm } from '@/components/ui';
+import { Button } from '@/components/ui/button';
 
 const slaTypes = [
     { value: 'FIRST_CONTACT', label: 'First Contact' },
@@ -56,7 +56,7 @@ export default function EditSLATemplatePage() {
                 setFormData({
                     name: data.name,
                     sla_type: data.sla_type,
-                    description: data.description || '',
+                    description: data.description ?? '',
                     duration_hours: data.duration_hours,
                     business_hours_only: data.business_hours_only,
                     auto_escalate_on_breach: data.auto_escalate_on_breach,

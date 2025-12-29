@@ -1,7 +1,8 @@
-import { createClient } from '@/lib/supabase/server';
-import { DCAComparison } from '@/components/dcas/DCAComparison';
 import Link from 'next/link';
+
+import { DCAComparison } from '@/components/dcas/DCAComparison';
 import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase/server';
 
 export default async function DCAComparePage() {
     const supabase = await createClient();
