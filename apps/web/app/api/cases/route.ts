@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { withPermission, withAuth, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { getCaseFilter, isDCARole } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/cases
  * List cases with filtering, sorting, and pagination
+ * Permission: cases:read
  */
-export async function GET(request: NextRequest) {
+const handleGetCases: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const { searchParams } = new URL(request.url);
@@ -26,6 +29,12 @@ export async function GET(request: NextRequest) {
             .from('cases')
             .select('*, assigned_dca:dcas(id, name, status)', { count: 'exact' });
 
+        // Apply DCA filter for DCA users (data isolation)
+        const caseFilter = await getCaseFilter();
+        if (caseFilter.dcaId) {
+            query = query.eq('assigned_dca_id', caseFilter.dcaId);
+        }
+
         // Filters
         const status = searchParams.get('status');
         if (status) {
@@ -41,12 +50,21 @@ export async function GET(request: NextRequest) {
 
         const assignedDcaId = searchParams.get('assignedDcaId');
         if (assignedDcaId) {
+            // Verify DCA users can only filter their own DCA
+            if (isDCARole(user.role) && assignedDcaId !== user.dcaId) {
+                return NextResponse.json(
+                    { error: { code: 'FORBIDDEN', message: 'Cannot access other DCA data' } },
+                    { status: 403 }
+                );
+            }
             query = query.eq('assigned_dca_id', assignedDcaId);
         }
 
         const search = searchParams.get('search');
         if (search) {
-            query = query.or(`customer_name.ilike.%${search}%,invoice_number.ilike.%${search}%,case_number.ilike.%${search}%`);
+            // Sanitize search input to prevent injection
+            const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
+            query = query.or(`customer_name.ilike.%${sanitizedSearch}%,invoice_number.ilike.%${sanitizedSearch}%,case_number.ilike.%${sanitizedSearch}%`);
         }
 
         const minAmount = searchParams.get('minAmount');
@@ -93,16 +111,16 @@ export async function GET(request: NextRequest) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * POST /api/cases
  * Create a new case
+ * Permission: cases:create
  */
-export async function POST(request: NextRequest) {
+const handleCreateCase: ApiHandler = async (request, { user }) => {
     try {
-        // Use admin client for write operations to bypass RLS
-        const supabase = createAdminClient();
+        const supabase = await createClient();
         const body = await request.json();
 
         // Validate required fields - only customer_name and original_amount are truly required
@@ -152,6 +170,7 @@ export async function POST(request: NextRequest) {
                 assigned_dca_id: body.assigned_dca_id || null,
                 internal_notes: body.notes || body.internal_notes,
                 tags: body.tags,
+                created_by: user.id,
             })
             .select()
             .single();
@@ -164,6 +183,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Auto-create SLA for the new case (P0-3 fix)
+        if (data) {
+            await createDefaultSLA(supabase, data.id);
+        }
+
         return NextResponse.json({ data }, { status: 201 });
     } catch (error) {
         console.error('Cases API error:', error);
@@ -172,4 +196,40 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
+};
+
+/**
+ * Helper: Create default SLA for a new case (P0-3 fix)
+ */
+async function createDefaultSLA(supabase: any, caseId: string) {
+    try {
+        // Get default SLA template for FIRST_CONTACT
+        const { data: template } = await supabase
+            .from('sla_templates')
+            .select('*')
+            .eq('sla_type', 'FIRST_CONTACT')
+            .eq('is_active', true)
+            .limit(1)
+            .single();
+
+        const durationHours = template?.duration_hours ?? 24;
+        const now = new Date();
+        const dueAt = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
+
+        await supabase.from('sla_logs').insert({
+            case_id: caseId,
+            sla_template_id: template?.id ?? null,
+            sla_type: 'FIRST_CONTACT',
+            started_at: now.toISOString(),
+            due_at: dueAt.toISOString(),
+            status: 'PENDING',
+        });
+    } catch (error) {
+        console.error('Failed to create default SLA:', error);
+        // Don't fail case creation if SLA fails
+    }
 }
+
+// Export wrapped handlers
+export const GET = withPermission('cases:read', handleGetCases);
+export const POST = withPermission('cases:create', handleCreateCase);

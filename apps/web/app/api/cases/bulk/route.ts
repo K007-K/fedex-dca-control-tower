@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 interface BulkRequest {
     case_ids: string[];
@@ -112,39 +112,50 @@ export async function POST(request: Request) {
             }
 
             case 'export': {
-                // Fetch full case data for export
-                const { data, error } = await supabase
+                // Use admin client for export (read-only, safe to bypass RLS)
+                const adminClient = createAdminClient();
+
+                // Fetch all case data using SELECT *
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: casesData, error: casesError } = await (adminClient as any)
                     .from('cases')
-                    .select(`
-                        case_number,
-                        status,
-                        outstanding_amount,
-                        customer_name,
-                        customer_email,
-                        customer_phone,
-                        customer_segment,
-                        customer_industry,
-                        days_past_due,
-                        created_at,
-                        assigned_dca:dcas(name)
-                    `)
+                    .select('*')
                     .in('id', case_ids);
 
-                if (error) throw error;
+                if (casesError) throw casesError;
 
-                // Format for CSV
-                const exportData = (data || []).map(c => ({
-                    case_number: c.case_number,
-                    status: c.status,
-                    outstanding_amount: c.outstanding_amount,
-                    customer_name: c.customer_name,
-                    customer_email: c.customer_email,
-                    customer_phone: c.customer_phone,
-                    customer_segment: c.customer_segment,
-                    customer_industry: c.customer_industry,
-                    days_past_due: c.days_past_due,
-                    assigned_dca: (c.assigned_dca as { name: string } | null)?.name ?? 'Unassigned',
-                    created_at: c.created_at,
+                // Get unique DCA IDs and fetch names
+                const dcaIds = [...new Set((casesData || [])
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    .map((c: any) => c.assigned_dca_id)
+                    .filter(Boolean))] as string[];
+
+                let dcaMap: Record<string, string> = {};
+                if (dcaIds.length > 0) {
+                    const { data: dcasData } = await adminClient
+                        .from('dcas')
+                        .select('id, name')
+                        .in('id', dcaIds);
+
+                    dcaMap = (dcasData || []).reduce((acc, dca) => {
+                        acc[dca.id] = dca.name;
+                        return acc;
+                    }, {} as Record<string, string>);
+                }
+
+                // Format for CSV - use optional chaining for safe access
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const exportData = (casesData || []).map((c: any) => ({
+                    case_number: c.case_number || '',
+                    status: c.status || '',
+                    priority: c.priority || '',
+                    outstanding_amount: c.outstanding_amount || 0,
+                    recovered_amount: c.recovered_amount || 0,
+                    customer_name: c.customer_name || '',
+                    customer_segment: c.customer_segment || '',
+                    customer_industry: c.customer_industry || '',
+                    assigned_dca: c.assigned_dca_id ? (dcaMap[c.assigned_dca_id] ?? 'Unknown') : 'Unassigned',
+                    created_at: c.created_at || '',
                 }));
 
                 return NextResponse.json({

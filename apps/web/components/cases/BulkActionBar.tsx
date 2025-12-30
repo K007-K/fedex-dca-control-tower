@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { useToast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
-import { exportToCsv, CASE_EXPORT_COLUMNS } from '@/lib/export';
+import { exportToCsv, exportToPdf, CASE_EXPORT_COLUMNS } from '@/lib/export';
 
 interface BulkActionBarProps {
     selectedIds: string[];
@@ -182,7 +182,7 @@ export function BulkActionBar({ selectedIds, onClear, dcas }: BulkActionBarProps
                     )}
                 </div>
 
-                {/* Export Button */}
+                {/* Export CSV Button */}
                 <Button
                     variant="ghost"
                     size="sm"
@@ -190,7 +190,38 @@ export function BulkActionBar({ selectedIds, onClear, dcas }: BulkActionBarProps
                     disabled={loading}
                     className="text-white hover:bg-gray-800"
                 >
-                    📥 Export CSV
+                    📥 CSV
+                </Button>
+
+                {/* Export PDF Button */}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                        setLoading(true);
+                        try {
+                            const res = await fetch('/api/cases/bulk', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    case_ids: selectedIds,
+                                    operation: 'export',
+                                }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error);
+                            exportToPdf(data.data, 'Cases Report', CASE_EXPORT_COLUMNS);
+                            toast.success(`Generated PDF for ${data.count} cases`);
+                        } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Failed to export PDF');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                    disabled={loading}
+                    className="text-white hover:bg-gray-800"
+                >
+                    📄 PDF
                 </Button>
 
                 <div className="h-6 w-px bg-gray-700" />

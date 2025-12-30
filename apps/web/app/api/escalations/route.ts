@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { getCaseFilter, isFedExRole, isDCARole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { sendEscalationEmail } from '@/lib/email';
 
 interface Escalation {
     id: string;
@@ -21,8 +24,9 @@ interface Escalation {
 
 /**
  * GET /api/escalations - List escalations with filters
+ * Permission: cases:read (escalations are part of case management)
  */
-export async function GET(request: Request) {
+const handleGetEscalations: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const { searchParams } = new URL(request.url);
@@ -31,11 +35,12 @@ export async function GET(request: Request) {
         const status = searchParams.get('status');
         const escalationType = searchParams.get('type');
 
-        let query = supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query = (supabase as any)
             .from('escalations')
             .select(`
                 *,
-                case:cases(id, case_number, customer_name, outstanding_amount),
+                case:cases(id, case_number, customer_name, outstanding_amount, assigned_dca_id),
                 escalated_to_user:users!escalations_escalated_to_fkey(id, full_name, email),
                 escalated_from_user:users!escalations_escalated_from_fkey(id, full_name, email)
             `)
@@ -63,7 +68,18 @@ export async function GET(request: Request) {
             );
         }
 
-        return NextResponse.json({ data });
+        // Filter for DCA users - only show escalations for their cases
+        let filteredData = data;
+        if (isDCARole(user.role) && user.dcaId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            filteredData = data?.filter((e: any) =>
+                e.case?.assigned_dca_id === user.dcaId ||
+                e.escalated_to === user.id ||
+                e.escalated_from === user.id
+            );
+        }
+
+        return NextResponse.json({ data: filteredData });
 
     } catch (error) {
         console.error('Escalations API error:', error);
@@ -72,12 +88,13 @@ export async function GET(request: Request) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * POST /api/escalations - Create new escalation
+ * Permission: cases:update (need permission to modify case status)
  */
-export async function POST(request: Request) {
+const handleCreateEscalation: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const body = await request.json();
@@ -118,7 +135,7 @@ export async function POST(request: Request) {
                 severity: body.severity || 'MEDIUM',
                 status: 'OPEN',
                 escalated_to: body.escalated_to || null,
-                escalated_from: body.escalated_from || null,
+                escalated_from: user.id, // Track who created the escalation
                 escalated_at: new Date().toISOString(),
             })
             .select()
@@ -133,23 +150,54 @@ export async function POST(request: Request) {
         }
 
         // Update case status to ESCALATED
-        await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
             .from('cases')
             .update({ status: 'ESCALATED', updated_at: new Date().toISOString() })
             .eq('id', body.case_id);
 
-        // Create notification for the escalation
+        // Create in-app notification for the escalation
         if (body.escalated_to) {
-            await supabase.from('notifications').insert({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any).from('notifications').insert({
                 recipient_id: body.escalated_to,
                 notification_type: 'ESCALATION_CREATED',
                 title: 'New Escalation Assigned',
                 message: `You have been assigned escalation: ${body.title}`,
                 related_case_id: body.case_id,
                 related_escalation_id: (escalation as Escalation).id,
-                channels: ['IN_APP'],
+                channels: ['IN_APP', 'EMAIL'],
                 priority: body.severity === 'HIGH' || body.severity === 'CRITICAL' ? 'HIGH' : 'NORMAL',
             });
+
+            // P0-5: Send email notification
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: recipientData } = await (supabase as any)
+                .from('users')
+                .select('email, full_name')
+                .eq('id', body.escalated_to)
+                .single();
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: caseData } = await (supabase as any)
+                .from('cases')
+                .select('case_number, customer_name')
+                .eq('id', body.case_id)
+                .single();
+
+            if (recipientData && caseData) {
+                // Fire and forget - don't block on email
+                sendEscalationEmail({
+                    recipientEmail: recipientData.email,
+                    recipientName: recipientData.full_name,
+                    caseNumber: caseData.case_number,
+                    customerName: caseData.customer_name,
+                    reason: body.description,
+                    priority: body.severity || 'MEDIUM',
+                    escalatedBy: user.email,
+                    caseId: body.case_id,
+                }).catch(err => console.error('Failed to send escalation email:', err));
+            }
         }
 
         return NextResponse.json({ data: escalation }, { status: 201 });
@@ -161,4 +209,8 @@ export async function POST(request: Request) {
             { status: 500 }
         );
     }
-}
+};
+
+// Export wrapped handlers
+export const GET = withPermission('cases:read', handleGetEscalations);
+export const POST = withPermission('cases:update', handleCreateEscalation);

@@ -83,8 +83,16 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser();
 
+    // P1-11 FIX: Audit and secure all public routes
     // Public routes that don't require authentication
-    const publicRoutes = ['/', '/login', '/register', '/forgot-password'];
+    const publicRoutes = [
+        '/',
+        '/login',
+        '/register',
+        '/forgot-password',
+        '/reset-password',  // Added for password reset flow
+        '/mfa-verify',      // MFA verification page (user is partially authenticated)
+    ];
     const isPublicRoute = publicRoutes.includes(path);
 
     // Auth routes - redirect to dashboard if already logged in
@@ -93,6 +101,26 @@ export async function middleware(request: NextRequest) {
 
     // If user is logged in and trying to access auth routes, redirect to dashboard
     if (user && isAuthRoute) {
+        // P1-9 FIX: Check if user needs MFA verification
+        // Check for MFA requirement for admin roles
+        const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        const adminRoles = ['SUPER_ADMIN', 'FEDEX_ADMIN', 'AUDITOR'];
+
+        if (userData && adminRoles.includes(userData.role)) {
+            // Check if MFA is verified for this session
+            const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+            if (mfaData?.currentLevel === 'aal1' && mfaData?.nextLevel === 'aal2') {
+                // User needs to verify MFA
+                return NextResponse.redirect(new URL('/mfa-verify?redirect=/dashboard', request.url));
+            }
+        }
+
         return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 

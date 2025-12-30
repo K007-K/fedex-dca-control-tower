@@ -67,7 +67,7 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
     const hasFilters = search || status || priority || dcaId;
 
     return (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Search */}
                 <div className="lg:col-span-2">

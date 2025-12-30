@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 
 import '@/styles/globals.css';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
+import { QueryProvider } from '@/components/providers/QueryProvider';
+import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { Providers } from '@/components/Providers';
 
 const inter = Inter({
@@ -47,12 +50,37 @@ export default function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
+    // Inline script to prevent theme flash - runs before React hydrates
+    const themeScript = `
+        (function() {
+            try {
+                var stored = localStorage.getItem('theme');
+                var theme = stored || 'system';
+                var resolved = theme;
+                if (theme === 'system') {
+                    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.classList.remove('light', 'dark');
+                document.documentElement.classList.add(resolved);
+                document.documentElement.style.colorScheme = resolved;
+            } catch (e) {}
+        })();
+    `;
+
     return (
         <html lang="en" className={inter.variable} suppressHydrationWarning>
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+            </head>
             <body className="min-h-screen bg-background font-sans antialiased">
-                <Providers>
-                    {children}
-                </Providers>
+                <ThemeProvider>
+                    <QueryProvider>
+                        <OfflineBanner />
+                        <Providers>
+                            {children}
+                        </Providers>
+                    </QueryProvider>
+                </ThemeProvider>
             </body>
         </html>
     );

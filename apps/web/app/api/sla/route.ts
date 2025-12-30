@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/sla - List SLA templates
+ * Permission: sla:read
  */
-export async function GET(request: Request) {
+const handleGetSlaTemplates: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const { searchParams } = new URL(request.url);
@@ -13,7 +15,8 @@ export async function GET(request: Request) {
         const slaType = searchParams.get('type');
         const isActive = searchParams.get('is_active');
 
-        let query = supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query = (supabase as any)
             .from('sla_templates')
             .select('*')
             .order('created_at', { ascending: false });
@@ -22,7 +25,7 @@ export async function GET(request: Request) {
             query = query.eq('sla_type', slaType);
         }
 
-        if (isActive !== null) {
+        if (isActive !== null && isActive !== undefined) {
             query = query.eq('is_active', isActive === 'true');
         }
 
@@ -45,12 +48,13 @@ export async function GET(request: Request) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * POST /api/sla - Create SLA template
+ * Permission: sla:create
  */
-export async function POST(request: Request) {
+const handleCreateSlaTemplate: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const body = await request.json();
@@ -66,6 +70,14 @@ export async function POST(request: Request) {
             }
         }
 
+        // Validate duration hours is positive
+        if (body.duration_hours <= 0) {
+            return NextResponse.json(
+                { error: 'Duration hours must be positive' },
+                { status: 400 }
+            );
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (supabase as any)
             .from('sla_templates')
@@ -74,12 +86,13 @@ export async function POST(request: Request) {
                 sla_type: body.sla_type,
                 description: body.description ?? null,
                 duration_hours: body.duration_hours,
-                business_hours_only: body.business_hours_only ?? false,
+                business_hours_only: body.business_hours_only ?? true, // Default to business hours
                 applicable_to: body.applicable_to ?? null,
                 breach_notification_to: body.breach_notification_to ?? [],
                 auto_escalate_on_breach: body.auto_escalate_on_breach ?? true,
                 escalation_rules: body.escalation_rules ?? null,
                 is_active: body.is_active ?? true,
+                created_by: user.id,
             })
             .select()
             .single();
@@ -101,4 +114,8 @@ export async function POST(request: Request) {
             { status: 500 }
         );
     }
-}
+};
+
+// Export wrapped handlers
+export const GET = withPermission('sla:read', handleGetSlaTemplates);
+export const POST = withPermission('sla:create', handleCreateSlaTemplate);

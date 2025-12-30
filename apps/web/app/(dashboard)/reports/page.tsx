@@ -59,51 +59,51 @@ export default async function ReportsPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-                    <p className="text-gray-500">Generate and download detailed reports</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Generate and download detailed reports</p>
                 </div>
             </div>
 
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-2xl">
+                        <div className="w-12 h-12 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg flex items-center justify-center text-2xl">
                             📁
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Total Cases</p>
-                            <p className="text-2xl font-bold text-gray-900">{totalCases}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Total Cases</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalCases}</p>
                         </div>
                     </div>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-2xl">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-500/20 rounded-lg flex items-center justify-center text-2xl">
                             💵
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Total Recovered</p>
-                            <p className="text-2xl font-bold text-gray-900">${(totalRecovered / 1000).toFixed(0)}K</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Total Recovered</p>
+                            <p className="text-2xl font-bold text-green-600 dark:text-green-400">${(totalRecovered / 1000).toFixed(0)}K</p>
                         </div>
                     </div>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-2xl">
+                        <div className="w-12 h-12 bg-gray-100 dark:bg-[#1a1a1a] rounded-lg flex items-center justify-center text-2xl">
                             🏢
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Active DCAs</p>
-                            <p className="text-2xl font-bold text-gray-900">{totalDCAs}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Active DCAs</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalDCAs}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Report Templates */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Report Templates</h2>
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Report Templates</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                     {REPORT_TEMPLATES.map((report) => (
                         <ReportCard key={report.id} report={report} />
@@ -112,32 +112,32 @@ export default async function ReportsPage() {
             </div>
 
             {/* Recent Reports */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Recent Reports</h2>
-                    <Link href="#" className="text-sm text-primary hover:underline">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Reports</h2>
+                    <Link href="#" className="text-sm text-gray-600 dark:text-gray-300 hover:underline">
                         View All →
                     </Link>
                 </div>
                 <div className="text-center py-12">
                     <div className="text-5xl mb-4">📄</div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No reports generated yet</h3>
-                    <p className="text-gray-500 mb-4">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No reports generated yet</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
                         Select a template above to generate your first report
                     </p>
                 </div>
             </div>
 
             {/* Scheduled Reports */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Scheduled Reports</h2>
-                    <button className="text-sm text-primary hover:underline">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Scheduled Reports</h2>
+                    <button className="text-sm text-gray-600 dark:text-gray-300 hover:underline">
                         + Schedule New
                     </button>
                 </div>
                 <div className="text-center py-8">
-                    <p className="text-gray-500">No scheduled reports. Set up automated delivery of key reports.</p>
+                    <p className="text-gray-500 dark:text-gray-400">No scheduled reports. Set up automated delivery of key reports.</p>
                 </div>
             </div>
         </div>

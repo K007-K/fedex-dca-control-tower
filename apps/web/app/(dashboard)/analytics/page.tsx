@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-
 import { AnalyticsCharts, DateFilter } from '@/components/analytics';
 import { createClient } from '@/lib/supabase/server';
 
@@ -83,15 +82,39 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
         slaCompliance: d.sla_compliance_rate || 0,
     })) || [];
 
-    // Generate mock monthly trend data (in real app, would aggregate from cases by month)
-    const recoveryTrend = [
-        { month: 'Jul', recovered: 125000, target: 150000 },
-        { month: 'Aug', recovered: 145000, target: 150000 },
-        { month: 'Sep', recovered: 168000, target: 160000 },
-        { month: 'Oct', recovered: 192000, target: 170000 },
-        { month: 'Nov', recovered: 178000, target: 180000 },
-        { month: 'Dec', recovered: totalRecovered || 185000, target: 190000 },
-    ];
+    // Generate real monthly trend data from cases
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+    const monthlyData: Record<string, { recovered: number; target: number }> = {};
+
+    // Initialize last 6 months
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+        monthlyData[monthKey] = {
+            recovered: 0,
+            target: 50000 + (Math.abs(5 - i) * 10000) // Progressive targets
+        };
+    }
+
+    // Aggregate recovered amounts by month from actual cases
+    cases?.forEach((c: Case) => {
+        const caseDate = new Date(c.created_at);
+        const monthKey = `${caseDate.getFullYear()}-${caseDate.getMonth()}`;
+        if (monthlyData[monthKey]) {
+            monthlyData[monthKey].recovered += c.recovered_amount || 0;
+        }
+    });
+
+    // Convert to array format for charts
+    const recoveryTrend = Object.entries(monthlyData).map(([key, data]) => {
+        const [_year, month] = key.split('-').map(Number);
+        return {
+            month: monthNames[month],
+            recovered: data.recovered,
+            target: data.target,
+        };
+    });
 
     // Calculate key metrics
     const totalCases = cases?.length || 0;
@@ -110,37 +133,47 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
             {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-                    <p className="text-gray-500">Track recovery trends and DCA performance metrics</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Track recovery trends and DCA performance metrics</p>
                 </div>
                 <div className="flex gap-2">
+                    {/* P2-4 FIX: Export button */}
+                    <a
+                        href={`/api/reports/generate?format=csv&days=${days}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-[#111] border border-gray-300 dark:border-[#222] rounded-lg hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export CSV
+                    </a>
                     <Suspense fallback={<div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />}>
                         <DateFilter currentRange={days} />
                     </Suspense>
                 </div>
             </div>
 
-            {/* Key Metrics Cards */}
+            {/* Key Metrics Cards - Dark mode compatible */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-primary to-primary-700 rounded-xl p-5 text-white">
-                    <p className="text-sm opacity-80">Total Cases</p>
-                    <p className="text-3xl font-bold">{totalCases}</p>
-                    <p className="text-xs opacity-70 mt-1">{activeCases} active</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Cases</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{totalCases}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{activeCases} active</p>
                 </div>
-                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-5 text-white">
-                    <p className="text-sm opacity-80">Total Recovered</p>
-                    <p className="text-3xl font-bold">${(totalRecovered / 1000).toFixed(0)}K</p>
-                    <p className="text-xs opacity-70 mt-1">{recoveryRate}% recovery rate</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Recovered</p>
+                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">${(totalRecovered / 1000).toFixed(0)}K</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{recoveryRate}% recovery rate</p>
                 </div>
-                <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-5 text-white">
-                    <p className="text-sm opacity-80">Outstanding</p>
-                    <p className="text-3xl font-bold">${(totalOutstanding / 1000).toFixed(0)}K</p>
-                    <p className="text-xs opacity-70 mt-1">across all cases</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Outstanding</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">${(totalOutstanding / 1000).toFixed(0)}K</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">across all cases</p>
                 </div>
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white">
-                    <p className="text-sm opacity-80">Avg DCA Score</p>
-                    <p className="text-3xl font-bold">{avgDCAScore}</p>
-                    <p className="text-xs opacity-70 mt-1">out of 100</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Avg DCA Score</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{avgDCAScore}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">out of 100</p>
                 </div>
             </div>
 
@@ -153,12 +186,12 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
             />
 
             {/* Quick Stats Table */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">DCA Performance Summary</h3>
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">DCA Performance Summary</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
+                            <tr className="text-left text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-[#222]">
                                 <th className="pb-3 font-medium">DCA Name</th>
                                 <th className="pb-3 font-medium text-center">Performance Score</th>
                                 <th className="pb-3 font-medium text-center">Recovery Rate</th>
@@ -168,22 +201,22 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
                         </thead>
                         <tbody>
                             {dcas?.map((dca: DCA, index: number) => (
-                                <tr key={index} className="border-b border-gray-50 hover:bg-gray-50">
-                                    <td className="py-3 font-medium text-gray-900">{dca.name}</td>
+                                <tr key={index} className="border-b border-gray-50 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a]">
+                                    <td className="py-3 font-medium text-gray-900 dark:text-white">{dca.name}</td>
                                     <td className="py-3 text-center">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${dca.performance_score >= 80 ? 'bg-green-100 text-green-800' :
-                                            dca.performance_score >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-red-100 text-red-800'
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${dca.performance_score >= 80 ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                            dca.performance_score >= 60 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                                'bg-red-500/20 text-red-400 border border-red-500/30'
                                             }`}>
                                             {dca.performance_score || 0}
                                         </span>
                                     </td>
-                                    <td className="py-3 text-center text-gray-600">{dca.recovery_rate || 0}%</td>
-                                    <td className="py-3 text-center text-gray-600">{dca.sla_compliance_rate || 0}%</td>
+                                    <td className="py-3 text-center text-gray-600 dark:text-gray-300">{dca.recovery_rate || 0}%</td>
+                                    <td className="py-3 text-center text-gray-600 dark:text-gray-300">{dca.sla_compliance_rate || 0}%</td>
                                     <td className="py-3 text-center">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${dca.sla_compliance_rate >= 90 ? 'bg-green-100 text-green-800' :
-                                            dca.sla_compliance_rate >= 70 ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-red-100 text-red-800'
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${dca.sla_compliance_rate >= 90 ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                            dca.sla_compliance_rate >= 70 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                                                'bg-red-500/20 text-red-400 border-red-500/30'
                                             }`}>
                                             {dca.sla_compliance_rate >= 90 ? 'Excellent' :
                                                 dca.sla_compliance_rate >= 70 ? 'Good' : 'Needs Improvement'}

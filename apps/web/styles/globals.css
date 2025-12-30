@@ -59,24 +59,27 @@
   }
 
   .dark {
-    /* Dark Mode */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark Mode - Pure Black Background */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    /* Cards - Slightly elevated from pure black */
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 270 73% 50%;
+    --primary: 270 50% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary - Dark gray for secondary elements */
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Muted - For subtle backgrounds */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
 
     --accent: 24 100% 50%;
     --accent-foreground: 0 0% 100%;
@@ -84,8 +87,9 @@
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    /* Border - Subtle dark borders */
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
 
     --ring: 270 73% 50%;
   }
@@ -232,6 +236,68 @@
 
   .metric-card-trend-down {
     @apply metric-card-trend text-danger;
+  }
+
+  /* P3-9 FIX: Enhanced Button Hover States */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+
+  .btn:hover:not(:disabled) {
+    @apply transform -translate-y-0.5;
+  }
+
+  .btn:active:not(:disabled) {
+    @apply transform translate-y-0;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-primary-foreground;
+    @apply hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25;
+  }
+
+  .btn-secondary {
+    @apply btn bg-secondary text-secondary-foreground;
+    @apply hover:bg-secondary/80 hover:shadow-md;
+  }
+
+  .btn-outline {
+    @apply btn border border-gray-300 bg-white text-gray-700;
+    @apply hover:bg-gray-50 hover:border-gray-400 hover:shadow-sm;
+    @apply dark:border-gray-600 dark:bg-transparent dark:text-gray-300;
+    @apply dark:hover:bg-gray-800 dark:hover:border-gray-500;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-600;
+    @apply hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-white;
+    @apply hover:bg-danger/90 hover:shadow-lg hover:shadow-danger/25;
+  }
+
+  .btn-success {
+    @apply btn bg-success text-white;
+    @apply hover:bg-success/90 hover:shadow-lg hover:shadow-success/25;
+  }
+
+  /* Icon button styles */
+  .btn-icon {
+    @apply btn p-2 rounded-lg;
+    @apply hover:bg-gray-100 dark:hover:bg-gray-800;
+  }
+
+  .btn-icon:hover:not(:disabled) {
+    @apply transform scale-110;
+  }
+
+  /* Link button styles */
+  .btn-link {
+    @apply text-primary underline-offset-4;
+    @apply hover:underline;
   }
 }
 

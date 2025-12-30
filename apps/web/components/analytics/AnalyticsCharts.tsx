@@ -1,5 +1,6 @@
 'use client';
 
+import { useTheme } from '@/components/theme/ThemeProvider';
 import {
     BarChart,
     Bar,
@@ -49,40 +50,56 @@ export function AnalyticsCharts({
     casesByStatus,
     casesByPriority,
 }: AnalyticsChartsProps) {
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
+
+    // Theme-aware colors
+    const gridColor = isDark ? '#333' : '#e5e7eb';
+    const textColor = isDark ? '#9ca3af' : '#6b7280';
+    const tooltipBg = isDark ? '#111' : '#fff';
+    const tooltipBorder = isDark ? '#222' : '#e5e7eb';
+    const labelColor = isDark ? '#fff' : '#374151';
+
     return (
         <div className="space-y-6">
             {/* Top Row - Line and Bar */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Recovery Trend Chart */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Recovery Trend</h3>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recovery Trend</h3>
                     <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={recoveryTrend}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#6b7280" />
-                                <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" tickFormatter={(v) => `$${v / 1000}K`} />
+                                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                                <XAxis dataKey="month" tick={{ fontSize: 12, fill: textColor }} stroke={textColor} />
+                                <YAxis tick={{ fontSize: 12, fill: textColor }} stroke={textColor} tickFormatter={(v) => `$${v / 1000}K`} />
                                 <Tooltip
                                     formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
-                                    contentStyle={{ borderRadius: 8 }}
+                                    contentStyle={{
+                                        borderRadius: 8,
+                                        backgroundColor: tooltipBg,
+                                        borderColor: tooltipBorder,
+                                        color: labelColor
+                                    }}
+                                    labelStyle={{ color: labelColor }}
                                 />
-                                <Legend />
+                                <Legend wrapperStyle={{ color: textColor }} />
                                 <Line
                                     type="monotone"
                                     dataKey="recovered"
                                     name="Recovered"
-                                    stroke="#4F46E5"
+                                    stroke="#10b981"
                                     strokeWidth={2}
-                                    dot={{ fill: '#4F46E5' }}
+                                    dot={{ fill: '#10b981' }}
                                 />
                                 <Line
                                     type="monotone"
                                     dataKey="target"
                                     name="Target"
-                                    stroke="#10b981"
+                                    stroke="#6b7280"
                                     strokeWidth={2}
                                     strokeDasharray="5 5"
-                                    dot={{ fill: '#10b981' }}
+                                    dot={{ fill: '#6b7280' }}
                                 />
                             </LineChart>
                         </ResponsiveContainer>
@@ -90,17 +107,25 @@ export function AnalyticsCharts({
                 </div>
 
                 {/* DCA Performance Comparison */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">DCA Performance Comparison</h3>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">DCA Performance Comparison</h3>
                     <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={dcaPerformance} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12 }} stroke="#6b7280" />
-                                <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} stroke="#6b7280" />
-                                <Tooltip contentStyle={{ borderRadius: 8 }} />
-                                <Legend />
-                                <Bar dataKey="score" name="Score" fill="#4F46E5" radius={[0, 4, 4, 0]} />
+                                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12, fill: textColor }} stroke={textColor} />
+                                <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11, fill: textColor }} stroke={textColor} />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: 8,
+                                        backgroundColor: tooltipBg,
+                                        borderColor: tooltipBorder,
+                                        color: labelColor
+                                    }}
+                                    labelStyle={{ color: labelColor }}
+                                />
+                                <Legend wrapperStyle={{ color: textColor }} />
+                                <Bar dataKey="score" name="Score" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                                 <Bar dataKey="recoveryRate" name="Recovery %" fill="#10b981" radius={[0, 4, 4, 0]} />
                                 <Bar dataKey="slaCompliance" name="SLA %" fill="#f59e0b" radius={[0, 4, 4, 0]} />
                             </BarChart>
@@ -112,8 +137,8 @@ export function AnalyticsCharts({
             {/* Bottom Row - Pie Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Cases by Status */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Cases by Status</h3>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Cases by Status</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -136,7 +161,13 @@ export function AnalyticsCharts({
                                 </Pie>
                                 <Tooltip
                                     formatter={(value: number, name: string) => [value, name.replace('_', ' ')]}
-                                    contentStyle={{ borderRadius: 8 }}
+                                    contentStyle={{
+                                        borderRadius: 8,
+                                        backgroundColor: tooltipBg,
+                                        borderColor: tooltipBorder,
+                                    }}
+                                    itemStyle={{ color: labelColor }}
+                                    labelStyle={{ color: labelColor }}
                                 />
                             </PieChart>
                         </ResponsiveContainer>
@@ -144,8 +175,8 @@ export function AnalyticsCharts({
                 </div>
 
                 {/* Cases by Priority */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Cases by Priority</h3>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Cases by Priority</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -167,8 +198,16 @@ export function AnalyticsCharts({
                                         />
                                     ))}
                                 </Pie>
-                                <Tooltip contentStyle={{ borderRadius: 8 }} />
-                                <Legend />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: 8,
+                                        backgroundColor: tooltipBg,
+                                        borderColor: tooltipBorder,
+                                    }}
+                                    itemStyle={{ color: labelColor }}
+                                    labelStyle={{ color: labelColor }}
+                                />
+                                <Legend wrapperStyle={{ color: textColor }} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>

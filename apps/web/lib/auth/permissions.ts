@@ -16,6 +16,7 @@ export interface AuthUser {
 
 /**
  * Get the current authenticated user with role info from database
+ * IMPORTANT: Looks up by email (stable) since auth.uid() may differ from users.id
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
     const supabase = await createClient();
@@ -27,18 +28,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         return null;
     }
 
-    // Fetch user profile from database
+    // Fetch user profile from database BY EMAIL (not by ID!)
+    // This is critical because seed data has different IDs than Supabase Auth
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: profile, error: profileError } = await (supabase as any)
         .from('users')
-        .select('role, organization_id, dca_id')
-        .eq('id', user.id)
+        .select('id, role, organization_id, dca_id')
+        .eq('email', user.email)
         .single();
 
     if (profileError || !profile) {
-        // User exists in auth but not in users table - return default role
+        // User exists in auth but not in users table - return with auth ID
         return {
-            id: user.id,
+            id: user.id,  // Fallback to auth ID
             email: user.email ?? '',
             role: 'READONLY',
             organizationId: null,
@@ -50,7 +52,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     const role = profile.role as UserRole;
 
     return {
-        id: user.id,
+        id: profile.id,  // Use the database user ID, NOT auth.uid()!
         email: user.email ?? '',
         role,
         organizationId: profile.organization_id,

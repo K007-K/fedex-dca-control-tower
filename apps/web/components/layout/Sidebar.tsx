@@ -26,25 +26,25 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
 
     return (
         <aside
-            className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'
+            className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-white dark:bg-black border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'
                 }`}
         >
             {/* Logo */}
-            <div className="flex h-16 items-center justify-between px-4 border-b border-gray-100">
+            <div className="flex h-16 items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800">
                 <Link href="/dashboard" className="flex items-center space-x-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-dark">
                         <span className="text-xl font-bold text-white">F</span>
                     </div>
                     {!collapsed && (
                         <div className="animate-fade-in">
-                            <h1 className="text-sm font-bold text-gray-900">DCA Control Tower</h1>
-                            <p className="text-xs text-gray-500">FedEx Collections</p>
+                            <h1 className="text-sm font-bold text-gray-900 dark:text-white">DCA Control Tower</h1>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">FedEx Collections</p>
                         </div>
                     )}
                 </Link>
                 <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 >
                     <ChevronIcon className={`w-5 h-5 text-gray-400 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
@@ -61,12 +61,12 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
                                 <Link
                                     href={item.href}
                                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group ${isActive
-                                        ? 'bg-primary text-white shadow-md'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
                                         }`}
                                 >
                                     <item.icon
-                                        className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-primary'
+                                        className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'
                                             }`}
                                     />
                                     {!collapsed && (
@@ -80,7 +80,7 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
             </nav>
 
             {/* User Info */}
-            <div className={`border-t border-gray-100 p-4 ${collapsed ? 'px-2' : ''}`}>
+            <div className={`border-t border-gray-100 dark:border-gray-800 p-4 ${collapsed ? 'px-2' : ''}`}>
                 <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
                         <span className="text-primary font-semibold text-sm">
@@ -89,7 +89,7 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
                     </div>
                     {!collapsed && (
                         <div className="flex-1 min-w-0 animate-fade-in">
-                            <p className="text-sm font-medium text-gray-900 truncate">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                 {userEmail ?? 'User'}
                             </p>
                             <p className="text-xs text-primary font-medium">{userRole}</p>

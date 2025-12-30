@@ -1,237 +1,305 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-
-import { useToast, useConfirm } from '@/components/ui';
-import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const roles = [
-    { value: 'READONLY', label: 'Read Only' },
-    { value: 'DCA_AGENT', label: 'DCA Agent' },
-    { value: 'DCA_MANAGER', label: 'DCA Manager' },
-    { value: 'DCA_ADMIN', label: 'DCA Admin' },
-    { value: 'FEDEX_ANALYST', label: 'FedEx Analyst' },
-    { value: 'FEDEX_MANAGER', label: 'FedEx Manager' },
-    { value: 'FEDEX_ADMIN', label: 'FedEx Admin' },
-    { value: 'AUDITOR', label: 'Auditor' },
-    { value: 'SUPER_ADMIN', label: 'Super Admin' },
+    'SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST',
+    'DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT', 'AUDITOR', 'READONLY'
 ];
 
-export default function EditUserPage() {
-    const params = useParams();
-    const id = params.id as string;
+interface User {
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+    is_active: boolean;
+    phone: string | null;
+    dca_id: string | null;
+}
+
+export default function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
-    const toast = useToast();
-    const { confirm } = useConfirm();
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [formData, setFormData] = useState({
-        full_name: '',
-        email: '',
-        role: 'READONLY',
-        phone: '',
-        is_active: true,
-    });
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [userId, setUserId] = useState<string>('');
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     useEffect(() => {
         async function loadUser() {
+            const { id } = await params;
+            setUserId(id);
             try {
-                const response = await fetch(`/api/users/${id}`);
-                if (!response.ok) throw new Error('Failed to load user');
-                const { data } = await response.json();
-                setFormData({
-                    full_name: data.full_name ?? '',
-                    email: data.email ?? '',
-                    role: data.role ?? 'READONLY',
-                    phone: data.phone ?? '',
-                    is_active: data.is_active ?? true,
-                });
-            } catch (err) {
-                toast.error('Error', 'Failed to load user data');
-                console.error(err);
+                const res = await fetch(`/api/users/${id}`);
+                const data = await res.json();
+                if (res.ok && data.data) {
+                    setUser(data.data);
+                } else {
+                    setError('User not found');
+                }
+            } catch {
+                setError('Failed to load user');
             } finally {
-                setIsLoading(false);
+                setLoading(false);
             }
         }
         loadUser();
-    }, [id, toast]);
+    }, [params]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSubmitting(true);
+    const handleSave = async () => {
+        if (!user) return;
+        setSaving(true);
+        setError('');
+        setSuccess('');
 
         try {
-            const response = await fetch(`/api/users/${id}`, {
+            const res = await fetch(`/api/users/${userId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    full_name: formData.full_name,
-                    role: formData.role,
-                    phone: formData.phone || null,
-                    is_active: formData.is_active,
+                    full_name: user.full_name,
+                    role: user.role,
+                    is_active: user.is_active,
+                    phone: user.phone,
+                    dca_id: user.dca_id,
                 }),
             });
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to update user');
+            const data = await res.json();
+            if (res.ok) {
+                setSuccess('User updated successfully!');
+                setTimeout(() => router.push('/settings/users'), 1500);
+            } else {
+                setError(data.error || 'Failed to update user');
             }
-
-            toast.success('User Updated', 'Changes have been saved successfully.');
-            router.push('/settings/users');
-            router.refresh();
-        } catch (err) {
-            toast.error('Error', err instanceof Error ? err.message : 'Failed to update user');
-            setIsSubmitting(false);
+        } catch {
+            setError('Failed to update user');
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleDeactivate = async () => {
-        const confirmed = await confirm({
-            title: 'Deactivate User',
-            message: `Are you sure you want to deactivate ${formData.full_name}? They will no longer be able to login.`,
-            confirmText: 'Deactivate',
-            cancelText: 'Cancel',
-            variant: 'danger',
-        });
+    const handleDeleteClick = () => {
+        console.log('Delete button clicked, showing modal');
+        setShowDeleteModal(true);
+    };
 
-        if (!confirmed) return;
+    const handleDeleteConfirm = async () => {
+        console.log('handleDeleteConfirm called, userId:', userId);
+        setShowDeleteModal(false);
+        setDeleting(true);
+        setError('');
 
         try {
-            const response = await fetch(`/api/users/${id}`, {
-                method: 'DELETE',
-            });
+            console.log('Calling DELETE API...');
+            const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+            const data = await res.json();
+            console.log('Delete response:', res.status, data);
 
-            if (!response.ok) throw new Error('Failed to deactivate user');
-
-            toast.success('User Deactivated', `${formData.full_name} has been deactivated.`);
-            router.push('/settings/users');
-            router.refresh();
+            if (res.ok) {
+                console.log('Delete successful, redirecting...');
+                router.push('/settings/users');
+            } else {
+                setError(data.error || 'Failed to delete user');
+            }
         } catch (err) {
-            toast.error('Error', err instanceof Error ? err.message : 'Failed to deactivate user');
+            console.error('Delete error:', err);
+            setError('Failed to delete user');
+        } finally {
+            setDeleting(false);
         }
     };
 
-    if (isLoading) {
+    const toggleActive = () => {
+        if (user) {
+            setUser({ ...user, is_active: !user.is_active });
+        }
+    };
+
+    if (loading) {
         return (
-            <div className="space-y-6">
-                <div className="h-8 w-64 bg-gray-200 rounded animate-pulse" />
-                <div className="h-96 bg-gray-100 rounded-xl animate-pulse" />
+            <div className="flex items-center justify-center min-h-96">
+                <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="flex items-center justify-center min-h-96">
+                <div className="text-red-500">{error || 'User not found'}</div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Page Header */}
+        <div className="max-w-2xl mx-auto space-y-6">
+            {/* Header */}
             <div>
-                <nav className="flex items-center text-sm text-gray-500 mb-2">
-                    <Link href="/settings" className="hover:text-primary">Settings</Link>
+                <nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
+                    <Link href="/settings" className="hover:text-gray-700 dark:hover:text-gray-300">Settings</Link>
                     <span className="mx-2">/</span>
-                    <Link href="/settings/users" className="hover:text-primary">Users</Link>
+                    <Link href="/settings/users" className="hover:text-gray-700 dark:hover:text-gray-300">Users</Link>
                     <span className="mx-2">/</span>
-                    <span className="text-gray-900">Edit User</span>
+                    <span className="text-gray-900 dark:text-white">Edit User</span>
                 </nav>
-                <h1 className="text-2xl font-bold text-gray-900">Edit User</h1>
-                <p className="text-gray-500">{formData.email}</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit User</h1>
+                <p className="text-gray-500 dark:text-gray-400">Update user details, role, or deactivate the account</p>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
+            {/* Error/Success Messages */}
+            {error && (
+                <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg text-red-600 dark:text-red-400">
+                    {error}
+                </div>
+            )}
+            {success && (
+                <div className="p-4 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg text-green-600 dark:text-green-400">
+                    {success}
+                </div>
+            )}
+
+            {/* User Info Card */}
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6 space-y-6">
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-200 dark:border-[#222]">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                        <span className="text-2xl text-primary font-bold">
+                            {user.full_name.charAt(0).toUpperCase()}
+                        </span>
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{user.full_name}</h2>
+                        <p className="text-gray-500 dark:text-gray-400">{user.email}</p>
+                    </div>
+                </div>
+
+                {/* Form Fields */}
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Full Name <span className="text-red-500">*</span>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Full Name
                         </label>
                         <input
                             type="text"
-                            required
-                            value={formData.full_name}
-                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            value={user.full_name}
+                            onChange={(e) => setUser({ ...user, full_name: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Email
-                        </label>
-                        <input
-                            type="email"
-                            value={formData.email}
-                            disabled
-                            className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-                        />
-                        <p className="mt-1 text-xs text-gray-400">Email cannot be changed</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Role <span className="text-red-500">*</span>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Role
                         </label>
                         <select
-                            required
-                            value={formData.role}
-                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            value={user.role}
+                            onChange={(e) => setUser({ ...user, role: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         >
-                            {roles.map((role) => (
-                                <option key={role.value} value={role.value}>
-                                    {role.label}
-                                </option>
+                            {roles.map(role => (
+                                <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
                             ))}
                         </select>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Phone
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Phone (optional)
                         </label>
                         <input
                             type="tel"
-                            value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            placeholder="+1 (555) 000-0000"
-                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            value={user.phone || ''}
+                            onChange={(e) => setUser({ ...user, phone: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <input
-                            type="checkbox"
-                            id="is_active"
-                            checked={formData.is_active}
-                            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                            className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
-                        />
-                        <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
-                            Account Active
-                        </label>
-                    </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? 'Saving...' : 'Save Changes'}
-                        </Button>
-                        <Link href="/settings/users">
-                            <Button type="button" variant="outline">Cancel</Button>
-                        </Link>
-                    </div>
-                    {formData.is_active && (
+                    {/* Status Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg">
+                        <div>
+                            <p className="font-medium text-gray-900 dark:text-white">Account Status</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {user.is_active ? 'User can log in and access the system' : 'User is blocked from accessing the system'}
+                            </p>
+                        </div>
                         <button
                             type="button"
-                            onClick={handleDeactivate}
-                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                            onClick={toggleActive}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${user.is_active
+                                ? 'bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/30'
+                                : 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30'
+                                }`}
                         >
-                            Deactivate User
+                            {user.is_active ? '✓ Active' : '✕ Inactive'}
                         </button>
-                    )}
+                    </div>
                 </div>
-            </form>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-[#222]">
+                    <button
+                        type="button"
+                        onClick={handleDeleteClick}
+                        disabled={deleting}
+                        className="px-4 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50"
+                    >
+                        {deleting ? 'Deleting...' : '🗑️ Delete User'}
+                    </button>
+                    <div className="flex gap-3">
+                        <Link
+                            href="/settings/users"
+                            className="px-4 py-2 bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-[#333]"
+                        >
+                            Cancel
+                        </Link>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="px-6 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50"
+                        >
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200 dark:border-[#333]">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-3 bg-red-100 dark:bg-red-500/20 rounded-full">
+                                <span className="text-2xl">⚠️</span>
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete User</h3>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6">
+                            Are you sure you want to permanently delete <strong className="text-gray-900 dark:text-white">{user?.full_name}</strong>? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteModal(false)}
+                                className="px-4 py-2 bg-gray-100 dark:bg-[#333] text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-[#444]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteConfirm}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                            >
+                                Yes, Delete User
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

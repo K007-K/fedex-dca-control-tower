@@ -88,18 +88,18 @@ function CasesLoading() {
     return (
         <div className="space-y-6">
             {/* Filters skeleton */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-10 bg-gray-100 rounded-md animate-pulse" />
+                        <div key={i} className="h-10 bg-gray-100 dark:bg-[#1a1a1a] rounded-md animate-pulse" />
                     ))}
                 </div>
             </div>
             {/* Table skeleton */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-4">
                 <div className="space-y-3">
                     {[...Array(10)].map((_, i) => (
-                        <div key={i} className="h-12 bg-gray-50 rounded animate-pulse" />
+                        <div key={i} className="h-12 bg-gray-50 dark:bg-[#1a1a1a] rounded animate-pulse" />
                     ))}
                 </div>
             </div>
@@ -113,12 +113,12 @@ export default async function CasesPage({ searchParams }: PageProps) {
             {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Cases</h1>
-                    <p className="text-gray-500">Manage and track all debt collection cases</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cases</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Manage and track all debt collection cases</p>
                 </div>
                 <a
                     href="/cases/new"
-                    className="inline-flex items-center px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors"
                 >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

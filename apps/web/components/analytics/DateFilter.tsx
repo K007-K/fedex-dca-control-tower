@@ -37,10 +37,10 @@ export function DateFilter({ currentRange = '30' }: DateFilterProps) {
         <select
             value={currentRange}
             onChange={handleChange}
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+            className="px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white dark:bg-[#111] text-gray-900 dark:text-white"
         >
             {DATE_RANGES.map(range => (
-                <option key={range.value} value={range.value}>
+                <option key={range.value} value={range.value} className="bg-white dark:bg-[#111] text-gray-900 dark:text-white">
                     {range.label}
                 </option>
             ))}

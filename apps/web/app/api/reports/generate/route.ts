@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { createClient } from '@/lib/supabase/server';
+import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
 
 interface ReportRequest {
     reportType: string;
@@ -9,8 +11,10 @@ interface ReportRequest {
 
 /**
  * POST /api/reports/generate - Generate a report
+ * Permission: analytics:export
+ * Rate limited for export operations
  */
-export async function POST(request: Request) {
+const handleGenerateReport: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const body: ReportRequest = await request.json();
@@ -188,4 +192,70 @@ export async function POST(request: Request) {
             { status: 500 }
         );
     }
+};
+
+/**
+ * GET /api/reports/generate - Generate a CSV report (for direct link downloads)
+ * Supports query params: format, days, reportType
+ */
+export async function GET(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const format = searchParams.get('format') || 'csv';
+        const days = searchParams.get('days') || '30';
+        const reportType = searchParams.get('reportType') || 'recovery-summary';
+
+        const supabase = await createClient();
+
+        // Calculate date filter
+        let dateFilter: Date | null = null;
+        if (days !== 'all') {
+            dateFilter = new Date();
+            dateFilter.setDate(dateFilter.getDate() - parseInt(days));
+        }
+
+        // Fetch cases with date filter
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let casesQuery = (supabase as any).from('cases').select('*');
+        if (dateFilter) {
+            casesQuery = casesQuery.gte('created_at', dateFilter.toISOString());
+        }
+        const { data: cases } = await casesQuery;
+
+        // Generate CSV content
+        let csvContent = '';
+
+        if (reportType === 'recovery-summary' || format === 'csv') {
+            csvContent = `Case Number,Customer,Status,Priority,Outstanding,Recovered,Days Past Due,Created At\n`;
+            cases?.forEach((c: {
+                case_number: string;
+                customer_name: string;
+                status: string;
+                priority: string;
+                outstanding_amount: number;
+                recovered_amount: number;
+                days_past_due: number;
+                created_at: string;
+            }) => {
+                csvContent += `"${c.case_number || ''}","${c.customer_name || ''}","${c.status || ''}","${c.priority || ''}",$${c.outstanding_amount || 0},$${c.recovered_amount || 0},${c.days_past_due || 0},"${c.created_at || ''}"\n`;
+            });
+        }
+
+        return new NextResponse(csvContent, {
+            headers: {
+                'Content-Type': 'text/csv',
+                'Content-Disposition': `attachment; filename="analytics_export_${days}days_${new Date().toISOString().split('T')[0]}.csv"`,
+            },
+        });
+
+    } catch (error) {
+        console.error('Report generation error:', error);
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        );
+    }
 }
+
+// Export with RBAC and rate limiting
+export const POST = withRateLimitedPermission('analytics:export', handleGenerateReport, RATE_LIMIT_CONFIGS.export);

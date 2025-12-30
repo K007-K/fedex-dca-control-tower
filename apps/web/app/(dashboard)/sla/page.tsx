@@ -25,19 +25,37 @@ type SLALog = {
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-    PENDING: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-    MET: { bg: 'bg-green-100', text: 'text-green-800' },
-    BREACHED: { bg: 'bg-red-100', text: 'text-red-800' },
-    EXEMPT: { bg: 'bg-gray-100', text: 'text-gray-800' },
+    PENDING: { bg: 'bg-yellow-500/20 border border-yellow-500/30', text: 'text-yellow-400' },
+    MET: { bg: 'bg-green-500/20 border border-green-500/30', text: 'text-green-400' },
+    BREACHED: { bg: 'bg-red-500/20 border border-red-500/30', text: 'text-red-400' },
+    EXEMPT: { bg: 'bg-gray-500/20 border border-gray-500/30', text: 'text-gray-400' },
 };
 
-const SLA_TYPE_LABELS: Record<string, string> = {
-    FIRST_CONTACT: 'First Contact',
-    WEEKLY_UPDATE: 'Weekly Update',
-    MONTHLY_REPORT: 'Monthly Report',
-    RESPONSE_TO_DISPUTE: 'Dispute Response',
-    RECOVERY_TARGET: 'Recovery Target',
-    DOCUMENTATION_SUBMISSION: 'Documentation',
+const SLA_TYPE_LABELS: Record<string, { label: string; description: string }> = {
+    FIRST_CONTACT: {
+        label: 'First Contact',
+        description: 'Time limit for DCA to make initial contact with the customer after case assignment'
+    },
+    WEEKLY_UPDATE: {
+        label: 'Weekly Update',
+        description: 'Regular weekly status update required on all active cases'
+    },
+    MONTHLY_REPORT: {
+        label: 'Monthly Report',
+        description: 'Monthly performance and portfolio report submission deadline'
+    },
+    RESPONSE_TO_DISPUTE: {
+        label: 'Dispute Response',
+        description: 'Time limit to respond when a customer raises a dispute'
+    },
+    RECOVERY_TARGET: {
+        label: 'Recovery Target',
+        description: 'Target deadline for achieving full or partial recovery'
+    },
+    DOCUMENTATION_SUBMISSION: {
+        label: 'Documentation',
+        description: 'Deadline for submitting required documentation'
+    },
 };
 
 export default async function SLAPage() {
@@ -71,12 +89,12 @@ export default async function SLAPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">SLA Management</h1>
-                    <p className="text-gray-500">Monitor SLA compliance and manage templates</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">SLA Management</h1>
+                    <p className="text-gray-500 dark:text-gray-400">Monitor SLA compliance and manage templates</p>
                 </div>
                 <Link
                     href="/sla/new"
-                    className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                    className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors"
                 >
                     + New SLA Template
                 </Link>
@@ -84,58 +102,58 @@ export default async function SLAPage() {
 
             {/* Metrics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm text-gray-500">Active Templates</p>
-                    <p className="text-3xl font-bold text-gray-900">{activeTemplates}</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Active Templates</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{activeTemplates}</p>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm text-gray-500">Pending SLAs</p>
-                    <p className="text-3xl font-bold text-yellow-600">{pendingCount}</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Pending SLAs</p>
+                    <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{pendingCount}</p>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm text-gray-500">Breached</p>
-                    <p className="text-3xl font-bold text-red-600">{breachedCount}</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Breached</p>
+                    <p className="text-3xl font-bold text-red-600 dark:text-red-400">{breachedCount}</p>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm text-gray-500">Compliance Rate</p>
-                    <p className="text-3xl font-bold text-green-600">{complianceRate}%</p>
+                <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Compliance Rate</p>
+                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">{complianceRate}%</p>
                 </div>
             </div>
 
             {/* SLA Templates */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">SLA Templates</h2>
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">SLA Templates</h2>
                 {templates && templates.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {templates.map((template: SLATemplate) => (
                             <div
                                 key={template.id}
-                                className="border border-gray-200 rounded-lg p-4 hover:border-primary hover:shadow-sm transition-all"
+                                className="border border-gray-200 dark:border-[#222] rounded-lg p-4 hover:border-gray-300 dark:hover:border-[#333] hover:shadow-sm transition-all"
                             >
                                 <div className="flex items-start justify-between mb-3">
                                     <div>
-                                        <h3 className="font-medium text-gray-900">{template.name}</h3>
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary mt-1">
-                                            {SLA_TYPE_LABELS[template.sla_type] || template.sla_type}
+                                        <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 mt-1">
+                                            {SLA_TYPE_LABELS[template.sla_type]?.label || template.sla_type}
                                         </span>
                                     </div>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${template.is_active ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                                         }`}>
                                         {template.is_active ? 'Active' : 'Inactive'}
                                     </span>
                                 </div>
-                                <p className="text-sm text-gray-500 mb-3">{template.description || 'No description'}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{template.description || 'No description'}</p>
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-500">
+                                    <span className="text-gray-500 dark:text-gray-400">
                                         ⏱️ {template.duration_hours}h {template.business_hours_only ? '(business)' : ''}
                                     </span>
                                     <div className="flex items-center gap-3">
                                         {template.auto_escalate_on_breach && (
-                                            <span className="text-amber-600">⚡ Auto-escalate</span>
+                                            <span className="text-amber-600 dark:text-amber-400">⚡ Auto-escalate</span>
                                         )}
                                         <Link
                                             href={`/sla/${template.id}/edit`}
-                                            className="text-primary hover:underline"
+                                            className="text-gray-600 dark:text-gray-300 hover:underline"
                                         >
                                             Edit
                                         </Link>
@@ -147,23 +165,23 @@ export default async function SLAPage() {
                 ) : (
                     <div className="text-center py-12">
                         <div className="text-5xl mb-4">⏱️</div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No SLA Templates</h3>
-                        <p className="text-gray-500">Create your first SLA template to start monitoring compliance.</p>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No SLA Templates</h3>
+                        <p className="text-gray-500 dark:text-gray-400">Create your first SLA template to start monitoring compliance.</p>
                     </div>
                 )}
             </div>
 
             {/* Recent SLA Activity */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Recent SLA Activity</h2>
-                    <Link href="#" className="text-sm text-primary hover:underline">View All →</Link>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent SLA Activity</h2>
+                    <Link href="#" className="text-sm text-gray-600 dark:text-gray-300 hover:underline">View All →</Link>
                 </div>
                 {recentLogs && recentLogs.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
+                                <tr className="text-left text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-[#222]">
                                     <th className="pb-3 font-medium">Type</th>
                                     <th className="pb-3 font-medium">Case</th>
                                     <th className="pb-3 font-medium">Due</th>
@@ -173,27 +191,27 @@ export default async function SLAPage() {
                             </thead>
                             <tbody>
                                 {recentLogs.map((log: SLALog) => {
-                                    const statusColor = STATUS_COLORS[log.status] || { bg: 'bg-gray-100', text: 'text-gray-800' };
+                                    const statusColor = STATUS_COLORS[log.status] || { bg: 'bg-gray-500/20 border border-gray-500/30', text: 'text-gray-400' };
                                     const dueDate = new Date(log.due_at);
                                     const isOverdue = log.status === 'PENDING' && dueDate < new Date();
 
                                     return (
-                                        <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50">
+                                        <tr key={log.id} className="border-b border-gray-50 dark:border-[#222] hover:bg-gray-50 dark:hover:bg-[#1a1a1a]">
                                             <td className="py-3">
-                                                <span className="font-medium text-gray-900">
-                                                    {SLA_TYPE_LABELS[log.sla_type] || log.sla_type}
+                                                <span className="font-medium text-gray-900 dark:text-white">
+                                                    {SLA_TYPE_LABELS[log.sla_type]?.label || log.sla_type}
                                                 </span>
                                             </td>
                                             <td className="py-3">
                                                 <Link
                                                     href={`/cases/${log.case_id}`}
-                                                    className="text-primary hover:underline"
+                                                    className="text-gray-600 dark:text-gray-300 hover:underline"
                                                 >
                                                     View Case
                                                 </Link>
                                             </td>
                                             <td className="py-3">
-                                                <span className={isOverdue ? 'text-red-600 font-medium' : 'text-gray-600'}>
+                                                <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-600 dark:text-gray-300'}>
                                                     {dueDate.toLocaleDateString()} {dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </td>
@@ -202,7 +220,7 @@ export default async function SLAPage() {
                                                     {log.status}
                                                 </span>
                                             </td>
-                                            <td className="py-3 text-gray-600">
+                                            <td className="py-3 text-gray-600 dark:text-gray-300">
                                                 {log.breach_duration_minutes
                                                     ? `${Math.floor(log.breach_duration_minutes / 60)}h ${log.breach_duration_minutes % 60}m`
                                                     : '-'
@@ -216,7 +234,7 @@ export default async function SLAPage() {
                     </div>
                 ) : (
                     <div className="text-center py-8">
-                        <p className="text-gray-500">No SLA activity recorded yet.</p>
+                        <p className="text-gray-500 dark:text-gray-400">No SLA activity recorded yet.</p>
                     </div>
                 )}
             </div>

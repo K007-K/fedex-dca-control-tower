@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { CaseActions } from '@/components/cases/CaseActions';
 import { CaseDeleteButton } from '@/components/cases/CaseDeleteButton';
 import { EscalationList } from '@/components/cases/EscalationList';
+import { CasePredictionPanel } from '@/components/ml';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
 
@@ -107,6 +108,14 @@ export default async function CaseDetailPage({ params }: PageProps) {
                     </Link>
                 </div>
             </div>
+
+            {/* AI Predictions */}
+            <CasePredictionPanel
+                caseId={id}
+                outstandingAmount={caseData.outstanding_amount ?? 0}
+                daysPastDue={Math.floor((Date.now() - new Date(caseData.created_at).getTime()) / (1000 * 60 * 60 * 24))}
+                segment={caseData.customer_segment ?? 'MEDIUM'}
+            />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

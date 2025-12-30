@@ -1,28 +1,37 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
-
-interface RouteParams {
-    params: Promise<{ id: string }>;
-}
+import { withPermission, withAnyPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { canAccessCase, isDCARole } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/cases/[id]
  * Get case details by ID
+ * Permission: cases:read
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+const handleGetCase: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
+
+        // Check if user can access this specific case
+        const canAccess = await canAccessCase(id);
+        if (!canAccess) {
+            return NextResponse.json(
+                { error: { code: 'FORBIDDEN', message: 'You do not have access to this case' } },
+                { status: 403 }
+            );
+        }
+
         const supabase = await createClient();
 
         const result = await (supabase as any)
             .from('cases')
             .select(`
-        *,
-        assigned_dca:dcas(id, name, status, performance_score, recovery_rate),
-        assigned_agent:users!cases_assigned_agent_id_fkey(id, full_name, email, role)
-      `)
+                *,
+                assigned_dca:dcas(id, name, status, performance_score, recovery_rate),
+                assigned_agent:users!cases_assigned_agent_id_fkey(id, full_name, email, role)
+            `)
             .eq('id', id)
             .single();
 
@@ -47,17 +56,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * PATCH /api/cases/[id]
  * Update case details
+ * Permission: cases:update
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+const handleUpdateCase: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
-        // Use admin client to bypass RLS for updates
-        const supabase = createAdminClient();
+
+        // Check if user can access this specific case
+        const canAccess = await canAccessCase(id);
+        if (!canAccess) {
+            return NextResponse.json(
+                { error: { code: 'FORBIDDEN', message: 'You do not have access to this case' } },
+                { status: 403 }
+            );
+        }
+
+        const supabase = await createClient();
         const body = await request.json();
 
         const updateData: Record<string, any> = {};
@@ -67,7 +86,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             'is_disputed', 'dispute_reason', 'high_priority_flag', 'vip_customer'
         ];
 
-        for (const field of allowedFields) {
+        // DCA users have limited update capabilities
+        const dcaAllowedFields = ['status', 'internal_notes', 'recovered_amount'];
+        const fieldsToCheck = isDCARole(user.role) ? dcaAllowedFields : allowedFields;
+
+        for (const field of fieldsToCheck) {
             if (body[field] !== undefined) {
                 updateData[field] = body[field];
             }
@@ -91,6 +114,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         updateData['updated_at'] = new Date().toISOString();
+        updateData['updated_by'] = user.id;
 
         const result = await (supabase as any)
             .from('cases')
@@ -120,17 +144,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * DELETE /api/cases/[id]
  * Soft delete a case (mark as closed)
+ * Permission: cases:delete
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+const handleDeleteCase: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
-        // Use admin client to bypass RLS for updates
-        const supabase = createAdminClient();
+        const supabase = await createClient();
 
         const result = await (supabase as any)
             .from('cases')
@@ -139,6 +163,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
                 closed_at: new Date().toISOString(),
                 closure_reason: 'MANUALLY_CLOSED',
                 updated_at: new Date().toISOString(),
+                updated_by: user.id,
             })
             .eq('id', id)
             .select()
@@ -165,4 +190,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
+
+// Export wrapped handlers with proper permissions
+export const GET = withPermission('cases:read', handleGetCase);
+export const PATCH = withPermission('cases:update', handleUpdateCase);
+export const DELETE = withPermission('cases:delete', handleDeleteCase);

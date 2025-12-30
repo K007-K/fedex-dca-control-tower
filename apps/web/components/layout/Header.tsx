@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 interface HeaderProps {
     userEmail?: string;
@@ -9,11 +13,45 @@ interface HeaderProps {
     breadcrumbs?: { name: string; href: string }[];
 }
 
+interface Notification {
+    id: string;
+    title: string;
+    message: string;
+    created_at: string;
+    is_read: boolean;
+    notification_type: string;
+}
+
 export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', breadcrumbs }: HeaderProps) {
+    const router = useRouter();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
+
+    // Fetch notifications from API
+    const fetchNotifications = async () => {
+        setLoadingNotifications(true);
+        try {
+            const res = await fetch('/api/notifications?limit=5');
+            const data = await res.json();
+            setNotifications(data.data || []);
+        } catch (err) {
+            console.error('Failed to fetch notifications:', err);
+        } finally {
+            setLoadingNotifications(false);
+        }
+    };
+
+    // Fetch when dropdown opens
+    useEffect(() => {
+        if (notificationsOpen) {
+            fetchNotifications();
+        }
+    }, [notificationsOpen]);
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -29,78 +67,137 @@ export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', brea
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Handle search submission
+    const handleSearch = (e: React.FormEvent | React.KeyboardEvent) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            router.push(`/cases?search=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    };
+
+    // Format relative time
+    const formatTime = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 60) return `${diffMins} min ago`;
+        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    };
+
+    // Get notification type color
+    const getTypeColor = (type: string) => {
+        switch (type) {
+            case 'SLA_WARNING': return 'bg-yellow-500';
+            case 'CASE_RESOLVED':
+            case 'CASE_CLOSED': return 'bg-green-500';
+            case 'ESCALATION_CREATED': return 'bg-red-500';
+            default: return 'bg-blue-500';
+        }
+    };
+
     return (
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white/95 backdrop-blur-sm px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black px-6">
             {/* Left: Title and Breadcrumbs */}
             <div>
                 {breadcrumbs && breadcrumbs.length > 0 && (
-                    <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-1">
+                    <nav className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
                         {breadcrumbs.map((crumb, idx) => (
                             <span key={crumb.href} className="flex items-center">
                                 {idx > 0 && <span className="mx-2">/</span>}
-                                <a href={crumb.href} className="hover:text-primary transition-colors">
+                                <Link href={crumb.href} className="hover:text-primary transition-colors">
                                     {crumb.name}
-                                </a>
+                                </Link>
                             </span>
                         ))}
                     </nav>
                 )}
-                <h1 className="text-xl font-semibold text-gray-900">{pageTitle}</h1>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{pageTitle}</h1>
             </div>
 
             {/* Right: Search, Notifications, User */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2">
                 {/* Search */}
                 <div className="hidden md:flex items-center">
-                    <div className="relative">
-                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <form onSubmit={handleSearch} className="relative">
+                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                         <input
                             type="text"
                             placeholder="Search cases..."
-                            className="w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch(e)}
+                            className="w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         />
-                    </div>
+                    </form>
                 </div>
+
+                {/* Theme Toggle */}
+                <ThemeToggle />
 
                 {/* Notifications */}
                 <div ref={notificationsRef} className="relative">
-                    <button
-                        onClick={() => setNotificationsOpen(!notificationsOpen)}
-                        className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                        <BellIcon className="w-5 h-5 text-gray-500" />
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full animate-pulse" />
-                    </button>
+                    <Tooltip content="Notifications" position="bottom">
+                        <button
+                            onClick={() => setNotificationsOpen(!notificationsOpen)}
+                            className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            aria-label="Open notifications"
+                            aria-expanded={notificationsOpen}
+                        >
+                            <BellIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            {notifications.filter(n => !n.is_read).length > 0 && (
+                                <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full animate-pulse" aria-hidden="true" />
+                            )}
+                        </button>
+                    </Tooltip>
 
                     {notificationsOpen && (
-                        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-elevated border border-gray-100 overflow-hidden animate-slide-down">
-                            <div className="p-4 border-b border-gray-100">
-                                <h3 className="font-semibold text-gray-900">Notifications</h3>
+                        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 rounded-xl shadow-elevated border border-gray-100 dark:border-gray-700 overflow-hidden animate-slide-down">
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                             </div>
                             <div className="max-h-80 overflow-y-auto">
-                                <NotificationItem
-                                    title="SLA Breach Warning"
-                                    message="Case #10234 is approaching SLA deadline"
-                                    time="5 min ago"
-                                    type="warning"
-                                />
-                                <NotificationItem
-                                    title="Case Resolved"
-                                    message="Recovery Solutions closed Case #10198"
-                                    time="1 hour ago"
-                                    type="success"
-                                />
-                                <NotificationItem
-                                    title="New Assignment"
-                                    message="3 cases assigned to Premier Collections"
-                                    time="2 hours ago"
-                                    type="info"
-                                />
+                                {loadingNotifications ? (
+                                    <div className="p-4 text-center text-gray-500 dark:text-gray-400">Loading...</div>
+                                ) : notifications.length === 0 ? (
+                                    <div className="p-4 text-center text-gray-500 dark:text-gray-400">No notifications</div>
+                                ) : (
+                                    notifications.map((notif) => (
+                                        <div key={notif.id} className="p-4 border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                            <div className="flex items-start gap-3">
+                                                <div className={`w-2 h-2 mt-2 rounded-full ${getTypeColor(notif.notification_type)}`} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`font-medium text-sm ${notif.is_read ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                                                        {notif.title}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{notif.message}</p>
+                                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatTime(notif.created_at)}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
-                            <div className="p-3 border-t border-gray-100 bg-gray-50">
-                                <a href="/notifications" className="text-sm text-primary font-medium hover:underline">
+                            <div className="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
+                                <Link href="/notifications" className="text-sm text-primary font-medium hover:underline">
                                     View all notifications
-                                </a>
+                                </Link>
+                                <button
+                                    onClick={async () => {
+                                        if (confirm('Delete all notifications?')) {
+                                            await fetch('/api/notifications/delete-all', { method: 'DELETE' });
+                                            setNotificationsOpen(false);
+                                            window.location.reload();
+                                        }
+                                    }}
+                                    className="text-sm text-red-500 hover:text-red-600 font-medium"
+                                >
+                                    Clear All
+                                </button>
                             </div>
                         </div>
                     )}
@@ -110,7 +207,9 @@ export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', brea
                 <div ref={userMenuRef} className="relative">
                     <button
                         onClick={() => setUserMenuOpen(!userMenuOpen)}
-                        className="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        aria-label="Open user menu"
+                        aria-expanded={userMenuOpen}
                     >
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 overflow-hidden">
                             {userAvatarUrl ? (
@@ -122,26 +221,26 @@ export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', brea
                                 </span>
                             )}
                         </div>
-                        <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
                     </button>
 
                     {userMenuOpen && (
-                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-elevated border border-gray-100 overflow-hidden animate-slide-down">
-                            <div className="p-4 border-b border-gray-100">
-                                <p className="font-medium text-gray-900 truncate">{userEmail}</p>
-                                <p className="text-xs text-gray-500">FedEx Administrator</p>
+                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-xl shadow-elevated border border-gray-100 dark:border-gray-700 overflow-hidden animate-slide-down">
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <p className="font-medium text-gray-900 dark:text-white truncate">{userEmail}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">FedEx Administrator</p>
                             </div>
                             <div className="py-2">
-                                <a href="/settings/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                    <UserIcon className="w-4 h-4 mr-3 text-gray-400" />
+                                <Link href="/settings/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <UserIcon className="w-4 h-4 mr-3 text-gray-400" aria-hidden="true" />
                                     Profile Settings
-                                </a>
-                                <a href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                    <SettingsIcon className="w-4 h-4 mr-3 text-gray-400" />
+                                </Link>
+                                <Link href="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <SettingsIcon className="w-4 h-4 mr-3 text-gray-400" aria-hidden="true" />
                                     Settings
-                                </a>
+                                </Link>
                             </div>
-                            <div className="border-t border-gray-100 py-2">
+                            <div className="border-t border-gray-100 dark:border-gray-700 py-2">
                                 <form action="/auth/signout" method="post">
                                     <button
                                         type="submit"

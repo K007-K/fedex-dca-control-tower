@@ -23,7 +23,7 @@ export function DashboardLayout({
     breadcrumbs,
 }: DashboardLayoutProps) {
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-black">
             {/* Sidebar */}
             <Sidebar userEmail={userEmail} userRole={userRole} />
 
