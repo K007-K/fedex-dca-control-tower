@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
             throw error;
         }
 
-        return NextResponse.json({ data: data || [] });
+        return NextResponse.json({ data: data || [], userId });
 
     } catch (error) {
         console.error('Notifications API error:', error);

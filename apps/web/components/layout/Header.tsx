@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { useNotificationsRealtime } from '@/lib/realtime';
+import { useConfirm } from '@/components/ui';
 
 interface HeaderProps {
     userEmail?: string;
@@ -29,29 +31,43 @@ export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', brea
     const [searchQuery, setSearchQuery] = useState('');
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loadingNotifications, setLoadingNotifications] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
     const userMenuRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
+    const confirmDialog = useConfirm();
 
     // Fetch notifications from API
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         setLoadingNotifications(true);
         try {
             const res = await fetch('/api/notifications?limit=5');
             const data = await res.json();
             setNotifications(data.data || []);
+            // Store user ID for real-time subscription
+            if (data.userId) {
+                setUserId(data.userId);
+            }
         } catch (err) {
             console.error('Failed to fetch notifications:', err);
         } finally {
             setLoadingNotifications(false);
         }
-    };
+    }, []);
+
+    // Fetch notifications on mount for badge count
+    useEffect(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
+
+    // Real-time subscription - updates notifications when changes occur
+    useNotificationsRealtime(userId || '', fetchNotifications);
 
     // Fetch when dropdown opens
     useEffect(() => {
         if (notificationsOpen) {
             fetchNotifications();
         }
-    }, [notificationsOpen]);
+    }, [notificationsOpen, fetchNotifications]);
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -188,10 +204,17 @@ export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', brea
                                 </Link>
                                 <button
                                     onClick={async () => {
-                                        if (confirm('Delete all notifications?')) {
+                                        const confirmed = await confirmDialog.confirm({
+                                            title: 'Clear All Notifications',
+                                            message: 'Delete all notifications? This cannot be undone.',
+                                            confirmText: 'Clear All',
+                                            cancelText: 'Cancel',
+                                            variant: 'danger',
+                                        });
+                                        if (confirmed) {
                                             await fetch('/api/notifications/delete-all', { method: 'DELETE' });
                                             setNotificationsOpen(false);
-                                            window.location.reload();
+                                            fetchNotifications();
                                         }
                                     }}
                                     className="text-sm text-red-500 hover:text-red-600 font-medium"

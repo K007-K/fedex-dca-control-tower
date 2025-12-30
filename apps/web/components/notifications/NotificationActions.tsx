@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/components/ui';
 
 interface NotificationActionsProps {
     hasNotifications: boolean;
@@ -10,6 +11,7 @@ interface NotificationActionsProps {
 export function NotificationActions({ hasNotifications }: NotificationActionsProps) {
     const router = useRouter();
     const [loading, setLoading] = useState<string | null>(null);
+    const confirm = useConfirm();
 
     const handleMarkAllRead = async () => {
         setLoading('markRead');
@@ -24,9 +26,16 @@ export function NotificationActions({ hasNotifications }: NotificationActionsPro
     };
 
     const handleDeleteAll = async () => {
-        if (!confirm('Are you sure you want to delete all notifications? This cannot be undone.')) {
-            return;
-        }
+        const confirmed = await confirm.confirm({
+            title: 'Delete All Notifications',
+            message: 'Are you sure you want to delete all notifications? This cannot be undone.',
+            confirmText: 'Delete All',
+            cancelText: 'Cancel',
+            variant: 'danger',
+        });
+
+        if (!confirmed) return;
+
         setLoading('deleteAll');
         try {
             await fetch('/api/notifications/delete-all', { method: 'DELETE' });

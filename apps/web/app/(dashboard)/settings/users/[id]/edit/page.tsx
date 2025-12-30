@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useConfirm } from '@/components/ui';
 
 const roles = [
     'SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST',
@@ -28,7 +29,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [userId, setUserId] = useState<string>('');
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const confirm = useConfirm();
 
     useEffect(() => {
         async function loadUser() {
@@ -84,25 +85,25 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
         }
     };
 
-    const handleDeleteClick = () => {
-        console.log('Delete button clicked, showing modal');
-        setShowDeleteModal(true);
-    };
+    const handleDelete = async () => {
+        const confirmed = await confirm.confirm({
+            title: 'Delete User',
+            message: `Are you sure you want to permanently delete ${user?.full_name}? This action cannot be undone.`,
+            confirmText: 'Yes, Delete User',
+            cancelText: 'Cancel',
+            variant: 'danger',
+        });
 
-    const handleDeleteConfirm = async () => {
-        console.log('handleDeleteConfirm called, userId:', userId);
-        setShowDeleteModal(false);
+        if (!confirmed) return;
+
         setDeleting(true);
         setError('');
 
         try {
-            console.log('Calling DELETE API...');
             const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
             const data = await res.json();
-            console.log('Delete response:', res.status, data);
 
             if (res.ok) {
-                console.log('Delete successful, redirecting...');
                 router.push('/settings/users');
             } else {
                 setError(data.error || 'Failed to delete user');
@@ -244,7 +245,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-[#222]">
                     <button
                         type="button"
-                        onClick={handleDeleteClick}
+                        onClick={handleDelete}
                         disabled={deleting}
                         className="px-4 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50"
                     >
@@ -267,39 +268,6 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
                     </div>
                 </div>
             </div>
-
-            {/* Delete Confirmation Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200 dark:border-[#333]">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-3 bg-red-100 dark:bg-red-500/20 rounded-full">
-                                <span className="text-2xl">⚠️</span>
-                            </div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete User</h3>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6">
-                            Are you sure you want to permanently delete <strong className="text-gray-900 dark:text-white">{user?.full_name}</strong>? This action cannot be undone.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setShowDeleteModal(false)}
-                                className="px-4 py-2 bg-gray-100 dark:bg-[#333] text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-[#444]"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDeleteConfirm}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
-                            >
-                                Yes, Delete User
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
