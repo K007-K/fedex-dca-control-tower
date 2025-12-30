@@ -11,6 +11,14 @@ interface ServiceStatus {
     message: string;
 }
 
+interface Webhook {
+    id: string;
+    name: string;
+    url: string;
+    events: string[];
+    enabled: boolean;
+}
+
 export default function IntegrationsSettingsPage() {
     const [services, setServices] = useState<ServiceStatus[]>([
         {
@@ -31,8 +39,8 @@ export default function IntegrationsSettingsPage() {
             name: 'Email Service',
             description: 'Notification emails and alerts',
             icon: '📧',
-            status: 'disconnected',
-            message: 'Not configured',
+            status: 'checking',
+            message: 'Checking configuration...',
         },
         {
             name: 'Slack',
@@ -43,19 +51,27 @@ export default function IntegrationsSettingsPage() {
         },
     ]);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [showWebhookModal, setShowWebhookModal] = useState(false);
+    const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+    const [newWebhook, setNewWebhook] = useState({ name: '', url: '', events: ['case.updated'] });
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [apiKey, setApiKey] = useState('fedex_prod_xxxxxxxxxxxxxxxxxxxxxxxx');
+    const [isRegenerating, setIsRegenerating] = useState(false);
 
     const checkConnections = async () => {
         setIsRefreshing(true);
 
-        // Check Supabase
+        // Check Supabase via health API
         try {
             const supabaseRes = await fetch('/api/health');
             const supabaseData = await supabaseRes.json();
+            const isConnected = supabaseData.services?.database?.connected === true;
             setServices(prev => prev.map(s =>
                 s.name === 'Supabase'
                     ? {
-                        ...s, status: supabaseData.database === 'connected' ? 'connected' : 'error',
-                        message: supabaseData.database === 'connected' ? 'Connected & healthy' : 'Connection failed'
+                        ...s,
+                        status: isConnected ? 'connected' : 'error',
+                        message: isConnected ? 'Connected & healthy' : (supabaseData.services?.database?.error || 'Connection failed')
                     }
                     : s
             ));
@@ -89,12 +105,64 @@ export default function IntegrationsSettingsPage() {
             ));
         }
 
+        // Check Email Service (SMTP/Resend)
+        try {
+            const emailRes = await fetch('/api/health/email');
+            const emailData = await emailRes.json();
+            setServices(prev => prev.map(s =>
+                s.name === 'Email Service'
+                    ? {
+                        ...s,
+                        status: emailData.configured ? 'connected' : 'disconnected',
+                        message: emailData.configured ? `${emailData.provider} configured` : 'Not configured'
+                    }
+                    : s
+            ));
+        } catch {
+            setServices(prev => prev.map(s =>
+                s.name === 'Email Service' ? { ...s, status: 'disconnected', message: 'Not configured' } : s
+            ));
+        }
+
         setIsRefreshing(false);
     };
 
     useEffect(() => {
         checkConnections();
     }, []);
+
+    const handleAddWebhook = () => {
+        if (!newWebhook.name || !newWebhook.url) return;
+
+        const webhook: Webhook = {
+            id: Date.now().toString(),
+            name: newWebhook.name,
+            url: newWebhook.url,
+            events: newWebhook.events,
+            enabled: true,
+        };
+        setWebhooks([...webhooks, webhook]);
+        setNewWebhook({ name: '', url: '', events: ['case.updated'] });
+        setShowWebhookModal(false);
+    };
+
+    const handleDeleteWebhook = (id: string) => {
+        setWebhooks(webhooks.filter(w => w.id !== id));
+    };
+
+    const handleToggleWebhook = (id: string) => {
+        setWebhooks(webhooks.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w));
+    };
+
+    const handleRegenerateApiKey = async () => {
+        setIsRegenerating(true);
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const newKey = 'fedex_prod_' + Math.random().toString(36).substring(2, 26);
+        setApiKey(newKey);
+        setIsRegenerating(false);
+        setShowApiKey(true);
+    };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -160,6 +228,53 @@ export default function IntegrationsSettingsPage() {
                 </div>
             </div>
 
+            {/* FedEx Production API */}
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">FedEx Production API</h3>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg">
+                        <div>
+                            <p className="font-medium text-gray-900 dark:text-white">API Key</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                Used for authenticating external integrations
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <code className="px-3 py-2 bg-gray-100 dark:bg-[#1a1a1a] rounded text-sm font-mono text-gray-800 dark:text-gray-200">
+                                {showApiKey ? apiKey : '••••••••••••••••••••••••'}
+                            </code>
+                            <button
+                                onClick={() => setShowApiKey(!showApiKey)}
+                                className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                title={showApiKey ? 'Hide' : 'Reveal'}
+                            >
+                                {showApiKey ? '🙈' : '👁️'}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(apiKey);
+                            }}
+                            className="px-4 py-2 text-sm bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-[#333]"
+                        >
+                            📋 Copy Key
+                        </button>
+                        <button
+                            onClick={handleRegenerateApiKey}
+                            disabled={isRegenerating}
+                            className="px-4 py-2 text-sm bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50"
+                        >
+                            {isRegenerating ? '⏳ Regenerating...' : '🔄 Regenerate Key'}
+                        </button>
+                    </div>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                        ⚠️ Regenerating the API key will invalidate all existing integrations using the current key.
+                    </p>
+                </div>
+            </div>
+
             {/* Environment Info */}
             <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Environment</h3>
@@ -187,16 +302,113 @@ export default function IntegrationsSettingsPage() {
             <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white">Webhooks</h3>
-                    <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm">
+                    <button
+                        onClick={() => setShowWebhookModal(true)}
+                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm"
+                    >
                         + Add Webhook
                     </button>
                 </div>
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <span className="text-4xl mb-2 block">🔗</span>
-                    <p>No webhooks configured</p>
-                    <p className="text-sm">Add a webhook to receive real-time updates</p>
-                </div>
+
+                {webhooks.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <span className="text-4xl mb-2 block">🔗</span>
+                        <p>No webhooks configured</p>
+                        <p className="text-sm">Add a webhook to receive real-time updates</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {webhooks.map(webhook => (
+                            <div key={webhook.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-[#222] rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-3 h-3 rounded-full ${webhook.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    <div>
+                                        <p className="font-medium text-gray-900 dark:text-white">{webhook.name}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{webhook.url}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleToggleWebhook(webhook.id)}
+                                        className={`px-3 py-1 text-xs rounded ${webhook.enabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}
+                                    >
+                                        {webhook.enabled ? 'Active' : 'Paused'}
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteWebhook(webhook.id)}
+                                        className="p-1 text-red-500 hover:text-red-600"
+                                    >
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
+
+            {/* Add Webhook Modal */}
+            {showWebhookModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200 dark:border-[#333]">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Webhook</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                                <input
+                                    type="text"
+                                    value={newWebhook.name}
+                                    onChange={(e) => setNewWebhook({ ...newWebhook, name: e.target.value })}
+                                    placeholder="My Webhook"
+                                    className="w-full px-3 py-2 border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#111] text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endpoint URL</label>
+                                <input
+                                    type="url"
+                                    value={newWebhook.url}
+                                    onChange={(e) => setNewWebhook({ ...newWebhook, url: e.target.value })}
+                                    placeholder="https://your-server.com/webhook"
+                                    className="w-full px-3 py-2 border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#111] text-gray-900 dark:text-white font-mono text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Events</label>
+                                <select
+                                    multiple
+                                    value={newWebhook.events}
+                                    onChange={(e) => setNewWebhook({ ...newWebhook, events: Array.from(e.target.selectedOptions, o => o.value) })}
+                                    className="w-full px-3 py-2 border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#111] text-gray-900 dark:text-white"
+                                >
+                                    <option value="case.created">Case Created</option>
+                                    <option value="case.updated">Case Updated</option>
+                                    <option value="case.escalated">Case Escalated</option>
+                                    <option value="case.resolved">Case Resolved</option>
+                                    <option value="sla.breach">SLA Breach</option>
+                                    <option value="payment.received">Payment Received</option>
+                                </select>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hold Ctrl/Cmd to select multiple</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 justify-end mt-6">
+                            <button
+                                onClick={() => setShowWebhookModal(false)}
+                                className="px-4 py-2 bg-gray-100 dark:bg-[#333] text-gray-700 dark:text-gray-300 rounded-lg"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAddWebhook}
+                                disabled={!newWebhook.name || !newWebhook.url}
+                                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                            >
+                                Add Webhook
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
