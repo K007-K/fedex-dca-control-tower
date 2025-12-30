@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { getCaseFilter, isFedExRole, isDCARole } from '@/lib/auth';
+import { isFedExRole, isDCARole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { sendEscalationEmail } from '@/lib/email';
 
 interface Escalation {
     id: string;
@@ -156,28 +155,8 @@ const handleCreateEscalation: ApiHandler = async (request, { user }) => {
             .update({ status: 'ESCALATED', updated_at: new Date().toISOString() })
             .eq('id', body.case_id);
 
-        // Create in-app notification for the escalation
+        // Create notification (checks preferences and sends email if enabled)
         if (body.escalated_to) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any).from('notifications').insert({
-                recipient_id: body.escalated_to,
-                notification_type: 'ESCALATION_CREATED',
-                title: 'New Escalation Assigned',
-                message: `You have been assigned escalation: ${body.title}`,
-                related_case_id: body.case_id,
-                related_escalation_id: (escalation as Escalation).id,
-                channels: ['IN_APP', 'EMAIL'],
-                priority: body.severity === 'HIGH' || body.severity === 'CRITICAL' ? 'HIGH' : 'NORMAL',
-            });
-
-            // P0-5: Send email notification
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: recipientData } = await (supabase as any)
-                .from('users')
-                .select('email, full_name')
-                .eq('id', body.escalated_to)
-                .single();
-
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: caseData } = await (supabase as any)
                 .from('cases')
@@ -185,19 +164,24 @@ const handleCreateEscalation: ApiHandler = async (request, { user }) => {
                 .eq('id', body.case_id)
                 .single();
 
-            if (recipientData && caseData) {
-                // Fire and forget - don't block on email
-                sendEscalationEmail({
-                    recipientEmail: recipientData.email,
-                    recipientName: recipientData.full_name,
+            // Import notification service dynamically to avoid circular deps
+            const { createNotification } = await import('@/lib/notifications/notification-service');
+
+            createNotification({
+                recipientId: body.escalated_to,
+                notificationType: 'ESCALATION_CREATED',
+                title: 'New Escalation Assigned',
+                message: `You have been assigned escalation: ${body.title}`,
+                relatedCaseId: body.case_id,
+                relatedEscalationId: (escalation as Escalation).id,
+                priority: body.severity === 'HIGH' || body.severity === 'CRITICAL' ? 'HIGH' : 'NORMAL',
+                emailData: caseData ? {
                     caseNumber: caseData.case_number,
                     customerName: caseData.customer_name,
                     reason: body.description,
-                    priority: body.severity || 'MEDIUM',
                     escalatedBy: user.email,
-                    caseId: body.case_id,
-                }).catch(err => console.error('Failed to send escalation email:', err));
-            }
+                } : undefined,
+            }).catch(err => console.error('Notification error:', err));
         }
 
         return NextResponse.json({ data: escalation }, { status: 201 });
