@@ -129,39 +129,105 @@ export default function IntegrationsSettingsPage() {
 
     useEffect(() => {
         checkConnections();
+        fetchWebhooks();
+        fetchApiKey();
     }, []);
 
-    const handleAddWebhook = () => {
+    const fetchWebhooks = async () => {
+        try {
+            const res = await fetch('/api/webhooks');
+            const data = await res.json();
+            if (data.data) {
+                setWebhooks(data.data.map((w: { id: string; name: string; url: string; events: string[]; is_active: boolean }) => ({
+                    id: w.id,
+                    name: w.name,
+                    url: w.url,
+                    events: w.events,
+                    enabled: w.is_active,
+                })));
+            }
+        } catch (err) {
+            console.error('Failed to fetch webhooks:', err);
+        }
+    };
+
+    const fetchApiKey = async () => {
+        try {
+            const res = await fetch('/api/settings/api-keys');
+            const data = await res.json();
+            if (data.data) {
+                setApiKey(data.data.key_prefix);
+            }
+        } catch (err) {
+            console.error('Failed to fetch API key:', err);
+        }
+    };
+
+    const handleAddWebhook = async () => {
         if (!newWebhook.name || !newWebhook.url) return;
 
-        const webhook: Webhook = {
-            id: Date.now().toString(),
-            name: newWebhook.name,
-            url: newWebhook.url,
-            events: newWebhook.events,
-            enabled: true,
-        };
-        setWebhooks([...webhooks, webhook]);
-        setNewWebhook({ name: '', url: '', events: ['case.updated'] });
-        setShowWebhookModal(false);
+        try {
+            const res = await fetch('/api/webhooks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newWebhook),
+            });
+            const data = await res.json();
+            if (res.ok && data.data) {
+                setWebhooks([...webhooks, {
+                    id: data.data.id,
+                    name: data.data.name,
+                    url: data.data.url,
+                    events: data.data.events,
+                    enabled: data.data.is_active,
+                }]);
+                setNewWebhook({ name: '', url: '', events: ['case.updated'] });
+                setShowWebhookModal(false);
+            }
+        } catch (err) {
+            console.error('Failed to add webhook:', err);
+        }
     };
 
-    const handleDeleteWebhook = (id: string) => {
-        setWebhooks(webhooks.filter(w => w.id !== id));
+    const handleDeleteWebhook = async (id: string) => {
+        try {
+            await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+            setWebhooks(webhooks.filter(w => w.id !== id));
+        } catch (err) {
+            console.error('Failed to delete webhook:', err);
+        }
     };
 
-    const handleToggleWebhook = (id: string) => {
-        setWebhooks(webhooks.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w));
+    const handleToggleWebhook = async (id: string) => {
+        const webhook = webhooks.find(w => w.id === id);
+        if (!webhook) return;
+        try {
+            await fetch(`/api/webhooks/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_active: !webhook.enabled }),
+            });
+            setWebhooks(webhooks.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w));
+        } catch (err) {
+            console.error('Failed to toggle webhook:', err);
+        }
     };
 
     const handleRegenerateApiKey = async () => {
         setIsRegenerating(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const newKey = 'fedex_prod_' + Math.random().toString(36).substring(2, 26);
-        setApiKey(newKey);
-        setIsRegenerating(false);
-        setShowApiKey(true);
+        try {
+            const res = await fetch('/api/settings/api-keys', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.data) {
+                setApiKey(data.data.key); // Show full key only on regeneration
+                setShowApiKey(true);
+                alert('New API key generated! This is the only time this key will be shown. Please save it now.');
+            }
+        } catch (err) {
+            console.error('Failed to regenerate API key:', err);
+        } finally {
+            setIsRegenerating(false);
+        }
     };
 
     const getStatusBadge = (status: string) => {

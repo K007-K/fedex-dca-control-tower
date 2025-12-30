@@ -182,6 +182,20 @@ const handleCreateEscalation: ApiHandler = async (request, { user }) => {
                     escalatedBy: user.email,
                 } : undefined,
             }).catch(err => console.error('Notification error:', err));
+
+            // Fire webhook event for escalation
+            const { fireWebhookEvent } = await import('@/lib/webhooks');
+            fireWebhookEvent('case.escalated', {
+                escalation_id: (escalation as Escalation).id,
+                case_id: body.case_id,
+                case_number: caseData?.case_number,
+                customer_name: caseData?.customer_name,
+                escalation_type: body.escalation_type,
+                severity: body.severity || 'MEDIUM',
+                title: body.title,
+                escalated_by: user.email,
+                escalated_to: body.escalated_to,
+            }).catch(err => console.error('Webhook error:', err));
         }
 
         return NextResponse.json({ data: escalation }, { status: 201 });
