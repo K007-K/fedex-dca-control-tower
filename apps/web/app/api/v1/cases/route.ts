@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/auth/api-key-auth';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/v1/cases - Get cases via API key authentication
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const { searchParams } = new URL(request.url);
 
         // Parse query params
@@ -37,11 +37,11 @@ export async function GET(request: NextRequest) {
         const offset = parseInt(searchParams.get('offset') || '0');
         const status = searchParams.get('status');
 
-        // Build query
+        // Build query - use columns that exist in the schema
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let query = (supabase as any)
             .from('cases')
-            .select('id, case_number, title, status, priority, category, created_at, updated_at, customer_name, customer_email', { count: 'exact' })
+            .select('id, case_number, status, priority, customer_name, customer_id, outstanding_amount, recovered_amount, created_at, updated_at', { count: 'exact' })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 

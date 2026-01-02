@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/auth/api-key-auth';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/v1/cases/[id] - Get a single case by ID via API key authentication
@@ -28,7 +28,7 @@ export async function GET(
 
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        const supabase = createAdminClient();
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: caseData, error } = await (supabase as any)

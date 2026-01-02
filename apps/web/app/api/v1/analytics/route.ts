@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/auth/api-key-auth';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/v1/analytics - Get analytics data via API key authentication
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
 
         // Get total counts
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
