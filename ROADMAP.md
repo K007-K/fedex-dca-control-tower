@@ -135,13 +135,13 @@ This document tracks all implementation phases, their tasks, and current status.
 
 ---
 
-## Phase 11: Security Hardening ✅ 70%
+## Phase 11: Security Hardening ✅ 85%
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Implement rate limiting | ✅ Done | lib/rate-limit.ts |
 | Add input validation across all endpoints | ✅ Done | Zod schemas |
-| Set up audit logging | ❌ Not done | |
+| Set up audit logging | ✅ Done | API + case creation logged |
 | Configure CORS and security headers | ⏳ Partial | |
 | Add request tracing (correlation IDs) | ❌ Not done | |
 

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, withAuth, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { getCaseFilter, isDCARole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { logUserAction } from '@/lib/audit';
 
 /**
  * GET /api/cases
@@ -186,6 +187,21 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
         // Auto-create SLA for the new case (P0-3 fix)
         if (data) {
             await createDefaultSLA(supabase, data.id);
+
+            // Log audit event for case creation
+            logUserAction(
+                'CASE_CREATED',
+                user.id,
+                user.email,
+                'case',
+                data.id,
+                {
+                    case_number: data.case_number,
+                    customer_name: data.customer_name,
+                    original_amount: data.original_amount,
+                    priority: data.priority,
+                }
+            ).catch(err => console.error('Audit log error:', err));
         }
 
         return NextResponse.json({ data }, { status: 201 });
