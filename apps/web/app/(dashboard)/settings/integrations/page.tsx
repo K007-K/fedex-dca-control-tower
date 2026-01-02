@@ -89,17 +89,17 @@ export default function IntegrationsSettingsPage() {
             ));
         }
 
-        // Check ML Service
+        // Check ML Service via proxy API (works on both localhost and production)
         try {
-            const mlRes = await fetch('http://localhost:8000/health', {
+            const mlRes = await fetch('/api/ml/health', {
                 method: 'GET',
-                signal: AbortSignal.timeout(3000)
+                signal: AbortSignal.timeout(5000)
             });
             if (mlRes.ok) {
                 const mlData = await mlRes.json();
                 setServices(prev => prev.map(s =>
                     s.name === 'ML Service'
-                        ? { ...s, status: 'connected', message: `v${mlData.version || '1.0'} - Active on port 8000` }
+                        ? { ...s, status: 'connected', message: `v${mlData.version || '1.0'} - Active` }
                         : s
                 ));
             } else {
@@ -108,7 +108,7 @@ export default function IntegrationsSettingsPage() {
         } catch {
             setServices(prev => prev.map(s =>
                 s.name === 'ML Service'
-                    ? { ...s, status: 'error', message: 'ML Service not running on port 8000' }
+                    ? { ...s, status: 'error', message: 'ML Service not responding' }
                     : s
             ));
         }
@@ -381,7 +381,9 @@ export default function IntegrationsSettingsPage() {
                     </div>
                     <div className="flex justify-between p-3 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg">
                         <span className="text-gray-600 dark:text-gray-400">ML Service URL</span>
-                        <span className="font-mono text-sm text-gray-900 dark:text-white">http://localhost:8000</span>
+                        <span className="font-mono text-sm text-gray-900 dark:text-white">
+                            {typeof window !== 'undefined' ? '/api/ml/* (proxied)' : 'Configured via proxy'}
+                        </span>
                     </div>
                     <div className="flex justify-between p-3 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg">
                         <span className="text-gray-600 dark:text-gray-400">Environment</span>
