@@ -1,10 +1,10 @@
 /**
-
-// Force dynamic rendering - this route uses cookies/headers
-export const dynamic = 'force-dynamic';
  * ML Service Health Check Proxy
  */
 import { NextResponse } from 'next/server';
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 

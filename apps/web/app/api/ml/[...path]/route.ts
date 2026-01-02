@@ -1,11 +1,11 @@
 /**
-
-// Force dynamic rendering - this route uses cookies/headers
-export const dynamic = 'force-dynamic';
  * ML Service Proxy API
  * Routes ML service requests through Next.js for production compatibility
  */
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
