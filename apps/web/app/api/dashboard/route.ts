@@ -1,7 +1,4 @@
 /**
-
-// Force dynamic rendering - this route uses cookies/headers
-export const dynamic = 'force-dynamic';
  * Dashboard API - Fetches dashboard data with region filtering
  * SECURITY: Requires authentication and analytics:read permission
  * Region filtering is SERVER-ENFORCED via SecureQueryBuilder
@@ -12,6 +9,9 @@ import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { isDCARole } from '@/lib/auth';
 import { getCurrencyForRegion } from '@/lib/config/config';
 import { secureQuery } from '@/lib/auth/secure-query';
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
 
 interface Case {
     id: string;

@@ -1,7 +1,4 @@
 /**
-
-// Force dynamic rendering - this route uses cookies/headers
-export const dynamic = 'force-dynamic';
  * GET /api/analytics/dashboard
  * Get dashboard metrics and summary statistics
  * SECURITY: Requires authentication and analytics:read permission
@@ -11,6 +8,9 @@ import { NextResponse } from 'next/server';
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { isDCARole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
 
 const handleGetAnalytics: ApiHandler = async (request, { user }) => {
     try {
