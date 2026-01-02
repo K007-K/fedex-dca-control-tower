@@ -1,7 +1,4 @@
 /**
-
-// Force dynamic rendering - this route uses cookies/headers
-export const dynamic = 'force-dynamic';
  * Region Resolve API
  * 
  * POST /api/regions/resolve - Resolve region from geography data
@@ -15,6 +12,9 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { regionAssignmentEngine, type GeographyData } from '@/lib/region';
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
 
 // POST /api/regions/resolve - Resolve region from geography
 export async function POST(request: NextRequest) {
