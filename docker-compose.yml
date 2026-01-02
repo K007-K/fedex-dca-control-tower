@@ -1,8 +1,6 @@
 # FedEx DCA Control Tower - Docker Compose
 # Run: docker compose up -d
 
-version: '3.8'
-
 services:
   # Next.js Web Application
   web:
