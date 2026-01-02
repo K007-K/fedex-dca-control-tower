@@ -135,28 +135,28 @@ This document tracks all implementation phases, their tasks, and current status.
 
 ---
 
-## Phase 11: Security Hardening ✅ 85%
+## Phase 11: Security Hardening ✅ 100%
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Implement rate limiting | ✅ Done | lib/rate-limit.ts |
 | Add input validation across all endpoints | ✅ Done | Zod schemas |
 | Set up audit logging | ✅ Done | API + case creation logged |
-| Configure CORS and security headers | ⏳ Partial | |
-| Add request tracing (correlation IDs) | ❌ Not done | |
+| Configure CORS and security headers | ✅ Done | next.config.js |
+| Add request tracing (correlation IDs) | ✅ Done | lib/tracing.ts |
 
 ---
 
-## Phase 12: Testing & Documentation ❌ 10%
+## Phase 12: Testing & Documentation ✅ 75%
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Write unit tests for critical services | ❌ Not done | |
-| Create integration tests for APIs | ❌ Not done | |
+| Write unit tests for critical services | ⏳ Partial | Jest configured |
+| Create integration tests for APIs | ⏳ Partial | |
 | Add E2E tests with Playwright | ❌ Not done | |
-| Complete API documentation | ❌ Not done | |
-| Write architecture documentation | ⏳ Partial | README only |
-| Create deployment guide | ❌ Not done | |
+| Complete API documentation | ✅ Done | docs/API.md |
+| Write architecture documentation | ✅ Done | README + docs |
+| Create deployment guide | ✅ Done | docs/DEPLOYMENT.md |
 
 ---
 
