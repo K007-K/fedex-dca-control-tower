@@ -59,11 +59,11 @@ export async function POST() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get user's database ID
+        // Get user's database ID and role
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: dbUser } = await (supabase as any)
             .from('users')
-            .select('id, organization_id')
+            .select('id, role, organization_id')
             .eq('email', user.email)
             .single();
 
@@ -105,6 +105,25 @@ export async function POST() {
         if (error) {
             console.error('API Key creation error:', JSON.stringify(error));
             return NextResponse.json({ error: 'Failed to create API key', debug: error }, { status: 500 });
+        }
+
+        // AUDIT LOG: Record API key regeneration
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any)
+                .from('region_audit_log')
+                .insert({
+                    entity_type: 'API_KEY',
+                    entity_id: newKey.id,
+                    action: 'REGENERATE',
+                    performed_by: dbUser.id,
+                    performed_by_role: dbUser.role,
+                    new_values: { key_prefix: prefix, name: 'Production API Key' },
+                    change_reason: 'API key regenerated via Settings > Integrations',
+                });
+        } catch (auditError) {
+            // Don't fail the request if audit logging fails
+            console.error('Audit log error:', auditError);
         }
 
         // Return the full key ONLY on creation (never again)

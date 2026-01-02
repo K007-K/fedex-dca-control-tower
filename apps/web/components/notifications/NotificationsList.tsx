@@ -43,6 +43,25 @@ const TYPE_COLORS: Record<string, { bg: string; border: string; darkBg: string; 
     SYSTEM_ALERT: { bg: 'bg-gray-50', border: 'border-gray-200', darkBg: 'dark:bg-gray-500/10', darkBorder: 'dark:border-gray-500/30' },
 };
 
+/**
+ * Critical notification types that cannot be dismissed by SUPER_ADMIN
+ * These represent governance-level alerts that must be acknowledged permanently
+ */
+const CRITICAL_NOTIFICATION_TYPES = [
+    'SLA_BREACH',           // SLA systemic breaches require attention
+    'SLA_SYSTEMIC',         // Region-wide SLA issues
+    'SYSTEM_ALERT',         // Platform health alerts
+    'SECURITY_ALERT',       // Security events
+    'SERVICE_DEGRADATION',  // AI/ML service issues
+];
+
+/**
+ * Check if a notification type is critical (non-dismissible)
+ */
+const isCriticalNotification = (type: string): boolean => {
+    return CRITICAL_NOTIFICATION_TYPES.includes(type);
+};
+
 export function NotificationsList({ notifications }: NotificationsListProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -149,7 +168,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                                                     View Case
                                                 </Link>
                                             )}
-                                            {!notification.is_read && (
+                                            {!notification.is_read && !isCriticalNotification(notification.notification_type) && (
                                                 <button
                                                     onClick={() => markAsRead(notification.id)}
                                                     disabled={isPending}
@@ -157,6 +176,11 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                                                 >
                                                     Mark as read
                                                 </button>
+                                            )}
+                                            {!notification.is_read && isCriticalNotification(notification.notification_type) && (
+                                                <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                                                    🔒 Critical Alert
+                                                </span>
                                             )}
                                         </div>
                                     </div>
