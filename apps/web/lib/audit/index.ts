@@ -29,6 +29,11 @@ export type AuditAction =
     | 'CASE_DELETED'
     | 'CASE_ASSIGNED'
     | 'CASE_ESCALATED'
+    | 'CASE_STATUS_CHANGED'
+    // Bulk operations
+    | 'BULK_ACTION'
+    | 'BULK_STATUS_CHANGE'
+    | 'BULK_ALLOCATION'
     // DCA events
     | 'DCA_CREATED'
     | 'DCA_UPDATED'
@@ -42,7 +47,6 @@ export type AuditAction =
     | 'PERMISSION_GRANTED'
     // Operations
     | 'REPORT_GENERATED'
-    | 'BULK_ACTION'
     | 'RATE_LIMITED';
 
 export type AuditSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';

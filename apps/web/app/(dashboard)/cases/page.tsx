@@ -1,8 +1,12 @@
 import { Suspense } from 'react';
+import { cookies } from 'next/headers';
 
 import { CaseFilters, CaseTableWithSelection } from '@/components/cases';
 import { Pagination } from '@/components/ui/pagination';
-import { createClient } from '@/lib/supabase/server';
+import { secureQuery, type SecureUser } from '@/lib/auth/secure-query';
+import { getCurrentUser } from '@/lib/auth';
+import { regionRBAC } from '@/lib/region';
+import { REGION_COOKIE_NAME } from '@/lib/context/RegionContext';
 
 interface PageProps {
     searchParams: Promise<{
@@ -11,53 +15,91 @@ interface PageProps {
         status?: string;
         priority?: string;
         dca_id?: string;
+        region?: string;
     }>;
 }
 
 async function CasesContent({ searchParams }: { searchParams: PageProps['searchParams'] }) {
     const params = await searchParams;
-    const supabase = await createClient();
+    const authUser = await getCurrentUser();
+
+    // Read region from cookie (set by sidebar region switcher)
+    const cookieStore = await cookies();
+    const selectedRegion = cookieStore.get(REGION_COOKIE_NAME)?.value;
+
+    // Redirect if not authenticated
+    if (!authUser) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-gray-500">Please log in to view cases.</p>
+            </div>
+        );
+    }
+
+    // Enrich user with accessible regions for SecureQueryBuilder
+    const accessibleRegions = await regionRBAC.getUserAccessibleRegions(authUser.id);
+    const regionIds = accessibleRegions.map(r => r.region_id);
+    const isGlobalAdmin = ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(authUser.role);
+
+    const user: SecureUser = {
+        id: authUser.id,
+        email: authUser.email || '',
+        role: authUser.role,
+        dcaId: authUser.dcaId,
+        accessibleRegions: regionIds,
+        isGlobalAdmin,
+    };
 
     const page = parseInt(params.page ?? '1');
     const limit = 15;
     const offset = (page - 1) * limit;
 
-    // Build query with filters
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase as any)
-        .from('cases')
-        .select('*, assigned_dca:dcas(id, name)', { count: 'exact' });
+    // Determine effective region filter (URL param takes precedence, then cookie)
+    const effectiveRegion = params.region || (selectedRegion && selectedRegion !== 'ALL' ? selectedRegion : null);
 
+
+    // Use SecureQueryBuilder for region-enforced queries
+    const queryBuilder = secureQuery(user)
+        .from('cases')
+        .select('*, region, assigned_dca:dcas(id, name)')
+        .withOptions({ regionColumn: 'region' });
+
+    // Add search filter
     if (params.search) {
-        query = query.or(`case_number.ilike.%${params.search}%,customer_name.ilike.%${params.search}%`);
+        queryBuilder.or(`case_number.ilike.%${params.search}%,customer_name.ilike.%${params.search}%`);
     }
     if (params.status) {
-        query = query.eq('status', params.status);
+        queryBuilder.eq('status', params.status);
     }
     if (params.priority) {
-        query = query.eq('priority', params.priority);
+        queryBuilder.eq('priority', params.priority);
     }
     if (params.dca_id) {
-        query = query.eq('assigned_dca_id', params.dca_id);
+        queryBuilder.eq('assigned_dca_id', params.dca_id);
+    }
+    // Region filter from URL param (overrides user's accessible regions for admins)
+    if (effectiveRegion) {
+        queryBuilder.eq('region', effectiveRegion);
     }
 
-    query = query
+    // Execute with region filtering
+    const { data: cases, error, count } = await queryBuilder
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-    const { data: cases, count, error } = await query;
+        .range(offset, offset + limit - 1)
+        .execute();
 
     if (error) {
         console.error('Cases fetch error:', error);
     }
 
-    // Fetch DCAs for filter dropdown and bulk assignment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dcas } = await (supabase as any)
+    // Fetch DCAs for filter dropdown - also region filtered
+    const dcaQueryBuilder = secureQuery(user)
         .from('dcas')
         .select('id, name')
         .eq('status', 'ACTIVE')
         .order('name');
+
+    const { data: dcas } = await dcaQueryBuilder.execute();
 
     const totalPages = Math.ceil((count ?? 0) / limit);
 
@@ -67,6 +109,7 @@ async function CasesContent({ searchParams }: { searchParams: PageProps['searchP
     if (params.status) currentSearchParams.status = params.status;
     if (params.priority) currentSearchParams.priority = params.priority;
     if (params.dca_id) currentSearchParams.dca_id = params.dca_id;
+    if (params.region) currentSearchParams.region = params.region;
 
     return (
         <>

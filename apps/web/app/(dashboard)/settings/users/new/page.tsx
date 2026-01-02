@@ -2,25 +2,66 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { useToast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
+import { LocationSearch } from '@/components/ui/LocationSearch';
 
-const roles = [
-    { value: 'READONLY', label: 'Read Only', org: 'any' },
-    { value: 'DCA_AGENT', label: 'DCA Agent', org: 'dca' },
-    { value: 'DCA_MANAGER', label: 'DCA Manager', org: 'dca' },
-    { value: 'DCA_ADMIN', label: 'DCA Admin', org: 'dca' },
-    { value: 'FEDEX_ANALYST', label: 'FedEx Analyst', org: 'fedex' },
-    { value: 'FEDEX_MANAGER', label: 'FedEx Manager', org: 'fedex' },
-    { value: 'FEDEX_ADMIN', label: 'FedEx Admin', org: 'fedex' },
-    { value: 'AUDITOR', label: 'Auditor', org: 'any' },
+// =====================================================
+// ROLE DEFINITIONS - MATCHING API BUSINESS RULES
+// =====================================================
+// FedEx can create: FEDEX roles + DCA_ADMIN
+// DCA_ADMIN can create: DCA_MANAGER, DCA_AGENT only
+
+interface RoleDefinition {
+    value: string;
+    label: string;
+    org: 'fedex' | 'dca' | 'any';
+    level: number;
+    fedexCanCreate: boolean;
+    dcaAdminCanCreate: boolean;
+}
+
+const ALL_ROLES: RoleDefinition[] = [
+    { value: 'READONLY', label: 'Read Only', org: 'any', level: 10, fedexCanCreate: true, dcaAdminCanCreate: false },
+    { value: 'DCA_AGENT', label: 'DCA Agent', org: 'dca', level: 20, fedexCanCreate: false, dcaAdminCanCreate: true },
+    { value: 'AUDITOR', label: 'Auditor', org: 'any', level: 30, fedexCanCreate: true, dcaAdminCanCreate: false },
+    { value: 'DCA_MANAGER', label: 'DCA Manager', org: 'dca', level: 40, fedexCanCreate: false, dcaAdminCanCreate: true },
+    { value: 'FEDEX_ANALYST', label: 'FedEx Analyst', org: 'fedex', level: 50, fedexCanCreate: true, dcaAdminCanCreate: false },
+    { value: 'DCA_ADMIN', label: 'DCA Admin', org: 'dca', level: 60, fedexCanCreate: true, dcaAdminCanCreate: false },
+    { value: 'FEDEX_MANAGER', label: 'FedEx Manager', org: 'fedex', level: 70, fedexCanCreate: true, dcaAdminCanCreate: false },
+    { value: 'FEDEX_ADMIN', label: 'FedEx Admin', org: 'fedex', level: 90, fedexCanCreate: true, dcaAdminCanCreate: false },
 ];
+
+const ROLE_HIERARCHY: Record<string, number> = {
+    'SUPER_ADMIN': 100,
+    'FEDEX_ADMIN': 90,
+    'FEDEX_MANAGER': 70,
+    'FEDEX_ANALYST': 50,
+    'DCA_ADMIN': 60,
+    'DCA_MANAGER': 40,
+    'DCA_AGENT': 20,
+    'AUDITOR': 30,
+    'READONLY': 10,
+};
 
 interface DCA {
     id: string;
     name: string;
+    region?: string;
+}
+
+interface Region {
+    id: string;
+    name: string;
+    region_code: string;
+}
+
+interface CurrentUser {
+    role: string;
+    dcaId?: string;
+    dcaName?: string;
 }
 
 interface CreatedUserResult {
@@ -34,23 +75,47 @@ export default function CreateUserPage() {
     const toast = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [dcas, setDcas] = useState<DCA[]>([]);
+    const [regions, setRegions] = useState<Region[]>([]);
     const [createdUser, setCreatedUser] = useState<CreatedUserResult | null>(null);
+    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
         personalEmail: '',
-        role: 'READONLY',
+        role: '',
         dcaId: '',
+        regionId: '',
         phone: '',
     });
 
-    // Generate work email preview
-    const generatedWorkEmail = formData.firstName && formData.lastName
-        ? `${formData.firstName.toLowerCase().replace(/\s+/g, '')}.${formData.lastName.toLowerCase().replace(/\s+/g, '')}@fedex-dca.com`
-        : '';
+    // Fetch current user's role to determine available roles
+    useEffect(() => {
+        async function fetchCurrentUser() {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    const data = await response.json();
+                    setCurrentUser({
+                        role: data.user?.role || 'READONLY',
+                        dcaId: data.user?.dca_id || undefined,
+                    });
+                    // If DCA user, pre-select their DCA
+                    if (data.user?.dca_id) {
+                        setFormData(prev => ({ ...prev, dcaId: data.user.dca_id }));
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch current user:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchCurrentUser();
+    }, []);
 
-    // Fetch DCAs for dropdown
+    // Fetch DCAs for dropdown (only if FedEx user creating DCA_ADMIN)
     useEffect(() => {
         async function fetchDcas() {
             try {
@@ -66,7 +131,99 @@ export default function CreateUserPage() {
         fetchDcas();
     }, []);
 
-    const isDCARole = roles.find(r => r.value === formData.role)?.org === 'dca';
+    // Fetch regions for FedEx user creation
+    useEffect(() => {
+        async function fetchRegions() {
+            try {
+                const response = await fetch('/api/regions');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.data && data.data.length > 0) {
+                        setRegions(data.data);
+                    } else {
+                        // Fallback to hardcoded regions if API returns empty
+                        setRegions([
+                            { id: 'INDIA', name: 'India', region_code: 'INDIA' },
+                            { id: 'AMERICAS', name: 'Americas', region_code: 'AMERICAS' },
+                            { id: 'EMEA', name: 'Europe, Middle East & Africa', region_code: 'EMEA' },
+                            { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
+                        ]);
+                    }
+                } else {
+                    // Fallback if API fails
+                    setRegions([
+                        { id: 'INDIA', name: 'India', region_code: 'INDIA' },
+                        { id: 'AMERICAS', name: 'Americas', region_code: 'AMERICAS' },
+                        { id: 'EMEA', name: 'Europe, Middle East & Africa', region_code: 'EMEA' },
+                        { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
+                    ]);
+                }
+            } catch (error) {
+                console.error('Failed to fetch regions:', error);
+                // Fallback on error
+                setRegions([
+                    { id: 'INDIA', name: 'India', region_code: 'INDIA' },
+                    { id: 'AMERICAS', name: 'Americas', region_code: 'AMERICAS' },
+                    { id: 'EMEA', name: 'Europe, Middle East & Africa', region_code: 'EMEA' },
+                    { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
+                ]);
+            }
+        }
+        fetchRegions();
+    }, []);
+
+    // Check if current user is FedEx or DCA
+    const isFedExUser = useMemo(() => {
+        if (!currentUser) return false;
+        return ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST'].includes(currentUser.role);
+    }, [currentUser]);
+
+    const isDCAUser = useMemo(() => {
+        if (!currentUser) return false;
+        return ['DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT'].includes(currentUser.role);
+    }, [currentUser]);
+
+    // Get available roles based on current user's role and business rules
+    const getAvailableRoles = useMemo(() => {
+        if (!currentUser) return [];
+
+        const currentLevel = ROLE_HIERARCHY[currentUser.role] || 0;
+
+        // Filter roles that are:
+        // 1. Lower than current user's level
+        // 2. Allowed based on FedEx/DCA creation rules
+        return ALL_ROLES.filter(role => {
+            // Must be lower level
+            if (role.level >= currentLevel) return false;
+
+            // Apply FedEx/DCA creation rules
+            if (currentUser.role === 'DCA_ADMIN') {
+                return role.dcaAdminCanCreate;
+            } else if (isFedExUser) {
+                return role.fedexCanCreate;
+            }
+
+            return false;
+        });
+    }, [currentUser, isFedExUser]);
+
+    const selectedRoleInfo = ALL_ROLES.find(r => r.value === formData.role);
+    const isDCARole = selectedRoleInfo?.org === 'dca';
+    const isFedExRole = selectedRoleInfo?.org === 'fedex';
+    const showRegionSelector = isFedExUser && isFedExRole;
+    const showDCASelector = isFedExUser && formData.role === 'DCA_ADMIN';
+
+    // Set default role when available roles are loaded
+    useEffect(() => {
+        if (getAvailableRoles.length > 0 && !formData.role) {
+            setFormData(prev => ({ ...prev, role: getAvailableRoles[0].value }));
+        }
+    }, [getAvailableRoles, formData.role]);
+
+    // Generate work email preview
+    const generatedWorkEmail = formData.firstName && formData.lastName
+        ? `${formData.firstName.toLowerCase().replace(/\s+/g, '')}.${formData.lastName.toLowerCase().replace(/\s+/g, '')}@fedex-dca.com`
+        : '';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -82,7 +239,8 @@ export default function CreateUserPage() {
                     email: generatedWorkEmail,
                     full_name: fullName,
                     role: formData.role,
-                    dca_id: isDCARole ? formData.dcaId : null,
+                    dca_id: showDCASelector ? formData.dcaId : (isDCAUser ? undefined : null), // Server will use context for DCA users
+                    region_id: showRegionSelector ? formData.regionId : undefined, // Auto-inherited for DCA
                     phone: formData.phone || null,
                     personal_email: formData.personalEmail || null,
                 }),
@@ -120,6 +278,43 @@ export default function CreateUserPage() {
         toast.success('Copied!', 'Credentials copied to clipboard');
     };
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
+    if (getAvailableRoles.length === 0) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        <Link href="/settings" className="hover:text-primary">Settings</Link>
+                        <span className="mx-2">/</span>
+                        <Link href="/settings/users" className="hover:text-primary">Users</Link>
+                        <span className="mx-2">/</span>
+                        <span className="text-gray-900 dark:text-white">New User</span>
+                    </nav>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create New User</h1>
+                </div>
+
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-400 mb-2">
+                        ⚠️ Permission Denied
+                    </h3>
+                    <p className="text-amber-700 dark:text-amber-300">
+                        Your role ({currentUser?.role?.replace(/_/g, ' ')}) does not have permission to create new users.
+                    </p>
+                    <Link href="/settings/users" className="mt-4 inline-block">
+                        <Button variant="outline">← Back to Users</Button>
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             {/* Page Header */}
@@ -133,6 +328,19 @@ export default function CreateUserPage() {
                 </nav>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create New User</h1>
                 <p className="text-gray-500 dark:text-gray-400">Add a new employee to the system</p>
+            </div>
+
+            {/* Permission Info Banner */}
+            <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-4">
+                <p className="text-sm text-blue-700 dark:text-blue-400">
+                    ℹ️ As a <strong>{currentUser?.role?.replace(/_/g, ' ')}</strong>, you can create: {' '}
+                    <span className="font-medium">{getAvailableRoles.map(r => r.label).join(', ')}</span>
+                </p>
+                {isDCAUser && (
+                    <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                        🏢 Users will be automatically assigned to your DCA and inherit its region.
+                    </p>
+                )}
             </div>
 
             {/* Form */}
@@ -178,9 +386,6 @@ export default function CreateUserPage() {
                                 <span className="text-primary font-mono text-lg">{generatedWorkEmail}</span>
                                 <span className="text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded">Auto-generated</span>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                This email will be used for login. A password will be auto-generated.
-                            </p>
                         </div>
                     )}
 
@@ -196,12 +401,6 @@ export default function CreateUserPage() {
                             placeholder="personal@gmail.com"
                             className="w-full px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                         />
-                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg">
-                            <p className="text-sm text-blue-700 dark:text-blue-400">
-                                📧 <strong>Email Delivery:</strong> After creation, credentials will be displayed in a popup.
-                                To enable automatic email delivery, configure SMTP in your Supabase project settings.
-                            </p>
-                        </div>
                     </div>
 
                     {/* Role */}
@@ -212,10 +411,10 @@ export default function CreateUserPage() {
                         <select
                             required
                             value={formData.role}
-                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                            onChange={(e) => setFormData({ ...formData, role: e.target.value, dcaId: '', regionId: '' })}
                             className="w-full px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                         >
-                            {roles.map((role) => (
+                            {getAvailableRoles.map((role) => (
                                 <option key={role.value} value={role.value}>
                                     {role.label}
                                 </option>
@@ -223,14 +422,14 @@ export default function CreateUserPage() {
                         </select>
                     </div>
 
-                    {/* DCA Selection (only for DCA roles) */}
-                    {isDCARole && (
+                    {/* DCA Selection (only for FedEx creating DCA_ADMIN) */}
+                    {showDCASelector && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Assign to DCA <span className="text-red-500">*</span>
                             </label>
                             <select
-                                required={isDCARole}
+                                required
                                 value={formData.dcaId}
                                 onChange={(e) => setFormData({ ...formData, dcaId: e.target.value })}
                                 className="w-full px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
@@ -242,6 +441,38 @@ export default function CreateUserPage() {
                                     </option>
                                 ))}
                             </select>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                The user&apos;s region will be inherited from the DCA.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Region/Location Selection (only for FedEx creating FedEx roles) */}
+                    {showRegionSelector && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Location / Region <span className="text-gray-400">(optional)</span>
+                            </label>
+                            <LocationSearch
+                                value={formData.regionId}
+                                onChange={(value) => setFormData({ ...formData, regionId: value })}
+                                placeholder="Search for a region, country, or city..."
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Type to search. Leave empty for global access.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* DCA Info for DCA users (read-only) */}
+                    {isDCAUser && isDCARole && (
+                        <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                DCA Assignment
+                            </label>
+                            <p className="text-gray-700 dark:text-gray-300">
+                                ✓ User will be assigned to <strong>your DCA</strong> and inherit its region.
+                            </p>
                         </div>
                     )}
 
@@ -297,7 +528,7 @@ export default function CreateUserPage() {
 
                         <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-500/10 rounded-lg border border-amber-200 dark:border-amber-500/30">
                             <p className="text-sm text-amber-700 dark:text-amber-400">
-                                ⚠️ Save these credentials! Share them securely with the user. They should change their password after first login.
+                                ⚠️ Save these credentials! Share them securely with the user.
                             </p>
                         </div>
 

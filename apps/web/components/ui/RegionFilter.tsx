@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Globe, ChevronDown, Check } from 'lucide-react';
 
-export type Region = 'ALL' | 'INDIA' | 'AMERICA' | 'EUROPE' | 'APAC';
+export type Region = 'ALL' | 'INDIA' | 'AMERICAS' | 'EMEA' | 'APAC';
 
 interface RegionOption {
     value: Region;
@@ -15,9 +15,9 @@ interface RegionOption {
 const REGIONS: RegionOption[] = [
     { value: 'ALL', label: 'All Regions', flag: '🌍' },
     { value: 'INDIA', label: 'India', flag: '🇮🇳', currency: 'INR' },
-    { value: 'AMERICA', label: 'America', flag: '🇺🇸', currency: 'USD' },
-    { value: 'EUROPE', label: 'Europe', flag: '🇪🇺', currency: 'EUR' },
-    { value: 'APAC', label: 'Asia Pacific', flag: '🌏', currency: 'SGD' },
+    { value: 'AMERICAS', label: 'Americas', flag: '🇺🇸', currency: 'USD' },
+    { value: 'EMEA', label: 'Europe/ME/Africa', flag: '🇪🇺', currency: 'EUR' },
+    { value: 'APAC', label: 'Asia Pacific', flag: '🌏', currency: 'USD' },
 ];
 
 interface RegionFilterProps {

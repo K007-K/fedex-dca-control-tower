@@ -65,7 +65,7 @@ export function formatCurrency(
 
 /**
  * Format a number as compact currency
- * @example formatCompactCurrency(1234567) -> '$1.2M'
+ * @example formatCompactCurrency(1234567) -\u003e '$1.2M'
  */
 export function formatCompactCurrency(
     amount: number | null | undefined,
@@ -86,6 +86,43 @@ export function formatCompactCurrency(
         return `${sign}$${(absAmount / 1_000).toFixed(1)}K`;
     }
     return formatCurrency(amount, currency);
+}
+
+/**
+ * Map region code to currency/locale
+ */
+const REGION_CURRENCY_MAP: Record<string, { currency: string; locale: string; symbol: string }> = {
+    INDIA: { currency: 'INR', locale: 'en-IN', symbol: '₹' },
+    AMERICAS: { currency: 'USD', locale: 'en-US', symbol: '$' },
+    AMERICA: { currency: 'USD', locale: 'en-US', symbol: '$' },
+    US: { currency: 'USD', locale: 'en-US', symbol: '$' },
+    EMEA: { currency: 'EUR', locale: 'de-DE', symbol: '€' },
+    EUROPE: { currency: 'EUR', locale: 'de-DE', symbol: '€' },
+    APAC: { currency: 'USD', locale: 'en-SG', symbol: '$' },
+    LATAM: { currency: 'USD', locale: 'es-MX', symbol: '$' },
+};
+
+/**
+ * Format currency based on region code
+ * @example formatCurrencyByRegion(1234.56, 'INDIA') -\u003e '₹1,234.56'
+ */
+export function formatCurrencyByRegion(
+    amount: number | null | undefined,
+    region: string | null | undefined
+): string {
+    if (amount === null || amount === undefined) return '-';
+
+    const config = REGION_CURRENCY_MAP[region?.toUpperCase() || ''] || REGION_CURRENCY_MAP.AMERICAS;
+    return formatCurrency(amount, config.currency, config.locale);
+}
+
+/**
+ * Get currency symbol for a region
+ * @example getCurrencySymbol('INDIA') -\u003e '₹'
+ */
+export function getCurrencySymbol(region: string | null | undefined): string {
+    const config = REGION_CURRENCY_MAP[region?.toUpperCase() || ''] || REGION_CURRENCY_MAP.AMERICAS;
+    return config.symbol;
 }
 
 // ===========================================

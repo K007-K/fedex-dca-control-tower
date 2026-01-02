@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withPermission, withAnyPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { canAccessCase, isDCARole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { CaseStateMachine, CaseActionService } from '@/lib/case';
 
 /**
  * GET /api/cases/[id]
@@ -60,7 +61,7 @@ const handleGetCase: ApiHandler = async (request, { params, user }) => {
 
 /**
  * PATCH /api/cases/[id]
- * Update case details
+ * Update case details with state machine validation
  * Permission: cases:update
  */
 const handleUpdateCase: ApiHandler = async (request, { params, user }) => {
@@ -78,6 +79,51 @@ const handleUpdateCase: ApiHandler = async (request, { params, user }) => {
 
         const supabase = await createClient();
         const body = await request.json();
+
+        // Get current case for state machine validation
+        const { data: currentCase, error: fetchError } = await (supabase as any)
+            .from('cases')
+            .select('id, status, updated_at')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !currentCase) {
+            return NextResponse.json(
+                { error: { code: 'NOT_FOUND', message: 'Case not found' } },
+                { status: 404 }
+            );
+        }
+
+        // STATUS CHANGE: Validate with state machine
+        if (body.status && body.status !== currentCase.status) {
+            const validation = CaseStateMachine.validateBusinessRules(
+                currentCase.status,
+                body.status,
+                {
+                    userId: user.id,
+                    userRole: user.role,
+                    reason: body.status_change_reason,
+                    recoveredAmount: body.recovered_amount,
+                }
+            );
+
+            if (!validation.valid) {
+                return NextResponse.json(
+                    {
+                        error: {
+                            code: 'INVALID_STATE_TRANSITION',
+                            message: validation.reason,
+                            details: {
+                                currentStatus: currentCase.status,
+                                requestedStatus: body.status,
+                                allowedTransitions: CaseStateMachine.getNextStatuses(currentCase.status),
+                            },
+                        },
+                    },
+                    { status: 400 }
+                );
+            }
+        }
 
         const updateData: Record<string, any> = {};
         const allowedFields = [
@@ -106,6 +152,12 @@ const handleUpdateCase: ApiHandler = async (request, { params, user }) => {
             updateData['assignment_method'] = body.assignment_method ?? 'MANUAL';
         }
 
+        // Handle terminal status
+        if (body.status && CaseStateMachine.isTerminal(body.status)) {
+            updateData['closed_at'] = new Date().toISOString();
+            updateData['closure_reason'] = body.status_change_reason || 'STATUS_CHANGE';
+        }
+
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json(
                 { error: { code: 'VALIDATION_ERROR', message: 'No valid fields to update' } },
@@ -116,24 +168,42 @@ const handleUpdateCase: ApiHandler = async (request, { params, user }) => {
         updateData['updated_at'] = new Date().toISOString();
         updateData['updated_by'] = user.id;
 
+        // Optimistic locking - prevent concurrent updates
         const result = await (supabase as any)
             .from('cases')
             .update(updateData)
             .eq('id', id)
+            .eq('updated_at', currentCase.updated_at) // Optimistic lock
             .select()
             .single();
 
         if (result.error) {
             if (result.error.code === 'PGRST116') {
+                // Could be not found or concurrency conflict
                 return NextResponse.json(
-                    { error: { code: 'NOT_FOUND', message: 'Case not found' } },
-                    { status: 404 }
+                    { error: { code: 'CONCURRENCY_CONFLICT', message: 'Case was modified by another user. Please refresh and try again.' } },
+                    { status: 409 }
                 );
             }
             return NextResponse.json(
                 { error: { code: 'DATABASE_ERROR', message: result.error.message } },
                 { status: 500 }
             );
+        }
+
+        // Log timeline event for status changes
+        if (body.status && body.status !== currentCase.status) {
+            await CaseActionService.logTimelineEvent({
+                case_id: id,
+                event_type: 'STATUS_CHANGED',
+                event_category: 'USER',
+                description: body.status_change_reason || `Status changed from ${currentCase.status} to ${body.status}`,
+                old_value: currentCase.status,
+                new_value: body.status,
+                performed_by: user.id,
+                performed_by_role: user.role,
+                performed_by_dca_id: user.dcaId || undefined,
+            });
         }
 
         return NextResponse.json({ data: result.data });

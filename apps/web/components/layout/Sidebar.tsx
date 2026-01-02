@@ -4,9 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
-import { RegionFilter } from '@/components/ui/RegionFilter';
-import { useRegion } from '@/lib/context/RegionContext';
-
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
     { name: 'Cases', href: '/cases', icon: CasesIcon },
@@ -26,7 +23,6 @@ interface SidebarProps {
 export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
-    const { region, setRegion } = useRegion();
 
     return (
         <aside
@@ -54,20 +50,6 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
                     <ChevronIcon className={`w-5 h-5 text-gray-400 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
                 </button>
             </div>
-
-            {/* Region Filter - Only visible to FedEx users */}
-            {!collapsed && (
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                        Region
-                    </label>
-                    <RegionFilter
-                        value={region}
-                        onChange={setRegion}
-                        showAllOption={true}
-                    />
-                </div>
-            )}
 
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto p-4">

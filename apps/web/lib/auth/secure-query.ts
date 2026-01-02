@@ -100,6 +100,14 @@ export class SecureQueryBuilder {
     }
 
     /**
+     * Add OR filter
+     */
+    or(filter: string): SecureQueryBuilder {
+        this.additionalFilters.push({ method: 'or', args: [filter] });
+        return this;
+    }
+
+    /**
      * Add ordering
      */
     order(column: string, options?: { ascending?: boolean }): SecureQueryBuilder {

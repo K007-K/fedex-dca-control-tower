@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatCurrencyByRegion } from '@/lib/utils/formatting';
 
 interface CaseData {
     id: string;
@@ -9,6 +10,7 @@ interface CaseData {
     status: string;
     priority: string;
     created_at: string;
+    region?: string;
     assigned_dca?: {
         id: string;
         name: string;
@@ -101,10 +103,10 @@ export function CaseTable({ cases }: CaseTableProps) {
                                         {caseItem.customer_name}
                                     </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                        ${caseItem.outstanding_amount?.toLocaleString()}
+                                        {formatCurrencyByRegion(caseItem.outstanding_amount, caseItem.region)}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-success">
-                                        ${(caseItem.recovered_amount ?? 0).toLocaleString()}
+                                        {formatCurrencyByRegion(caseItem.recovered_amount ?? 0, caseItem.region)}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-600">
                                         {caseItem.assigned_dca?.name ?? '-'}

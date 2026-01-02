@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react';
 
 import { useToast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
+import { formatCurrencyByRegion } from '@/lib/utils/formatting';
 
 interface CaseFormProps {
     caseData: {
@@ -18,6 +19,7 @@ interface CaseFormProps {
         assigned_agent_id?: string;
         original_amount: number;
         outstanding_amount: number;
+        region?: string;
     };
     dcas: Array<{ id: string; name: string }>;
     agents: Array<{ id: string; full_name: string }>;
@@ -106,11 +108,11 @@ export function CaseEditForm({ caseData, dcas, agents }: CaseFormProps) {
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Original Amount</p>
-                        <p className="font-medium">${caseData.original_amount.toLocaleString()}</p>
+                        <p className="font-medium">{formatCurrencyByRegion(caseData.original_amount, caseData.region)}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Outstanding</p>
-                        <p className="font-medium text-red-600">${caseData.outstanding_amount.toLocaleString()}</p>
+                        <p className="font-medium text-red-600">{formatCurrencyByRegion(caseData.outstanding_amount, caseData.region)}</p>
                     </div>
                 </div>
             </div>

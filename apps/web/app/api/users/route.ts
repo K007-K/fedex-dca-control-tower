@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { withPermission, withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { getCaseFilter, isFedExRole, isDCARole, canManageRole, type UserRole } from '@/lib/auth';
+import { isFedExRole, isDCARole, canManageRole, type UserRole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
 
@@ -26,6 +26,99 @@ function generateTempPassword(): string {
         password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return password;
+}
+
+// =====================================================
+// BUSINESS RULES - CREATOR PERMISSION MATRIX
+// =====================================================
+// FedEx users can create: FEDEX roles + DCA_ADMIN only
+// DCA_ADMIN can create: DCA_MANAGER, DCA_AGENT only
+const FEDEX_CAN_CREATE: UserRole[] = [
+    'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST',
+    'DCA_ADMIN', 'AUDITOR', 'READONLY'
+];
+
+const DCA_ADMIN_CAN_CREATE: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
+
+// Roles that are DCA internal (FedEx cannot create)
+const DCA_INTERNAL_ROLES: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
+
+/**
+ * Validate creator can create the target role
+ */
+function validateCreatorPermission(
+    creatorRole: UserRole,
+    targetRole: UserRole
+): { allowed: boolean; error?: string } {
+    // SUPER_ADMIN can create anyone except another SUPER_ADMIN
+    if (creatorRole === 'SUPER_ADMIN') {
+        if (targetRole === 'SUPER_ADMIN') {
+            return { allowed: false, error: 'Cannot create another SUPER_ADMIN' };
+        }
+        return { allowed: true };
+    }
+
+    // FedEx users (FEDEX_ADMIN, FEDEX_MANAGER) cannot create DCA internal users
+    if (isFedExRole(creatorRole)) {
+        if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+            return {
+                allowed: false,
+                error: 'FedEx users cannot create DCA internal users (DCA_MANAGER, DCA_AGENT). Only DCA_ADMIN can create these roles.'
+            };
+        }
+        if (!FEDEX_CAN_CREATE.includes(targetRole)) {
+            return { allowed: false, error: `FedEx users cannot create role: ${targetRole}` };
+        }
+    }
+
+    // DCA_ADMIN can only create DCA_MANAGER and DCA_AGENT
+    if (creatorRole === 'DCA_ADMIN') {
+        if (!DCA_ADMIN_CAN_CREATE.includes(targetRole)) {
+            return {
+                allowed: false,
+                error: `DCA Admin can only create DCA Manager or DCA Agent, not ${targetRole}`
+            };
+        }
+    }
+
+    // DCA_MANAGER and DCA_AGENT cannot create users
+    if (['DCA_MANAGER', 'DCA_AGENT'].includes(creatorRole)) {
+        return { allowed: false, error: 'Your role cannot create users' };
+    }
+
+    // Final check: role hierarchy
+    if (!canManageRole(creatorRole, targetRole)) {
+        return { allowed: false, error: 'Cannot create users with a role higher than your own' };
+    }
+
+    return { allowed: true };
+}
+
+/**
+ * Audit log helper - logs user creation events
+ */
+async function logUserCreationAudit(
+    adminClient: ReturnType<typeof getAdminClient>,
+    action: string,
+    severity: 'INFO' | 'WARNING' | 'ERROR',
+    creatorId: string,
+    creatorEmail: string,
+    details: Record<string, unknown>
+) {
+    try {
+        await adminClient.from('audit_logs').insert({
+            action,
+            severity,
+            user_id: creatorId,
+            user_email: creatorEmail,
+            resource_type: 'USER',
+            resource_id: details.target_user_id || null,
+            details,
+        });
+    } catch (err) {
+        console.error('Failed to write audit log:', err);
+        // Don't fail the request if audit logging fails
+    }
 }
 
 /**
@@ -127,18 +220,30 @@ const handleGetUsers: ApiHandler = async (request, { user }) => {
  * POST /api/users - Create a new user
  * Permission: users:create
  * 
- * P0-7 FIX: Creates Supabase Auth user first, then profile
+ * HARDENED USER CREATION FLOW
+ * - FedEx cannot create DCA_MANAGER or DCA_AGENT
+ * - DCA_ADMIN can only create for their own DCA
+ * - Region is mandatory and inherited for DCA users
+ * - All actions are audited
  */
 const handleCreateUser: ApiHandler = async (request, { user }) => {
+    const adminClient = getAdminClient();
+
     try {
         const supabase = await createClient();
-        const adminClient = getAdminClient();
         const body = await request.json();
 
-        // Validate required fields
+        // =====================================================
+        // VALIDATION 1: Required fields
+        // =====================================================
         const requiredFields = ['email', 'full_name', 'role'];
         for (const field of requiredFields) {
             if (!body[field]) {
+                await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                    reason: `Missing required field: ${field}`,
+                    creator_role: user.role,
+                    target_role: body.role || 'unknown',
+                });
                 return NextResponse.json(
                     { error: `Missing required field: ${field}` },
                     { status: 400 }
@@ -148,25 +253,120 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
         const targetRole = body.role as UserRole;
 
-        // Check if user can assign this role
-        if (!canManageRole(user.role, targetRole)) {
+        // =====================================================
+        // VALIDATION 2: Creator permission matrix
+        // =====================================================
+        const permissionCheck = validateCreatorPermission(user.role, targetRole);
+        if (!permissionCheck.allowed) {
+            await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                reason: permissionCheck.error,
+                creator_role: user.role,
+                target_role: targetRole,
+                target_email: body.email,
+            });
             return NextResponse.json(
-                { error: 'You cannot create users with a role higher than your own' },
+                { error: permissionCheck.error },
                 { status: 403 }
             );
         }
 
-        // DCA admins can only create users for their own DCA
-        if (isDCARole(user.role) && isDCARole(targetRole)) {
-            if (!body.dca_id || body.dca_id !== user.dcaId) {
-                return NextResponse.json(
-                    { error: 'You can only create users for your own DCA' },
-                    { status: 403 }
-                );
+        // =====================================================
+        // VALIDATION 3: DCA boundary enforcement
+        // DCA ID must come from creator context, not request body
+        // =====================================================
+        let dcaId: string | null = null;
+        let regionId: string | null = null;
+
+        if (isDCARole(targetRole)) {
+            if (user.role === 'DCA_ADMIN') {
+                // DCA_ADMIN: Force DCA from creator's context (no spoofing)
+                if (!user.dcaId) {
+                    await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'ERROR', user.id, user.email, {
+                        reason: 'DCA Admin has no DCA assigned',
+                        creator_role: user.role,
+                        target_role: targetRole,
+                    });
+                    return NextResponse.json(
+                        { error: 'Your account has no DCA assigned. Contact administrator.' },
+                        { status: 403 }
+                    );
+                }
+                dcaId = user.dcaId;
+
+                // Inherit region from DCA
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: dcaData } = await (supabase as any)
+                    .from('dcas')
+                    .select('region, primary_region_id')
+                    .eq('id', dcaId)
+                    .single();
+
+                if (dcaData?.primary_region_id) {
+                    regionId = dcaData.primary_region_id;
+                }
+            } else if (isFedExRole(user.role) && targetRole === 'DCA_ADMIN') {
+                // FedEx creating DCA_ADMIN: DCA must be provided
+                if (!body.dca_id) {
+                    await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                        reason: 'DCA ID required when creating DCA_ADMIN',
+                        creator_role: user.role,
+                        target_role: targetRole,
+                    });
+                    return NextResponse.json(
+                        { error: 'DCA ID is required when creating a DCA Admin' },
+                        { status: 400 }
+                    );
+                }
+                dcaId = body.dca_id;
+
+                // Get region from DCA registration
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: dcaData } = await (supabase as any)
+                    .from('dcas')
+                    .select('region, primary_region_id')
+                    .eq('id', dcaId)
+                    .single();
+
+                if (dcaData?.primary_region_id) {
+                    regionId = dcaData.primary_region_id;
+                }
             }
         }
 
-        // Check if email already exists
+        // =====================================================
+        // VALIDATION 4: Region enforcement for FedEx users
+        // =====================================================
+        if (isFedExRole(targetRole)) {
+            // FedEx users need explicit region
+            if (body.region_id) {
+                // Validate region exists and is active
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: regionData } = await (supabase as any)
+                    .from('regions')
+                    .select('id, status')
+                    .eq('id', body.region_id)
+                    .single();
+
+                if (!regionData || regionData.status !== 'ACTIVE') {
+                    await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                        reason: 'Invalid or inactive region',
+                        creator_role: user.role,
+                        target_role: targetRole,
+                        region_id: body.region_id,
+                    });
+                    return NextResponse.json(
+                        { error: 'Invalid or inactive region' },
+                        { status: 400 }
+                    );
+                }
+                regionId = body.region_id;
+            }
+            // Note: Region is optional for FedEx users as they may have global access
+        }
+
+        // =====================================================
+        // VALIDATION 5: Check if email already exists
+        // =====================================================
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: existing } = await (supabase as any)
             .from('users')
@@ -175,18 +375,25 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
             .single();
 
         if (existing) {
+            await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                reason: 'Email already exists',
+                creator_role: user.role,
+                target_email: body.email,
+            });
             return NextResponse.json(
                 { error: 'User with this email already exists' },
                 { status: 409 }
             );
         }
 
-        // P0-7 FIX: Create Supabase Auth user first
+        // =====================================================
+        // CREATE USER: Auth user first, then profile
+        // =====================================================
         const tempPassword = generateTempPassword();
         const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
             email: body.email,
             password: tempPassword,
-            email_confirm: true, // Auto-confirm for admin-created users
+            email_confirm: true,
             user_metadata: {
                 full_name: body.full_name,
                 role: body.role,
@@ -195,24 +402,30 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
         if (authError) {
             console.error('Auth user creation error:', authError);
+            await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'ERROR', user.id, user.email, {
+                reason: 'Auth creation failed',
+                error_message: authError.message,
+                creator_role: user.role,
+                target_email: body.email,
+            });
             return NextResponse.json(
                 { error: 'Failed to create user authentication', details: authError.message },
                 { status: 500 }
             );
         }
 
-        // Create/update user profile with admin client to bypass RLS
-        // Using UPSERT because Supabase may auto-create a profile via trigger
+        // Create user profile
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (adminClient as any)
             .from('users')
             .upsert({
-                id: authData.user.id, // Link to auth user
+                id: authData.user.id,
                 email: body.email,
                 full_name: body.full_name,
                 role: body.role,
                 organization_id: body.organization_id ?? null,
-                dca_id: body.dca_id ?? null,
+                dca_id: dcaId,
+                primary_region_id: regionId,
                 phone: body.phone ?? null,
                 timezone: body.timezone ?? 'America/New_York',
                 locale: body.locale ?? 'en-US',
@@ -226,13 +439,43 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
             console.error('User profile creation error:', error);
             // Rollback: delete the auth user if profile creation fails
             await adminClient.auth.admin.deleteUser(authData.user.id);
+            await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'ERROR', user.id, user.email, {
+                reason: 'Profile creation failed',
+                error_message: error.message,
+                creator_role: user.role,
+                target_email: body.email,
+            });
             return NextResponse.json(
                 { error: 'Failed to create user profile', details: error.message },
                 { status: 500 }
             );
         }
 
-        // Send credentials email to personal email if provided
+        // =====================================================
+        // AUDIT LOG: Success
+        // =====================================================
+        await logUserCreationAudit(adminClient, 'USER_CREATED', 'INFO', user.id, user.email, {
+            target_user_id: data.id,
+            target_email: body.email,
+            target_role: body.role,
+            dca_id: dcaId,
+            region_id: regionId,
+            creator_role: user.role,
+            method: user.role === 'DCA_ADMIN' ? 'dca_self_service' : 'fedex_admin',
+        });
+
+        // Also log region assignment if applicable
+        if (regionId) {
+            await logUserCreationAudit(adminClient, 'REGION_ASSIGNED', 'INFO', user.id, user.email, {
+                target_user_id: data.id,
+                region_id: regionId,
+                assignment_type: isDCARole(targetRole) ? 'inherited_from_dca' : 'explicit',
+            });
+        }
+
+        // =====================================================
+        // OPTIONAL: Send credentials email
+        // =====================================================
         let emailSent = false;
         let emailError = '';
 
@@ -242,7 +485,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                 const result = await sendUserCredentials(
                     body.personal_email,
                     body.full_name,
-                    body.email, // work email
+                    body.email,
                     tempPassword
                 );
                 emailSent = result.success;
@@ -257,7 +500,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
         return NextResponse.json({
             data,
-            tempPassword, // Still return temp password as backup
+            tempPassword,
             emailSent,
             emailError: emailSent ? undefined : emailError,
             message: emailSent
@@ -269,6 +512,11 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
     } catch (error) {
         console.error('Users API error:', error);
+        await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'ERROR', user.id, user.email, {
+            reason: 'Internal server error',
+            error_message: error instanceof Error ? error.message : 'Unknown error',
+            creator_role: user.role,
+        });
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
