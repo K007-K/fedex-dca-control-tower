@@ -56,6 +56,7 @@ export default function IntegrationsSettingsPage() {
     const [newWebhook, setNewWebhook] = useState({ name: '', url: '', events: ['case.updated'] });
     const [showApiKey, setShowApiKey] = useState(false);
     const [apiKey, setApiKey] = useState('fedex_prod_xxxxxxxxxxxxxxxxxxxxxxxx');
+    const [fullApiKey, setFullApiKey] = useState<string | null>(null); // Full key only available after regeneration
     const [isRegenerating, setIsRegenerating] = useState(false);
 
     const checkConnections = async () => {
@@ -220,8 +221,9 @@ export default function IntegrationsSettingsPage() {
             const data = await res.json();
             if (res.ok && data.data) {
                 setApiKey(data.data.key); // Show full key only on regeneration
+                setFullApiKey(data.data.key); // Store full key for copying
                 setShowApiKey(true);
-                alert('New API key generated! This is the only time this key will be shown. Please save it now.');
+                alert('New API key generated! Copy this key now - it will not be shown again after you leave this page.\n\nKey: ' + data.data.key);
             }
         } catch (err) {
             console.error('Failed to regenerate API key:', err);
@@ -321,7 +323,12 @@ export default function IntegrationsSettingsPage() {
                     <div className="flex gap-3">
                         <button
                             onClick={() => {
-                                navigator.clipboard.writeText(apiKey);
+                                if (fullApiKey) {
+                                    navigator.clipboard.writeText(fullApiKey);
+                                    alert('Full API key copied to clipboard!');
+                                } else {
+                                    alert('Full key not available. Click "Regenerate Key" to create a new key and copy it.');
+                                }
                             }}
                             className="px-4 py-2 text-sm bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-[#333]"
                         >
