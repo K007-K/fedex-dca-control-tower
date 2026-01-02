@@ -1,0 +1,54 @@
+# FedEx DCA Control Tower - Docker Compose
+# Run: docker compose up -d
+
+version: '3.8'
+
+services:
+  # Next.js Web Application
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NEXT_PUBLIC_ML_SERVICE_URL=http://ml-service:8000
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    depends_on:
+      ml-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fedex-network
+
+  # Python ML Service
+  ml-service:
+    build:
+      context: .
+      dockerfile: apps/ml-service/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - fedex-network
+
+networks:
+  fedex-network:
+    driver: bridge
+
+# For development with hot-reload, use docker-compose.dev.yml

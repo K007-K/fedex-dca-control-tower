@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+**/node_modules
+**/.pnpm-store
+
+# Build outputs
+.next
+out
+build
+dist
+
+# Environment files (these should be passed via docker-compose)
+.env
+.env.*
+!.env.example
+
+# Development files
+.git
+.gitignore
+*.md
+LICENSE
+.vscode
+.idea
+
+# Test files
+**/*.test.*
+**/*.spec.*
+**/__tests__
+coverage
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+venv
+.venv
+*.egg-info
+
+# ML artifacts (large files)
+*.pkl
+*.h5
+*.onnx
+models/
+
+# Misc
+.DS_Store
+*.log
+Thumbs.db
