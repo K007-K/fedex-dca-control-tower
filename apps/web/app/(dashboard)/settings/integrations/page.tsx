@@ -58,6 +58,13 @@ export default function IntegrationsSettingsPage() {
     const [apiKey, setApiKey] = useState('fedex_prod_xxxxxxxxxxxxxxxxxxxxxxxx');
     const [fullApiKey, setFullApiKey] = useState<string | null>(null); // Full key only available after regeneration
     const [isRegenerating, setIsRegenerating] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    // Show toast notification
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000); // Auto-hide after 3 seconds
+    };
 
     const checkConnections = async () => {
         setIsRefreshing(true);
@@ -247,6 +254,17 @@ export default function IntegrationsSettingsPage() {
 
     return (
         <div className="space-y-6">
+            {/* Toast Notification */}
+            {toast && (
+                <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in transition-all duration-300 ${toast.type === 'success'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-red-500 text-white'
+                    }`}>
+                    <span className="text-lg">{toast.type === 'success' ? '✓' : '⚠'}</span>
+                    <span className="font-medium">{toast.message}</span>
+                </div>
+            )}
+
             {/* Breadcrumb Navigation */}
             <div>
                 <nav className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
@@ -325,9 +343,9 @@ export default function IntegrationsSettingsPage() {
                             onClick={() => {
                                 if (fullApiKey) {
                                     navigator.clipboard.writeText(fullApiKey);
-                                    alert('Full API key copied to clipboard!');
+                                    showToast('✓ Key copied successfully!', 'success');
                                 } else {
-                                    alert('Full key not available. Click "Regenerate Key" to create a new key and copy it.');
+                                    showToast('Full key not available. Regenerate key first.', 'error');
                                 }
                             }}
                             className="px-4 py-2 text-sm bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-[#333]"
