@@ -257,8 +257,8 @@ export default function IntegrationsSettingsPage() {
             {/* Toast Notification */}
             {toast && (
                 <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in transition-all duration-300 ${toast.type === 'success'
-                        ? 'bg-green-500 text-white'
-                        : 'bg-red-500 text-white'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-red-500 text-white'
                     }`}>
                     <span className="text-lg">{toast.type === 'success' ? '✓' : '⚠'}</span>
                     <span className="font-medium">{toast.message}</span>
@@ -338,19 +338,22 @@ export default function IntegrationsSettingsPage() {
                             </button>
                         </div>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 items-center">
                         <button
                             onClick={() => {
                                 if (fullApiKey) {
                                     navigator.clipboard.writeText(fullApiKey);
                                     showToast('✓ Key copied successfully!', 'success');
-                                } else {
-                                    showToast('Full key not available. Regenerate key first.', 'error');
                                 }
                             }}
-                            className="px-4 py-2 text-sm bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-[#333]"
+                            disabled={!fullApiKey}
+                            className={`px-4 py-2 text-sm rounded-lg ${fullApiKey
+                                    ? 'bg-green-500 text-white hover:bg-green-600'
+                                    : 'bg-gray-100 dark:bg-[#222] text-gray-400 cursor-not-allowed'
+                                }`}
+                            title={fullApiKey ? 'Copy full API key to clipboard' : 'Regenerate key first to enable copy'}
                         >
-                            📋 Copy Key
+                            📋 {fullApiKey ? 'Copy Key' : 'Copy (Regenerate first)'}
                         </button>
                         <button
                             onClick={handleRegenerateApiKey}
