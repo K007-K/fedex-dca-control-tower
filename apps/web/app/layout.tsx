@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { Providers } from '@/components/Providers';
+import { RegionProvider } from '@/lib/context/RegionContext';
 
 const inter = Inter({
     subsets: ['latin'],
@@ -75,10 +76,12 @@ export default function RootLayout({
             <body className="min-h-screen bg-background font-sans antialiased">
                 <ThemeProvider>
                     <QueryProvider>
-                        <OfflineBanner />
-                        <Providers>
-                            {children}
-                        </Providers>
+                        <RegionProvider>
+                            <OfflineBanner />
+                            <Providers>
+                                {children}
+                            </Providers>
+                        </RegionProvider>
                     </QueryProvider>
                 </ThemeProvider>
             </body>
