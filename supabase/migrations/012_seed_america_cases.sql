@@ -1,0 +1,40 @@
+-- ===========================================
+-- FedEx DCA Control Tower - America Cases
+-- ===========================================
+-- 20 America cases with USD currency
+-- ===========================================
+
+INSERT INTO cases (case_number, invoice_number, invoice_date, due_date, original_amount, outstanding_amount, customer_id, customer_name, customer_type, customer_segment, customer_industry, customer_country, customer_state, customer_city, status, priority, priority_score, recovery_probability, assigned_dca_id, assigned_agent_id, assigned_at, assignment_method, recovered_amount, tags, region, currency) VALUES
+-- Pending Allocation
+('CASE-US-2026-0001', 'INV-FDX-US-10001', '2025-10-15', '2025-11-15', 152500.00, 152500.00, 'CUST-US-001', 'Amazon Inc', 'B2B', 'ENTERPRISE', 'E-Commerce', 'US', 'WA', 'Seattle', 'PENDING_ALLOCATION', 'CRITICAL', 96, 0.68, NULL, NULL, NULL, NULL, 0, ARRAY['ecommerce', 'seattle', 'high-value'], 'AMERICA', 'USD'),
+('CASE-US-2026-0002', 'INV-FDX-US-10002', '2025-10-20', '2025-11-20', 87500.00, 87500.00, 'CUST-US-002', 'Apple Inc', 'B2B', 'ENTERPRISE', 'Technology', 'US', 'CA', 'Cupertino', 'PENDING_ALLOCATION', 'HIGH', 85, 0.75, NULL, NULL, NULL, NULL, 0, ARRAY['technology', 'california'], 'AMERICA', 'USD'),
+('CASE-US-2026-0003', 'INV-FDX-US-10003', '2025-10-25', '2025-11-25', 45000.00, 45000.00, 'CUST-US-003', 'Microsoft Corp', 'B2B', 'ENTERPRISE', 'Technology', 'US', 'WA', 'Redmond', 'PENDING_ALLOCATION', 'MEDIUM', 68, 0.72, NULL, NULL, NULL, NULL, 0, ARRAY['technology'], 'AMERICA', 'USD'),
+-- Allocated
+('CASE-US-2026-0004', 'INV-FDX-US-10004', '2025-09-10', '2025-10-10', 58000.00, 58000.00, 'CUST-US-004', 'Tesla Inc', 'B2B', 'ENTERPRISE', 'Automotive', 'US', 'TX', 'Austin', 'ALLOCATED', 'HIGH', 78, 0.71, '10000000-0000-0000-0000-000000000020', '20000000-0000-0000-0000-000000000021', NOW() - INTERVAL '4 days', 'AUTO', 0, ARRAY['automotive', 'texas'], 'AMERICA', 'USD'),
+('CASE-US-2026-0005', 'INV-FDX-US-10005', '2025-09-15', '2025-10-15', 32500.00, 32500.00, 'CUST-US-005', 'Walmart Inc', 'B2B', 'ENTERPRISE', 'Retail', 'US', 'AR', 'Bentonville', 'ALLOCATED', 'MEDIUM', 52, 0.85, '10000000-0000-0000-0000-000000000021', '20000000-0000-0000-0000-000000000022', NOW() - INTERVAL '6 days', 'AUTO', 0, ARRAY['retail'], 'AMERICA', 'USD'),
+-- In Progress
+('CASE-US-2026-0006', 'INV-FDX-US-10006', '2025-08-15', '2025-09-15', 189000.00, 126000.00, 'CUST-US-006', 'JPMorgan Chase', 'B2B', 'ENTERPRISE', 'Finance', 'US', 'NY', 'New York', 'IN_PROGRESS', 'CRITICAL', 94, 0.58, '10000000-0000-0000-0000-000000000020', '20000000-0000-0000-0000-000000000020', NOW() - INTERVAL '32 days', 'MANUAL', 63000.00, ARRAY['finance', 'partial'], 'AMERICA', 'USD'),
+('CASE-US-2026-0007', 'INV-FDX-US-10007', '2025-08-20', '2025-09-20', 72000.00, 48000.00, 'CUST-US-007', 'Boeing Company', 'B2B', 'ENTERPRISE', 'Aerospace', 'US', 'WA', 'Seattle', 'IN_PROGRESS', 'HIGH', 81, 0.65, '10000000-0000-0000-0000-000000000022', '20000000-0000-0000-0000-000000000023', NOW() - INTERVAL '28 days', 'AUTO', 24000.00, ARRAY['aerospace'], 'AMERICA', 'USD'),
+-- Customer Contacted
+('CASE-US-2026-0008', 'INV-FDX-US-10008', '2025-09-01', '2025-10-01', 42000.00, 42000.00, 'CUST-US-008', 'Caterpillar Inc', 'B2B', 'ENTERPRISE', 'Manufacturing', 'US', 'IL', 'Chicago', 'CUSTOMER_CONTACTED', 'MEDIUM', 58, 0.74, '10000000-0000-0000-0000-000000000022', NULL, NOW() - INTERVAL '18 days', 'AUTO', 0, ARRAY['manufacturing'], 'AMERICA', 'USD'),
+('CASE-US-2026-0009', 'INV-FDX-US-10009', '2025-08-25', '2025-09-25', 18500.00, 18500.00, 'CUST-US-009', 'Coca-Cola Company', 'B2B', 'ENTERPRISE', 'Beverage', 'US', 'GA', 'Atlanta', 'CUSTOMER_CONTACTED', 'LOW', 35, 0.82, '10000000-0000-0000-0000-000000000023', NULL, NOW() - INTERVAL '22 days', 'AUTO', 0, ARRAY['beverage'], 'AMERICA', 'USD'),
+-- Payment Promised
+('CASE-US-2026-0010', 'INV-FDX-US-10010', '2025-07-20', '2025-08-20', 65000.00, 32500.00, 'CUST-US-010', 'General Motors', 'B2B', 'ENTERPRISE', 'Automotive', 'US', 'MI', 'Detroit', 'PAYMENT_PROMISED', 'HIGH', 75, 0.88, '10000000-0000-0000-0000-000000000020', '20000000-0000-0000-0000-000000000021', NOW() - INTERVAL '48 days', 'MANUAL', 32500.00, ARRAY['automotive', 'promise'], 'AMERICA', 'USD'),
+-- Partial Recovery
+('CASE-US-2026-0011', 'INV-FDX-US-10011', '2025-06-15', '2025-07-15', 210000.00, 70000.00, 'CUST-US-011', 'ExxonMobil', 'B2B', 'ENTERPRISE', 'Energy', 'US', 'TX', 'Houston', 'PARTIAL_RECOVERY', 'CRITICAL', 89, 0.78, '10000000-0000-0000-0000-000000000022', '20000000-0000-0000-0000-000000000023', NOW() - INTERVAL '65 days', 'MANUAL', 140000.00, ARRAY['energy'], 'AMERICA', 'USD'),
+-- Full Recovery
+('CASE-US-2026-0012', 'INV-FDX-US-10012', '2025-04-10', '2025-05-10', 89000.00, 0.00, 'CUST-US-012', 'Pfizer Inc', 'B2B', 'ENTERPRISE', 'Pharmaceutical', 'US', 'NY', 'New York', 'FULL_RECOVERY', 'HIGH', 0, 1.00, '10000000-0000-0000-0000-000000000020', '20000000-0000-0000-0000-000000000021', NOW() - INTERVAL '125 days', 'AUTO', 89000.00, ARRAY['pharma', 'resolved'], 'AMERICA', 'USD'),
+('CASE-US-2026-0013', 'INV-FDX-US-10013', '2025-03-20', '2025-04-20', 45600.00, 0.00, 'CUST-US-013', 'Johnson & Johnson', 'B2B', 'ENTERPRISE', 'Healthcare', 'US', 'NJ', 'New Brunswick', 'FULL_RECOVERY', 'MEDIUM', 0, 1.00, '10000000-0000-0000-0000-000000000021', NULL, NOW() - INTERVAL '155 days', 'AUTO', 45600.00, ARRAY['healthcare', 'resolved'], 'AMERICA', 'USD'),
+-- Disputed
+('CASE-US-2026-0014', 'INV-FDX-US-10014', '2025-08-05', '2025-09-05', 78000.00, 78000.00, 'CUST-US-014', 'Ford Motor Company', 'B2B', 'ENTERPRISE', 'Automotive', 'US', 'MI', 'Dearborn', 'DISPUTED', 'HIGH', 78, 0.30, '10000000-0000-0000-0000-000000000020', '20000000-0000-0000-0000-000000000020', NOW() - INTERVAL '42 days', 'AUTO', 0, ARRAY['dispute', 'automotive'], 'AMERICA', 'USD'),
+('CASE-US-2026-0015', 'INV-FDX-US-10015', '2025-07-25', '2025-08-25', 125000.00, 125000.00, 'CUST-US-015', 'Chevron Corp', 'B2B', 'ENTERPRISE', 'Energy', 'US', 'CA', 'San Ramon', 'DISPUTED', 'CRITICAL', 92, 0.22, '10000000-0000-0000-0000-000000000022', NULL, NOW() - INTERVAL '52 days', 'MANUAL', 0, ARRAY['dispute', 'energy'], 'AMERICA', 'USD'),
+-- Escalated
+('CASE-US-2026-0016', 'INV-FDX-US-10016', '2025-05-10', '2025-06-10', 320000.00, 320000.00, 'CUST-US-016', 'Berkshire Hathaway', 'B2B', 'ENTERPRISE', 'Finance', 'US', 'NE', 'Omaha', 'ESCALATED', 'CRITICAL', 99, 0.15, '10000000-0000-0000-0000-000000000022', '20000000-0000-0000-0000-000000000023', NOW() - INTERVAL '95 days', 'MANUAL', 0, ARRAY['escalated', 'finance', 'critical'], 'AMERICA', 'USD'),
+-- Written Off
+('CASE-US-2026-0017', 'INV-FDX-US-10017', '2024-06-15', '2024-07-15', 28500.00, 28500.00, 'CUST-US-017', 'Small Business LLC', 'B2B', 'SMB', 'Retail', 'US', 'FL', 'Miami', 'WRITTEN_OFF', 'LOW', 0, 0.00, '10000000-0000-0000-0000-000000000024', NULL, NOW() - INTERVAL '370 days', 'AUTO', 0, ARRAY['write-off'], 'AMERICA', 'USD'),
+-- More America cases
+('CASE-US-2026-0018', 'INV-FDX-US-10018', '2025-10-28', '2025-11-28', 52000.00, 52000.00, 'CUST-US-018', 'Nike Inc', 'B2B', 'ENTERPRISE', 'Apparel', 'US', 'OR', 'Beaverton', 'PENDING_ALLOCATION', 'HIGH', 79, 0.71, NULL, NULL, NULL, NULL, 0, ARRAY['apparel'], 'AMERICA', 'USD'),
+('CASE-US-2026-0019', 'INV-FDX-US-10019', '2025-09-05', '2025-10-05', 38000.00, 19000.00, 'CUST-US-019', 'Starbucks Corp', 'B2B', 'ENTERPRISE', 'Food & Beverage', 'US', 'WA', 'Seattle', 'IN_PROGRESS', 'MEDIUM', 64, 0.76, '10000000-0000-0000-0000-000000000021', '20000000-0000-0000-0000-000000000022', NOW() - INTERVAL '24 days', 'AUTO', 19000.00, ARRAY['f&b', 'partial'], 'AMERICA', 'USD'),
+('CASE-US-2026-0020', 'INV-FDX-US-10020', '2025-08-10', '2025-09-10', 92000.00, 0.00, 'CUST-US-020', 'Delta Airlines', 'B2B', 'ENTERPRISE', 'Airlines', 'US', 'GA', 'Atlanta', 'FULL_RECOVERY', 'HIGH', 0, 1.00, '10000000-0000-0000-0000-000000000023', NULL, NOW() - INTERVAL '78 days', 'AUTO', 92000.00, ARRAY['airlines', 'resolved'], 'AMERICA', 'USD');
+
+SELECT 'America cases created! Total: 40 cases (20 India + 20 America)' AS result;
