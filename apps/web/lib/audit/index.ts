@@ -6,27 +6,43 @@
 import { createClient } from '@/lib/supabase/server';
 
 export type AuditAction =
+    // Authentication events
     | 'USER_LOGIN'
     | 'USER_LOGOUT'
+    | 'USER_LOGIN_FAILED'
+    // User management events
     | 'USER_CREATED'
     | 'USER_UPDATED'
     | 'USER_DELETED'
     | 'PASSWORD_CHANGED'
     | 'PASSWORD_RESET_REQUESTED'
+    // Role management events (SECURITY)
+    | 'ROLE_CHANGED'
+    | 'ROLE_ESCALATION_ATTEMPT'
+    // Region access events (SECURITY)
+    | 'REGION_ACCESS_GRANTED'
+    | 'REGION_ACCESS_REVOKED'
+    | 'CROSS_REGION_ACCESS_ATTEMPT'
+    // Case events
     | 'CASE_CREATED'
     | 'CASE_UPDATED'
     | 'CASE_DELETED'
     | 'CASE_ASSIGNED'
     | 'CASE_ESCALATED'
+    // DCA events
     | 'DCA_CREATED'
     | 'DCA_UPDATED'
     | 'DCA_DELETED'
+    // SLA events
     | 'SLA_CREATED'
     | 'SLA_UPDATED'
     | 'SLA_BREACHED'
+    // Permission events (SECURITY)
+    | 'PERMISSION_DENIED'
+    | 'PERMISSION_GRANTED'
+    // Operations
     | 'REPORT_GENERATED'
     | 'BULK_ACTION'
-    | 'PERMISSION_DENIED'
     | 'RATE_LIMITED';
 
 export type AuditSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';

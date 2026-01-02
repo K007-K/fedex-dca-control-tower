@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
 /**
+ * Region validation - valid region codes
+ */
+export const regionCodeSchema = z.enum([
+    'AMERICAS', 'EMEA', 'APAC', 'INDIA', 'LATAM', 'GLOBAL'
+]).optional();
+
+/**
  * Case validation schemas
  */
 export const caseCreateSchema = z.object({
@@ -15,6 +22,7 @@ export const caseCreateSchema = z.object({
     currency: z.string().default('USD'),
     priority: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
     status: z.string().default('PENDING_ALLOCATION'),
+    region: regionCodeSchema,
     notes: z.string().optional(),
 });
 
@@ -38,6 +46,7 @@ export const dcaCreateSchema = z.object({
     max_case_value: z.number().min(0).optional().or(z.string().transform(Number)),
     contract_start_date: z.string().optional(),
     contract_end_date: z.string().optional(),
+    region: regionCodeSchema,
 });
 
 export const dcaUpdateSchema = dcaCreateSchema.partial();

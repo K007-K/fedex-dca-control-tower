@@ -1,20 +1,31 @@
-import { NextResponse } from 'next/server';
-
-import { createClient } from '@/lib/supabase/server';
-
 /**
  * GET /api/analytics/dashboard
  * Get dashboard metrics and summary statistics
+ * SECURITY: Requires authentication and analytics:read permission
  */
-export async function GET() {
+import { NextResponse } from 'next/server';
+
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { isDCARole } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+
+const handleGetAnalytics: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
 
-        // Get case counts by status
-        const caseResult = await supabase
+        // Build cases query with DCA data isolation
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let casesQuery = (supabase as any)
             .from('cases')
-            .select('status, outstanding_amount, recovered_amount, priority_score, recovery_probability')
+            .select('status, outstanding_amount, recovered_amount, priority_score, recovery_probability, assigned_dca_id')
             .not('status', 'eq', 'CLOSED');
+
+        // DCA users can only see their assigned cases (data isolation)
+        if (isDCARole(user.role) && user.dcaId) {
+            casesQuery = casesQuery.eq('assigned_dca_id', user.dcaId);
+        }
+
+        const caseResult = await casesQuery;
 
         if (caseResult.error) {
             console.error('Dashboard query error:', caseResult.error);
@@ -56,11 +67,18 @@ export async function GET() {
             }
         }
 
-        // Get active DCAs count
-        const dcaResult = await supabase
+        // Get active DCAs count (respect DCA isolation)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let dcaQuery = (supabase as any)
             .from('dcas')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'ACTIVE');
+
+        if (isDCARole(user.role) && user.dcaId) {
+            dcaQuery = dcaQuery.eq('id', user.dcaId);
+        }
+
+        const dcaResult = await dcaQuery;
         const activeDcas = dcaResult.count;
 
         // Get SLA compliance
@@ -104,4 +122,7 @@ export async function GET() {
             { status: 500 }
         );
     }
-}
+};
+
+// Export with RBAC protection - requires analytics:read permission
+export const GET = withPermission('analytics:read', handleGetAnalytics);

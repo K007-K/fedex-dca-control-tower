@@ -33,13 +33,14 @@ const handleGetEscalations: ApiHandler = async (request, { user }) => {
         const caseId = searchParams.get('case_id');
         const status = searchParams.get('status');
         const escalationType = searchParams.get('type');
+        const region = searchParams.get('region');
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let query = (supabase as any)
             .from('escalations')
             .select(`
                 *,
-                case:cases(id, case_number, customer_name, outstanding_amount, assigned_dca_id),
+                case:cases(id, case_number, customer_name, outstanding_amount, assigned_dca_id, region),
                 escalated_to_user:users!escalations_escalated_to_fkey(id, full_name, email),
                 escalated_from_user:users!escalations_escalated_from_fkey(id, full_name, email)
             `)
@@ -76,6 +77,12 @@ const handleGetEscalations: ApiHandler = async (request, { user }) => {
                 e.escalated_to === user.id ||
                 e.escalated_from === user.id
             );
+        }
+
+        // Apply region filter if provided
+        if (region && region !== 'ALL') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            filteredData = filteredData?.filter((e: any) => e.case?.region === region);
         }
 
         return NextResponse.json({ data: filteredData });

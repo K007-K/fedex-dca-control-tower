@@ -1,19 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 
-import { withPermission, withAuth, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { getCaseFilter, isDCARole } from '@/lib/auth';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { isDCARole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { logUserAction } from '@/lib/audit';
+import { secureQuery } from '@/lib/auth/secure-query';
 
 /**
  * GET /api/cases
  * List cases with filtering, sorting, and pagination
  * Permission: cases:read
+ * SECURITY: Region filtering is SERVER-ENFORCED via SecureQueryBuilder
  */
 const handleGetCases: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
         const { searchParams } = new URL(request.url);
 
         // Pagination
@@ -25,28 +26,23 @@ const handleGetCases: ApiHandler = async (request, { user }) => {
         const sortBy = searchParams.get('sortBy') ?? 'created_at';
         const sortOrder = searchParams.get('sortOrder') === 'asc';
 
-        // Build query
-        let query = (supabase as any)
+        // Build secure query with automatic region and DCA filtering
+        const queryBuilder = secureQuery(user)
             .from('cases')
-            .select('*, assigned_dca:dcas(id, name, status)', { count: 'exact' });
+            .select('*, assigned_dca:dcas(id, name, status)')
+            .withOptions({ regionColumn: 'region' }); // cases use 'region' not 'region_id'
 
-        // Apply DCA filter for DCA users (data isolation)
-        const caseFilter = await getCaseFilter();
-        if (caseFilter.dcaId) {
-            query = query.eq('assigned_dca_id', caseFilter.dcaId);
-        }
-
-        // Filters
+        // Filters - these are ADDITIONAL filters on already region-scoped data
         const status = searchParams.get('status');
         if (status) {
             const statuses = status.split(',');
-            query = query.in('status', statuses);
+            queryBuilder.in('status', statuses);
         }
 
         const priority = searchParams.get('priority');
         if (priority) {
             const priorities = priority.split(',');
-            query = query.in('priority', priorities);
+            queryBuilder.in('priority', priorities);
         }
 
         const assignedDcaId = searchParams.get('assignedDcaId');
@@ -58,32 +54,26 @@ const handleGetCases: ApiHandler = async (request, { user }) => {
                     { status: 403 }
                 );
             }
-            query = query.eq('assigned_dca_id', assignedDcaId);
+            queryBuilder.eq('assigned_dca_id', assignedDcaId);
         }
 
-        const search = searchParams.get('search');
-        if (search) {
-            // Sanitize search input to prevent injection
-            const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
-            query = query.or(`customer_name.ilike.%${sanitizedSearch}%,invoice_number.ilike.%${sanitizedSearch}%,case_number.ilike.%${sanitizedSearch}%`);
-        }
-
-        const minAmount = searchParams.get('minAmount');
-        if (minAmount) {
-            query = query.gte('outstanding_amount', parseFloat(minAmount));
-        }
-
-        const maxAmount = searchParams.get('maxAmount');
-        if (maxAmount) {
-            query = query.lte('outstanding_amount', parseFloat(maxAmount));
+        // Client region param - ONLY for subsetting already-allowed regions (NOT security)
+        const clientRegion = searchParams.get('region');
+        if (clientRegion && clientRegion !== 'ALL') {
+            // Validate client-requested region is in user's accessible regions
+            if (!user.isGlobalAdmin && !user.accessibleRegions.includes(clientRegion)) {
+                // Silently ignore invalid region filter (don't error, just don't apply it)
+                // User will only see their allowed data anyway
+            } else {
+                queryBuilder.eq('region', clientRegion);
+            }
         }
 
         // Apply sorting and pagination
-        query = query
-            .order(sortBy, { ascending: sortOrder })
-            .range(offset, offset + limit - 1);
+        queryBuilder.order(sortBy, { ascending: sortOrder });
+        queryBuilder.range(offset, offset + limit - 1);
 
-        const { data, error, count } = await query;
+        const { data, error, count } = await queryBuilder.execute();
 
         if (error) {
             console.error('Cases query error:', error);

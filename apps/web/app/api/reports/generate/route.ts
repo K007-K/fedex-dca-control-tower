@@ -197,8 +197,9 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
 /**
  * GET /api/reports/generate - Generate a CSV report (for direct link downloads)
  * Supports query params: format, days, reportType
+ * SECURITY: Requires authentication and analytics:export permission
  */
-export async function GET(request: Request) {
+const handleGetReport: ApiHandler = async (request, { user }) => {
     try {
         const { searchParams } = new URL(request.url);
         const format = searchParams.get('format') || 'csv';
@@ -255,7 +256,9 @@ export async function GET(request: Request) {
             { status: 500 }
         );
     }
-}
+};
 
-// Export with RBAC and rate limiting
+// Export with RBAC and rate limiting for both GET and POST
+export const GET = withRateLimitedPermission('analytics:export', handleGetReport, RATE_LIMIT_CONFIGS.export);
 export const POST = withRateLimitedPermission('analytics:export', handleGenerateReport, RATE_LIMIT_CONFIGS.export);
+

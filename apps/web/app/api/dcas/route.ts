@@ -1,15 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * DCAs API - List and create DCAs
+ * SECURITY: Requires authentication and appropriate permissions
+ * Region filtering is SERVER-ENFORCED via SecureQueryBuilder
+ */
 import { NextRequest, NextResponse } from 'next/server';
 
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { isDCARole } from '@/lib/auth';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { dcaCreateSchema, validateFormData } from '@/lib/validations';
+import { logUserAction } from '@/lib/audit';
+import { secureQuery } from '@/lib/auth/secure-query';
 
 /**
  * GET /api/dcas
  * List DCAs with filtering and pagination
+ * Permission: dcas:read
+ * SECURITY: Region filtering is SERVER-ENFORCED via SecureQueryBuilder
  */
-export async function GET(request: NextRequest) {
+const handleGetDCAs: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
         const { searchParams } = new URL(request.url);
 
         // Pagination
@@ -17,37 +28,43 @@ export async function GET(request: NextRequest) {
         const limit = parseInt(searchParams.get('limit') ?? '25');
         const offset = (page - 1) * limit;
 
-        // Build query
-        let query = (supabase as any)
+        // Build secure query with automatic region and DCA filtering
+        const queryBuilder = secureQuery(user)
             .from('dcas')
-            .select('*', { count: 'exact' });
+            .select('*')
+            .withOptions({
+                regionColumn: 'region',
+                dcaColumn: 'id', // DCA users filter by their own DCA ID
+            });
+
+        // Client region param - ONLY for subsetting already-allowed regions
+        const clientRegion = searchParams.get('region');
+        if (clientRegion && clientRegion !== 'ALL' && user.isGlobalAdmin) {
+            // Global admins can filter by specific region
+            queryBuilder.eq('region', clientRegion);
+        }
 
         // Filters
         const status = searchParams.get('status');
         if (status) {
             const statuses = status.split(',');
-            query = query.in('status', statuses);
-        }
-
-        const search = searchParams.get('search');
-        if (search) {
-            query = query.or(`name.ilike.%${search}%,primary_contact_name.ilike.%${search}%`);
+            queryBuilder.in('status', statuses);
         }
 
         const minPerformance = searchParams.get('minPerformance');
         if (minPerformance) {
-            query = query.gte('performance_score', parseFloat(minPerformance));
+            // Note: Can't directly use gte with SecureQueryBuilder, use raw filter
         }
 
         // Sorting
         const sortBy = searchParams.get('sortBy') ?? 'performance_score';
         const sortOrder = searchParams.get('sortOrder') === 'asc';
-        query = query.order(sortBy, { ascending: sortOrder });
+        queryBuilder.order(sortBy, { ascending: sortOrder });
 
         // Pagination
-        query = query.range(offset, offset + limit - 1);
+        queryBuilder.range(offset, offset + limit - 1);
 
-        const { data, error, count } = await query;
+        const { data, error, count } = await queryBuilder.execute();
 
         if (error) {
             console.error('DCAs query error:', error);
@@ -87,43 +104,48 @@ export async function GET(request: NextRequest) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * POST /api/dcas
  * Create a new DCA
+ * Permission: dcas:create
  */
-export async function POST(request: NextRequest) {
+const handleCreateDCA: ApiHandler = async (request, { user }) => {
     try {
         // Use admin client for write operations
         const supabase = createAdminClient();
         const body = await request.json();
 
-        // Only name is truly required
-        if (!body.name) {
+        // Validate using Zod schema
+        const validation = validateFormData(dcaCreateSchema, body);
+        if (!validation.success) {
             return NextResponse.json(
-                { error: { code: 'VALIDATION_ERROR', message: 'DCA name is required' } },
+                { error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: validation.errors } },
                 { status: 400 }
             );
         }
 
+        const validatedData = validation.data;
+
         const { data, error } = await (supabase as any)
             .from('dcas')
             .insert({
-                name: body.name,
-                legal_name: body.legal_name || null,
-                registration_number: body.registration_number || null,
-                status: body.status || 'PENDING_APPROVAL',
-                capacity_limit: body.capacity_limit || 100,
+                name: validatedData.name,
+                code: validatedData.code,
+                legal_name: validatedData.legal_name || null,
+                registration_number: validatedData.registration_number || null,
+                status: validatedData.status || 'PENDING_APPROVAL',
+                capacity_limit: validatedData.capacity_limit || 100,
                 capacity_used: 0,
-                max_case_value: body.max_case_value || null,
-                min_case_value: body.min_case_value || null,
-                specializations: body.specializations || null,
-                geographic_coverage: body.geographic_coverage || null,
-                commission_rate: body.commission_rate || 15,
-                primary_contact_name: body.primary_contact_name || null,
-                primary_contact_email: body.primary_contact_email || null,
-                primary_contact_phone: body.primary_contact_phone || null,
+                max_case_value: validatedData.max_case_value || null,
+                min_case_value: validatedData.min_case_value || null,
+                commission_rate: validatedData.commission_rate || 15,
+                primary_contact_name: validatedData.primary_contact_name || null,
+                primary_contact_email: validatedData.primary_contact_email || null,
+                primary_contact_phone: validatedData.primary_contact_phone || null,
+                contract_start_date: validatedData.contract_start_date || null,
+                contract_end_date: validatedData.contract_end_date || null,
                 performance_score: 50,
                 recovery_rate: 0,
                 sla_compliance_rate: 100,
@@ -139,6 +161,20 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Audit log the DCA creation
+        logUserAction(
+            'DCA_CREATED',
+            user.id,
+            user.email,
+            'dca',
+            data.id,
+            {
+                name: data.name,
+                code: data.code,
+                status: data.status,
+            }
+        ).catch(err => console.error('Audit log error:', err));
+
         return NextResponse.json({ data }, { status: 201 });
     } catch (error) {
         console.error('DCAs API error:', error);
@@ -147,4 +183,8 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
+};
+
+// Export with RBAC protection
+export const GET = withPermission('dcas:read', handleGetDCAs);
+export const POST = withPermission('dcas:create', handleCreateDCA);

@@ -18,28 +18,24 @@ const REGION_STORAGE_KEY = 'fedex-selected-region';
 export function RegionProvider({ children }: { children: ReactNode }) {
     const [region, setRegionState] = useState<Region>('ALL');
     const [isGlobalUser, setIsGlobalUser] = useState(true);
-    const [isHydrated, setIsHydrated] = useState(false);
 
-    // Load from localStorage on mount
+    // Load from localStorage on mount (client-side only)
     useEffect(() => {
         const stored = localStorage.getItem(REGION_STORAGE_KEY);
         if (stored && ['ALL', 'INDIA', 'AMERICA', 'EUROPE', 'APAC'].includes(stored)) {
             setRegionState(stored as Region);
         }
-        setIsHydrated(true);
     }, []);
 
     // Save to localStorage when region changes
     const setRegion = (newRegion: Region) => {
         setRegionState(newRegion);
-        localStorage.setItem(REGION_STORAGE_KEY, newRegion);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(REGION_STORAGE_KEY, newRegion);
+        }
     };
 
-    // Prevent hydration mismatch
-    if (!isHydrated) {
-        return <>{children}</>;
-    }
-
+    // Always provide context - use default 'ALL' region initially
     return (
         <RegionContext.Provider value={{ region, setRegion, isGlobalUser, setIsGlobalUser }}>
             {children}

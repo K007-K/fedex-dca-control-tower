@@ -29,6 +29,15 @@ export const PERMISSIONS = {
     'users:delete': 'Delete users',
     'users:roles': 'Manage user roles',
 
+    // Region permissions (ENTERPRISE GOVERNANCE)
+    'regions:read': 'View regions',
+    'regions:create': 'Create regions (Global Admin)',
+    'regions:update': 'Update regions',
+    'regions:delete': 'Delete/deactivate regions',
+    'regions:assign-users': 'Assign users to regions',
+    'regions:assign-dcas': 'Assign DCAs to regions',
+    'regions:override': 'Override region assignment (audit logged)',
+
     // SLA permissions
     'sla:read': 'View SLA templates and logs',
     'sla:create': 'Create SLA templates',

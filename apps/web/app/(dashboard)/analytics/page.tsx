@@ -9,6 +9,8 @@ type Case = {
     recovered_amount: number;
     outstanding_amount: number;
     created_at: string;
+    currency?: string;
+    region?: string;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,15 +19,17 @@ type DCA = {
     performance_score: number;
     recovery_rate: number;
     sla_compliance_rate: number;
+    region?: string;
 };
 
 interface PageProps {
-    searchParams: Promise<{ days?: string }>;
+    searchParams: Promise<{ days?: string; region?: string }>;
 }
 
 export default async function AnalyticsPage({ searchParams }: PageProps) {
     const params = await searchParams;
     const days = params.days ?? '30';
+    const region = params.region ?? 'ALL';
     const supabase = await createClient();
 
     // Calculate date filter
@@ -35,21 +39,29 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
         dateFilter.setDate(dateFilter.getDate() - parseInt(days));
     }
 
-    // Fetch all cases for analytics (with optional date filter)
+    // Fetch all cases for analytics (with optional date and region filters)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let casesQuery = (supabase as any).from('cases').select('*');
     if (dateFilter) {
         casesQuery = casesQuery.gte('created_at', dateFilter.toISOString());
     }
+    if (region && region !== 'ALL') {
+        casesQuery = casesQuery.eq('region', region);
+    }
     const { data: cases } = await casesQuery;
 
-    // Fetch all DCAs
+    // Fetch all DCAs with optional region filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dcas } = await (supabase as any)
+    let dcasQuery = (supabase as any)
         .from('dcas')
-        .select('name, performance_score, recovery_rate, sla_compliance_rate')
+        .select('name, performance_score, recovery_rate, sla_compliance_rate, region')
         .eq('status', 'ACTIVE')
         .order('performance_score', { ascending: false });
+
+    if (region && region !== 'ALL') {
+        dcasQuery = dcasQuery.eq('region', region);
+    }
+    const { data: dcas } = await dcasQuery;
 
     // Process cases by status
     const statusCounts: Record<string, number> = {};
