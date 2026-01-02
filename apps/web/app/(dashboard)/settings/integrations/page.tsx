@@ -230,7 +230,7 @@ export default function IntegrationsSettingsPage() {
                 setApiKey(data.data.key); // Show full key only on regeneration
                 setFullApiKey(data.data.key); // Store full key for copying
                 setShowApiKey(true);
-                alert('New API key generated! Copy this key now - it will not be shown again after you leave this page.\n\nKey: ' + data.data.key);
+                showToast('✓ New API key generated! Copy it now.', 'success');
             }
         } catch (err) {
             console.error('Failed to regenerate API key:', err);
@@ -348,8 +348,8 @@ export default function IntegrationsSettingsPage() {
                             }}
                             disabled={!fullApiKey}
                             className={`px-4 py-2 text-sm rounded-lg ${fullApiKey
-                                    ? 'bg-green-500 text-white hover:bg-green-600'
-                                    : 'bg-gray-100 dark:bg-[#222] text-gray-400 cursor-not-allowed'
+                                ? 'bg-green-500 text-white hover:bg-green-600'
+                                : 'bg-gray-100 dark:bg-[#222] text-gray-400 cursor-not-allowed'
                                 }`}
                             title={fullApiKey ? 'Copy full API key to clipboard' : 'Regenerate key first to enable copy'}
                         >
