@@ -8,7 +8,7 @@ import crypto from 'crypto';
 function generateApiKey(): { key: string; hash: string; prefix: string } {
     const key = `fedex_prod_${crypto.randomBytes(24).toString('hex')}`;
     const hash = crypto.createHash('sha256').update(key).digest('hex');
-    const prefix = key.substring(0, 20) + '...';
+    const prefix = key.substring(0, 17) + '...'; // 17 + 3 = 20 chars max
     return { key, hash, prefix };
 }
 
@@ -78,24 +78,30 @@ export async function POST() {
         // Generate new key
         const { key, hash, prefix } = generateApiKey();
 
-        // Insert new key
+        // Insert new key (organization_id can be null)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const insertData: Record<string, unknown> = {
+            name: 'Production API Key',
+            key_hash: hash,
+            key_prefix: prefix,
+            is_active: true,
+        };
+
+        // Only add organization_id if it exists
+        if (dbUser.organization_id) {
+            insertData.organization_id = dbUser.organization_id;
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: newKey, error } = await (supabase as any)
             .from('api_keys')
-            .insert({
-                organization_id: dbUser.organization_id,
-                name: 'Production API Key',
-                key_hash: hash,
-                key_prefix: prefix,
-                created_by: dbUser.id,
-                is_active: true,
-            })
+            .insert(insertData)
             .select()
             .single();
 
         if (error) {
-            console.error('API Key creation error:', error);
-            return NextResponse.json({ error: 'Failed to create API key' }, { status: 500 });
+            console.error('API Key creation error:', JSON.stringify(error));
+            return NextResponse.json({ error: 'Failed to create API key', debug: error }, { status: 500 });
         }
 
         // Return the full key ONLY on creation (never again)
