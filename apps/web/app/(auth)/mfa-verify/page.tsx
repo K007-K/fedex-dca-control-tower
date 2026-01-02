@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { isValidTOTPCode } from '@/lib/auth/mfa';
 
 /**
- * MFA Verification Page
- * P1-9 FIX: Wire MFA module into login flow
+ * MFA Verification Content - separated for Suspense boundary
  */
-export default function MFAVerifyPage() {
+function MFAVerifyContent() {
     const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -197,5 +196,21 @@ export default function MFAVerifyPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+/**
+ * MFA Verification Page
+ * Wrapped in Suspense to handle useSearchParams for static export
+ */
+export default function MFAVerifyPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="animate-pulse text-gray-500">Loading...</div>
+            </div>
+        }>
+            <MFAVerifyContent />
+        </Suspense>
     );
 }
