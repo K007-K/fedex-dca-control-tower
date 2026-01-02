@@ -13,6 +13,36 @@ import { createAdminClient } from '@/lib/supabase/server';
 export async function GET() {
     const startTime = Date.now();
 
+    // Check if required environment variables are set
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl) {
+        return NextResponse.json({
+            status: 'error',
+            timestamp: new Date().toISOString(),
+            services: {
+                database: {
+                    connected: false,
+                    error: 'NEXT_PUBLIC_SUPABASE_URL is not configured',
+                },
+            },
+        });
+    }
+
+    if (!serviceRoleKey) {
+        return NextResponse.json({
+            status: 'error',
+            timestamp: new Date().toISOString(),
+            services: {
+                database: {
+                    connected: false,
+                    error: 'SUPABASE_SERVICE_ROLE_KEY is not configured',
+                },
+            },
+        });
+    }
+
     try {
         const supabase = createAdminClient();
 
@@ -60,7 +90,8 @@ export async function GET() {
                     error: result.error?.message ?? null,
                 },
                 supabase: {
-                    url: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'configured' : 'missing',
+                    url: 'configured',
+                    serviceRoleKey: 'configured',
                 },
             },
             stats,
