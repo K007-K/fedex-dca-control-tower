@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * Region DCA Assignment API
  * 
  * GET /api/regions/[id]/dcas - Get DCAs assigned to region

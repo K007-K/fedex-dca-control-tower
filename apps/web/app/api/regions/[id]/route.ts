@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * Single Region API
  * 
  * GET /api/regions/[id] - Get region details

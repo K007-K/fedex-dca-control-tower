@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
 import { validateApiKey } from '@/lib/auth/api-key-auth';
 import { createAdminClient } from '@/lib/supabase/server';
 

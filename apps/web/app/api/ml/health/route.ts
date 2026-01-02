@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * ML Service Health Check Proxy
  */
 import { NextResponse } from 'next/server';

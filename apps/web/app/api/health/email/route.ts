@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/health/email
  * Check if email service is configured

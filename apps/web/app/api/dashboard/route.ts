@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * Dashboard API - Fetches dashboard data with region filtering
  * SECURITY: Requires authentication and analytics:read permission
  * Region filtering is SERVER-ENFORCED via SecureQueryBuilder

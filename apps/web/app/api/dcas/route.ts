@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
 /**
  * DCAs API - List and create DCAs
  * SECURITY: Requires authentication and appropriate permissions

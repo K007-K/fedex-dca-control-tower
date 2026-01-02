@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * Region Resolve API
  * 
  * POST /api/regions/resolve - Resolve region from geography data

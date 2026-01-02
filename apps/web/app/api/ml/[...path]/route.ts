@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * ML Service Proxy API
  * Routes ML service requests through Next.js for production compatibility
  */

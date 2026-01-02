@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
+
 import { withPermission, withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { isFedExRole, isDCARole, canManageRole, type UserRole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';

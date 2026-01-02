@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * GET /api/analytics/dashboard
  * Get dashboard metrics and summary statistics
  * SECURITY: Requires authentication and analytics:read permission

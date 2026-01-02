@@ -1,4 +1,7 @@
 /**
+
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
  * Google Places Autocomplete Proxy API
  * 
  * This proxies requests to Google Places API to avoid exposing API key in client

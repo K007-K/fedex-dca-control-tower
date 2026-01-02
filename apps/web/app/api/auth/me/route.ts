@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+// Force dynamic rendering - this route uses cookies
+export const dynamic = 'force-dynamic';
 /**
  * GET /api/auth/me - Get current authenticated user's profile
  * Returns user role, DCA info, and basic profile for client-side permission checks
