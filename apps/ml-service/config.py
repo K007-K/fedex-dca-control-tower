@@ -17,6 +17,10 @@ CORS_ORIGINS = [
     "http://localhost:3001",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
+    # Production URLs
+    "https://fedex-dca-control-tower.vercel.app",
+    "https://*.vercel.app",
+    "*",  # Allow all origins for API access
 ]
 
 # ML Configuration
