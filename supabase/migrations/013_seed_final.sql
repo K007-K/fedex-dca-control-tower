@@ -7,23 +7,23 @@
 -- ===========================================
 -- ESCALATIONS
 -- ===========================================
-INSERT INTO escalations (case_id, escalation_type, priority, title, description, escalated_by, assigned_to, status)
+INSERT INTO escalations (case_id, escalation_type, severity, title, description, escalated_from, escalated_to, status)
 SELECT c.id, 'SLA_BREACH', 'CRITICAL', 'SLA Breach - First Contact', 'Customer not contacted within SLA timeframe', '20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002', 'OPEN'
 FROM cases c WHERE c.case_number = 'CASE-IN-2026-0016' LIMIT 1;
 
-INSERT INTO escalations (case_id, escalation_type, priority, title, description, escalated_by, assigned_to, status)
+INSERT INTO escalations (case_id, escalation_type, severity, title, description, escalated_from, escalated_to, status)
 SELECT c.id, 'HIGH_VALUE', 'HIGH', 'High Value Case - No Progress', 'Critical high-value case with no recovery progress in 60 days', '20000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000003', 'IN_PROGRESS'
 FROM cases c WHERE c.case_number = 'CASE-US-2026-0016' LIMIT 1;
 
-INSERT INTO escalations (case_id, escalation_type, priority, title, description, escalated_by, assigned_to, status)
+INSERT INTO escalations (case_id, escalation_type, severity, title, description, escalated_from, escalated_to, status)
 SELECT c.id, 'CUSTOMER_COMPLAINT', 'HIGH', 'Customer Dispute - Investigation Required', 'Customer disputing invoice validity', '20000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000002', 'OPEN'
 FROM cases c WHERE c.case_number = 'CASE-IN-2026-0014' LIMIT 1;
 
-INSERT INTO escalations (case_id, escalation_type, priority, title, description, escalated_by, assigned_to, status)
+INSERT INTO escalations (case_id, escalation_type, severity, title, description, escalated_from, escalated_to, status)
 SELECT c.id, 'DCA_PERFORMANCE', 'MEDIUM', 'DCA Performance Issue', 'Bajaj Finance Collections SLA compliance below threshold', '20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002', 'OPEN'
 FROM cases c WHERE c.case_number = 'CASE-IN-2026-0017' LIMIT 1;
 
-INSERT INTO escalations (case_id, escalation_type, priority, title, description, escalated_by, assigned_to, status)
+INSERT INTO escalations (case_id, escalation_type, severity, title, description, escalated_from, escalated_to, status)
 SELECT c.id, 'FRAUD_SUSPECTED', 'CRITICAL', 'Suspected Fraudulent Invoice', 'Customer claims invoice was not authorized', '20000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001', 'OPEN'
 FROM cases c WHERE c.case_number = 'CASE-US-2026-0015' LIMIT 1;
 
@@ -76,8 +76,20 @@ FROM cases c WHERE c.recovered_amount > 0 AND c.region = 'AMERICA' LIMIT 5;
 -- ===========================================
 -- REFRESH MATERIALIZED VIEWS
 -- ===========================================
-REFRESH MATERIALIZED VIEW IF EXISTS dashboard_metrics;
-REFRESH MATERIALIZED VIEW IF EXISTS dca_performance_metrics;
+-- Note: These may fail if views don't exist, which is OK
+DO $$ 
+BEGIN
+    REFRESH MATERIALIZED VIEW dashboard_metrics;
+EXCEPTION WHEN undefined_table THEN
+    RAISE NOTICE 'dashboard_metrics view does not exist, skipping';
+END $$;
+
+DO $$ 
+BEGIN
+    REFRESH MATERIALIZED VIEW dca_performance_metrics;
+EXCEPTION WHEN undefined_table THEN
+    RAISE NOTICE 'dca_performance_metrics view does not exist, skipping';
+END $$;
 
 SELECT 'All seed data created successfully!' AS result;
 SELECT 'Summary: 10 DCAs (5 India, 5 America), 40 Cases (20 each), 5 Escalations, 10 Notifications' AS summary;
