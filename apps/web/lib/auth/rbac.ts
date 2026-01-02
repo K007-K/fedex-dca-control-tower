@@ -208,3 +208,19 @@ export function isFedExRole(role: UserRole): boolean {
 export function isDCARole(role: UserRole): boolean {
     return ['DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT'].includes(role);
 }
+
+/**
+ * Check if a role is a governance/oversight role (not operational)
+ * Governance roles should NOT see operational controls like case assignment buttons
+ * They have view-only access for oversight purposes
+ */
+export function isGovernanceRole(role: UserRole): boolean {
+    return ['SUPER_ADMIN', 'AUDITOR', 'READONLY'].includes(role);
+}
+
+/**
+ * Check if a role is an operational role that can perform day-to-day actions
+ */
+export function isOperationalRole(role: UserRole): boolean {
+    return !isGovernanceRole(role);
+}

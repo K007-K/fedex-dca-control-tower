@@ -6,11 +6,13 @@ import { useState } from 'react';
 import { useToast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { exportToCsv, exportToPdf, CASE_EXPORT_COLUMNS } from '@/lib/export';
+import { isGovernanceRole, type UserRole } from '@/lib/auth/rbac';
 
 interface BulkActionBarProps {
     selectedIds: string[];
     onClear: () => void;
     dcas: Array<{ id: string; name: string }>;
+    userRole?: UserRole;
 }
 
 const STATUS_OPTIONS = [
@@ -21,12 +23,15 @@ const STATUS_OPTIONS = [
     { value: 'CLOSED', label: 'Closed' },
 ];
 
-export function BulkActionBar({ selectedIds, onClear, dcas }: BulkActionBarProps) {
+export function BulkActionBar({ selectedIds, onClear, dcas, userRole }: BulkActionBarProps) {
     const router = useRouter();
     const toast = useToast();
     const [loading, setLoading] = useState(false);
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [showDcaDropdown, setShowDcaDropdown] = useState(false);
+
+    // Governance roles (SUPER_ADMIN, AUDITOR, READONLY) should only see export options
+    const showOperationalActions = userRole ? !isGovernanceRole(userRole) : true;
 
     if (selectedIds.length === 0) return null;
 
@@ -120,67 +125,71 @@ export function BulkActionBar({ selectedIds, onClear, dcas }: BulkActionBarProps
 
                 <div className="h-6 w-px bg-gray-700" />
 
-                {/* Status Dropdown */}
-                <div className="relative">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            setShowStatusDropdown(!showStatusDropdown);
-                            setShowDcaDropdown(false);
-                        }}
-                        disabled={loading}
-                        className="text-white hover:bg-gray-800"
-                    >
-                        📋 Change Status
-                    </Button>
-                    {showStatusDropdown && (
-                        <div className="absolute bottom-full mb-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]">
-                            {STATUS_OPTIONS.map(opt => (
-                                <button
-                                    key={opt.value}
-                                    onClick={() => handleBulkStatus(opt.value)}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* DCA Dropdown */}
-                <div className="relative">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            setShowDcaDropdown(!showDcaDropdown);
-                            setShowStatusDropdown(false);
-                        }}
-                        disabled={loading}
-                        className="text-white hover:bg-gray-800"
-                    >
-                        🎯 Assign DCA
-                    </Button>
-                    {showDcaDropdown && (
-                        <div className="absolute bottom-full mb-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[200px] max-h-[200px] overflow-y-auto">
-                            {dcas.length === 0 ? (
-                                <div className="px-4 py-2 text-sm text-gray-500">No active DCAs</div>
-                            ) : (
-                                dcas.map(dca => (
+                {/* Status Dropdown - Only for operational roles */}
+                {showOperationalActions && (
+                    <div className="relative">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setShowStatusDropdown(!showStatusDropdown);
+                                setShowDcaDropdown(false);
+                            }}
+                            disabled={loading}
+                            className="text-white hover:bg-gray-800"
+                        >
+                            📋 Change Status
+                        </Button>
+                        {showStatusDropdown && (
+                            <div className="absolute bottom-full mb-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]">
+                                {STATUS_OPTIONS.map(opt => (
                                     <button
-                                        key={dca.id}
-                                        onClick={() => handleBulkAssign(dca.id, dca.name)}
+                                        key={opt.value}
+                                        onClick={() => handleBulkStatus(opt.value)}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                     >
-                                        {dca.name}
+                                        {opt.label}
                                     </button>
-                                ))
-                            )}
-                        </div>
-                    )}
-                </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* DCA Dropdown - Only for operational roles */}
+                {showOperationalActions && (
+                    <div className="relative">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setShowDcaDropdown(!showDcaDropdown);
+                                setShowStatusDropdown(false);
+                            }}
+                            disabled={loading}
+                            className="text-white hover:bg-gray-800"
+                        >
+                            🎯 Assign DCA
+                        </Button>
+                        {showDcaDropdown && (
+                            <div className="absolute bottom-full mb-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[200px] max-h-[200px] overflow-y-auto">
+                                {dcas.length === 0 ? (
+                                    <div className="px-4 py-2 text-sm text-gray-500">No active DCAs</div>
+                                ) : (
+                                    dcas.map(dca => (
+                                        <button
+                                            key={dca.id}
+                                            onClick={() => handleBulkAssign(dca.id, dca.name)}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            {dca.name}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Export CSV Button */}
                 <Button

@@ -98,6 +98,12 @@ export default function SettingsPage() {
                         <a href="/settings/integrations" className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-lg">
                             Integrations
                         </a>
+                        {/* Platform Governance - SUPER_ADMIN only */}
+                        {role === 'SUPER_ADMIN' && (
+                            <a href="/settings/governance" className="flex items-center px-3 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg">
+                                🏛️ Platform Governance
+                            </a>
+                        )}
                     </nav>
                 </div>
 

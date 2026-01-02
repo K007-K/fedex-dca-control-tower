@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 
 import { BulkActionBar } from './BulkActionBar';
 import { formatCurrencyByRegion } from '@/lib/utils/formatting';
+import { type UserRole } from '@/lib/auth/rbac';
 
 interface CaseData {
     id: string;
@@ -30,6 +31,7 @@ interface DCA {
 interface CaseTableWithSelectionProps {
     cases: CaseData[];
     dcas: DCA[];
+    userRole?: UserRole;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
@@ -55,7 +57,7 @@ const priorityConfig: Record<string, { bg: string; text: string }> = {
 type SortDirection = 'asc' | 'desc' | null;
 type SortKey = keyof CaseData | null;
 
-export function CaseTableWithSelection({ cases, dcas }: CaseTableWithSelectionProps) {
+export function CaseTableWithSelection({ cases, dcas, userRole }: CaseTableWithSelectionProps) {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [sortKey, setSortKey] = useState<SortKey>('created_at');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -257,6 +259,7 @@ export function CaseTableWithSelection({ cases, dcas }: CaseTableWithSelectionPr
                 selectedIds={selectedIds}
                 onClear={clearSelection}
                 dcas={dcas}
+                userRole={userRole}
             />
         </>
     );

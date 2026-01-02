@@ -114,7 +114,7 @@ async function CasesContent({ searchParams }: { searchParams: PageProps['searchP
     return (
         <>
             <CaseFilters dcas={dcas ?? []} />
-            <CaseTableWithSelection cases={cases ?? []} dcas={dcas ?? []} />
+            <CaseTableWithSelection cases={cases ?? []} dcas={dcas ?? []} userRole={authUser.role} />
             <Pagination
                 currentPage={page}
                 totalPages={totalPages}
