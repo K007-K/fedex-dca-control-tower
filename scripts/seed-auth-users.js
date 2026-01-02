@@ -34,8 +34,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 });
 
 // Users from seed data with matching UUIDs
+// All 9 roles covered: SUPER_ADMIN, FEDEX_ADMIN, FEDEX_MANAGER, FEDEX_ANALYST, DCA_ADMIN, DCA_MANAGER, DCA_AGENT, AUDITOR, READONLY
 const SEED_USERS = [
-    // FedEx Users
+    // ===== FEDEX USERS =====
     {
         id: '20000000-0000-0000-0000-000000000001',
         email: 'admin@fedex.com',
@@ -43,53 +44,102 @@ const SEED_USERS = [
         role: 'SUPER_ADMIN'
     },
     {
+        id: '20000000-0000-0000-0000-000000000006',
+        email: 'fedex.admin@fedex.com',
+        full_name: 'David Wilson',
+        role: 'FEDEX_ADMIN'
+    },
+    {
         id: '20000000-0000-0000-0000-000000000002',
-        email: 'collections.manager@fedex.com',
-        full_name: 'Jennifer Martinez',
+        email: 'india.manager@fedex.com',
+        full_name: 'Priya Sharma',
         role: 'FEDEX_MANAGER'
     },
     {
         id: '20000000-0000-0000-0000-000000000003',
+        email: 'us.manager@fedex.com',
+        full_name: 'Jennifer Martinez',
+        role: 'FEDEX_MANAGER'
+    },
+    {
+        id: '20000000-0000-0000-0000-000000000004',
         email: 'analyst@fedex.com',
         full_name: 'Robert Chen',
         role: 'FEDEX_ANALYST'
     },
     {
-        id: '20000000-0000-0000-0000-000000000004',
+        id: '20000000-0000-0000-0000-000000000005',
         email: 'auditor@fedex.com',
         full_name: 'Lisa Thompson',
         role: 'AUDITOR'
     },
-    // DCA Users - Apex Collections
+    {
+        id: '20000000-0000-0000-0000-000000000007',
+        email: 'viewer@fedex.com',
+        full_name: 'Emily Clark',
+        role: 'READONLY'
+    },
+
+    // ===== INDIA DCA USERS =====
+    {
+        id: '20000000-0000-0000-0000-000000000010',
+        email: 'rajesh.sharma@tatarecovery.in',
+        full_name: 'Rajesh Sharma',
+        role: 'DCA_ADMIN'
+    },
+    {
+        id: '20000000-0000-0000-0000-000000000014',
+        email: 'manager@tatarecovery.in',
+        full_name: 'Suresh Kumar',
+        role: 'DCA_MANAGER'
+    },
     {
         id: '20000000-0000-0000-0000-000000000011',
+        email: 'agent1@tatarecovery.in',
+        full_name: 'Ankit Verma',
+        role: 'DCA_AGENT'
+    },
+    {
+        id: '20000000-0000-0000-0000-000000000012',
+        email: 'priya.patel@ril.in',
+        full_name: 'Priya Patel',
+        role: 'DCA_ADMIN'
+    },
+    {
+        id: '20000000-0000-0000-0000-000000000013',
+        email: 'vikram.reddy@infosys.in',
+        full_name: 'Vikram Reddy',
+        role: 'DCA_ADMIN'
+    },
+
+    // ===== AMERICA DCA USERS =====
+    {
+        id: '20000000-0000-0000-0000-000000000020',
         email: 'john.smith@apexcollections.com',
         full_name: 'John Smith',
         role: 'DCA_ADMIN'
     },
     {
-        id: '20000000-0000-0000-0000-000000000012',
+        id: '20000000-0000-0000-0000-000000000024',
+        email: 'manager@apexcollections.com',
+        full_name: 'James Miller',
+        role: 'DCA_MANAGER'
+    },
+    {
+        id: '20000000-0000-0000-0000-000000000021',
         email: 'agent1@apexcollections.com',
         full_name: 'Mike Johnson',
         role: 'DCA_AGENT'
     },
-    // DCA Users - Global Recovery
     {
-        id: '20000000-0000-0000-0000-000000000021',
-        email: 'sarah.j@globalrecovery.com',
+        id: '20000000-0000-0000-0000-000000000022',
+        email: 'sarah.j@libertyrecovery.com',
         full_name: 'Sarah Johnson',
         role: 'DCA_ADMIN'
     },
     {
-        id: '20000000-0000-0000-0000-000000000022',
-        email: 'agent1@globalrecovery.com',
-        full_name: 'Emma Williams',
-        role: 'DCA_AGENT'
-    },
-    // DCA Users - Premier Debt
-    {
-        id: '20000000-0000-0000-0000-000000000031',
-        email: 'm.brown@premierdebt.com',
+        id: '20000000-0000-0000-0000-000000000023',
+        email: 'm.brown@eagledebt.com',
         full_name: 'Michael Brown',
         role: 'DCA_ADMIN'
     }

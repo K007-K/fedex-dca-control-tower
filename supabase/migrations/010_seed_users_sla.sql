@@ -4,6 +4,14 @@
 -- Users, SLA Templates, and Cases
 -- ===========================================
 
+-- First clear existing users (if any)
+DELETE FROM users WHERE email IN (
+    'admin@fedex.com', 'india.manager@fedex.com', 'us.manager@fedex.com', 
+    'analyst@fedex.com', 'auditor@fedex.com',
+    'rajesh.sharma@tatarecovery.in', 'agent1@tatarecovery.in', 'priya.patel@ril.in', 'vikram.reddy@infosys.in',
+    'john.smith@apexcollections.com', 'agent1@apexcollections.com', 'sarah.j@libertyrecovery.com', 'm.brown@eagledebt.com'
+);
+
 -- ===========================================
 -- USERS
 -- ===========================================
@@ -23,7 +31,12 @@ INSERT INTO users (id, email, full_name, role, organization_id, dca_id, is_activ
   ('20000000-0000-0000-0000-000000000020', 'john.smith@apexcollections.com', 'John Smith', 'DCA_ADMIN', '00000000-0000-0000-0000-000000000020', '10000000-0000-0000-0000-000000000020', TRUE, TRUE, 'America/New_York'),
   ('20000000-0000-0000-0000-000000000021', 'agent1@apexcollections.com', 'Mike Johnson', 'DCA_AGENT', '00000000-0000-0000-0000-000000000020', '10000000-0000-0000-0000-000000000020', TRUE, TRUE, 'America/New_York'),
   ('20000000-0000-0000-0000-000000000022', 'sarah.j@libertyrecovery.com', 'Sarah Johnson', 'DCA_ADMIN', '00000000-0000-0000-0000-000000000021', '10000000-0000-0000-0000-000000000021', TRUE, TRUE, 'America/Los_Angeles'),
-  ('20000000-0000-0000-0000-000000000023', 'm.brown@eagledebt.com', 'Michael Brown', 'DCA_ADMIN', '00000000-0000-0000-0000-000000000022', '10000000-0000-0000-0000-000000000022', TRUE, TRUE, 'America/Chicago');
+  ('20000000-0000-0000-0000-000000000023', 'm.brown@eagledebt.com', 'Michael Brown', 'DCA_ADMIN', '00000000-0000-0000-0000-000000000022', '10000000-0000-0000-0000-000000000022', TRUE, TRUE, 'America/Chicago')
+ON CONFLICT (email) DO UPDATE SET
+  full_name = EXCLUDED.full_name,
+  role = EXCLUDED.role,
+  organization_id = EXCLUDED.organization_id,
+  dca_id = EXCLUDED.dca_id;
 
 -- ===========================================
 -- SLA TEMPLATES
@@ -33,6 +46,7 @@ INSERT INTO sla_templates (id, name, sla_type, description, duration_hours, busi
   ('30000000-0000-0000-0000-000000000002', 'First Contact - High Priority', 'FIRST_CONTACT', 'Contact within 24 hours for high priority', 24, TRUE, TRUE, TRUE),
   ('30000000-0000-0000-0000-000000000003', 'First Contact - Critical', 'FIRST_CONTACT', 'Contact within 4 hours for critical', 4, FALSE, TRUE, TRUE),
   ('30000000-0000-0000-0000-000000000004', 'Weekly Update', 'WEEKLY_UPDATE', 'Weekly status update on active cases', 168, TRUE, TRUE, FALSE),
-  ('30000000-0000-0000-0000-000000000005', 'Dispute Response', 'RESPONSE_TO_DISPUTE', 'Respond to disputes within 24 hours', 24, TRUE, TRUE, TRUE);
+  ('30000000-0000-0000-0000-000000000005', 'Dispute Response', 'RESPONSE_TO_DISPUTE', 'Respond to disputes within 24 hours', 24, TRUE, TRUE, TRUE)
+ON CONFLICT (id) DO NOTHING;
 
 SELECT 'Users and SLA Templates created!' AS result;
