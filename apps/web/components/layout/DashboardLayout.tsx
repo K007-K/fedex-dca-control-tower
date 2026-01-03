@@ -33,6 +33,7 @@ export function DashboardLayout({
                 <Header
                     userEmail={userEmail}
                     userAvatarUrl={userAvatarUrl}
+                    userRole={userRole}
                     pageTitle={pageTitle}
                     breadcrumbs={breadcrumbs}
                 />
@@ -47,3 +48,4 @@ export function DashboardLayout({
 }
 
 export default DashboardLayout;
+

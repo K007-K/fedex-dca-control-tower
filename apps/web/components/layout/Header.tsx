@@ -11,6 +11,7 @@ import { useConfirm } from '@/components/ui';
 interface HeaderProps {
     userEmail?: string;
     userAvatarUrl?: string;
+    userRole?: string;
     pageTitle?: string;
     breadcrumbs?: { name: string; href: string }[];
 }
@@ -24,7 +25,7 @@ interface Notification {
     notification_type: string;
 }
 
-export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', breadcrumbs }: HeaderProps) {
+export function Header({ userEmail, userAvatarUrl, userRole, pageTitle = 'Dashboard', breadcrumbs }: HeaderProps) {
     const router = useRouter();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -251,7 +252,7 @@ export function Header({ userEmail, userAvatarUrl, pageTitle = 'Dashboard', brea
                         <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-xl shadow-elevated border border-gray-100 dark:border-gray-700 overflow-hidden animate-slide-down">
                             <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                                 <p className="font-medium text-gray-900 dark:text-white truncate">{userEmail}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">FedEx Administrator</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{userRole || 'User'}</p>
                             </div>
                             <div className="py-2">
                                 <Link href="/settings/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
