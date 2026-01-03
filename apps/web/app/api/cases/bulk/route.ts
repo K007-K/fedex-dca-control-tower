@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 interface BulkRequest {
     case_ids: string[];
@@ -14,8 +15,9 @@ interface BulkRequest {
 
 /**
  * POST /api/cases/bulk - Perform bulk operations on cases
+ * Permission: cases:bulk (FEDEX_ADMIN, FEDEX_MANAGER only)
  */
-export async function POST(request: Request) {
+const handleBulkOperation: ApiHandler = async (request: NextRequest, { user }) => {
     try {
         const supabase = await createClient();
         const body: BulkRequest = await request.json();
@@ -182,4 +184,7 @@ export async function POST(request: Request) {
             { status: 500 }
         );
     }
-}
+};
+
+// Protected with cases:bulk permission
+export const POST = withPermission('cases:bulk', handleBulkOperation);

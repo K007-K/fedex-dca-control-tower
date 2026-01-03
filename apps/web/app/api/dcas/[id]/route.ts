@@ -5,16 +5,14 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-
-interface RouteParams {
-    params: Promise<{ id: string }>;
-}
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 /**
  * GET /api/dcas/[id]
  * Get DCA details with performance metrics
+ * Permission: dcas:read
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+const handleGetDCA: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -73,13 +71,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * PATCH /api/dcas/[id]
  * Update DCA details
+ * Permission: dcas:update
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+const handleUpdateDCA: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         // Use admin client for write operations
@@ -108,6 +107,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         updateData['updated_at'] = new Date().toISOString();
+        updateData['updated_by'] = user.id;
 
         const result = await (supabase as any)
             .from('dcas')
@@ -137,13 +137,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * DELETE /api/dcas/[id]
  * Soft delete a DCA (mark as TERMINATED)
+ * Permission: dcas:delete
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+const handleDeleteDCA: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         // Use admin client to bypass RLS for updates
@@ -195,4 +196,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('dcas:read', handleGetDCA);
+export const PATCH = withPermission('dcas:update', handleUpdateDCA);
+export const DELETE = withPermission('dcas:delete', handleDeleteDCA);

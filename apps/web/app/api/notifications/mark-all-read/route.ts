@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
 import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { withAuth, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 function getAdminClient() {
     return createAdminSupabase(
@@ -16,32 +17,12 @@ function getAdminClient() {
 
 /**
  * POST /api/notifications/mark-all-read - Mark all notifications as read
- * Uses admin client to bypass RLS
+ * Permission: Authenticated (own notifications only)
  */
-export async function POST() {
+const handleMarkAllRead: ApiHandler = async (request, { user }) => {
     try {
         const adminClient = getAdminClient();
-        const supabase = await createClient();
-
-        // Get current auth user
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-
-        if (!authUser) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
-
-        // Get database user ID by email (critical: auth.uid() != users.id for seed data)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profile } = await (supabase as any)
-            .from('users')
-            .select('id')
-            .eq('email', authUser.email)
-            .single();
-
-        const userId = profile?.id || authUser.id;
+        const userId = user.id;
 
         // Update notifications using admin client to bypass RLS
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,4 +53,7 @@ export async function POST() {
             { status: 500 }
         );
     }
-}
+};
+
+// Protected: requires authentication
+export const POST = withAuth(handleMarkAllRead);

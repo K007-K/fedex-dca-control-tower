@@ -6,7 +6,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { isDCARole } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
 import { logUserAction } from '@/lib/audit';
 import { secureQuery } from '@/lib/auth/secure-query';
 
@@ -89,7 +88,7 @@ const handleGetCases: ApiHandler = async (request, { user }) => {
         const totalPages = Math.ceil((count ?? 0) / limit);
 
         return NextResponse.json({
-            data,
+            data: data ?? [],
             pagination: {
                 page,
                 limit,
@@ -110,134 +109,46 @@ const handleGetCases: ApiHandler = async (request, { user }) => {
 /**
  * POST /api/cases
  * Create a new case
- * Permission: cases:create
+ * 
+ * STEP 3: Human case creation is BLOCKED.
+ * Cases can ONLY be created via SYSTEM pipeline.
+ * 
+ * Manual creation by FEDEX_ADMIN will be enabled in STEP 4.
+ * Until then, all case creation must go through:
+ *   POST /api/v1/cases/system-create (SYSTEM-only)
+ * 
+ * Permission: cases:create (but blocked for all humans in STEP 3)
  */
-const handleCreateCase: ApiHandler = async (request, { user }) => {
-    try {
-        const supabase = await createClient();
-        const body = await request.json();
+const handleCreateCase: ApiHandler = async (_request, { user }) => {
+    // STEP 3: Block ALL human case creation
+    // SYSTEM is the ONLY authorized creator
+    // FEDEX_ADMIN manual creation will be enabled in STEP 4
 
-        // Validate required fields - only customer_name and original_amount are truly required
-        if (!body.customer_name) {
-            return NextResponse.json(
-                { error: { code: 'VALIDATION_ERROR', message: 'Customer name is required' } },
-                { status: 400 }
-            );
+    await logUserAction(
+        'ACCESS_DENIED',
+        user.id,
+        user.email,
+        'case',
+        'N/A',
+        {
+            action: 'CASE_CREATE_BLOCKED',
+            reason: 'Human case creation not allowed in STEP 3',
+            user_role: user.role,
+            redirect: '/api/v1/cases/system-create',
         }
+    );
 
-        if (!body.original_amount || body.original_amount <= 0) {
-            return NextResponse.json(
-                { error: { code: 'VALIDATION_ERROR', message: 'Valid original amount is required' } },
-                { status: 400 }
-            );
-        }
-
-        // Generate case number if not provided
-        const caseNumber = body.case_number || `CASE-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-        // Build customer_contact JSONB if email/phone provided
-        const customerContact = body.customer_contact || {};
-        if (body.customer_email) customerContact.email = body.customer_email;
-        if (body.customer_phone) customerContact.phone = body.customer_phone;
-
-        const { data, error } = await (supabase as any)
-            .from('cases')
-            .insert({
-                case_number: caseNumber,
-                invoice_number: body.invoice_number || caseNumber,
-                invoice_date: body.invoice_date || new Date().toISOString().split('T')[0],
-                due_date: body.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                original_amount: body.original_amount,
-                outstanding_amount: body.outstanding_amount ?? body.original_amount,
-                currency: body.currency ?? 'USD',
-                customer_id: body.customer_id || `CUST-${Date.now()}`,
-                customer_name: body.customer_name,
-                customer_type: body.customer_type,
-                customer_segment: body.customer_segment,
-                customer_industry: body.customer_industry,
-                customer_country: body.customer_country || 'US',
-                customer_state: body.customer_state,
-                customer_city: body.customer_city,
-                customer_contact: Object.keys(customerContact).length > 0 ? customerContact : null,
-                priority: body.priority ?? 'MEDIUM',
-                status: body.status ?? 'PENDING_ALLOCATION',
-                assigned_dca_id: body.assigned_dca_id || null,
-                internal_notes: body.notes || body.internal_notes,
-                tags: body.tags,
-                created_by: user.id,
-            })
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Case creation error:', error);
-            return NextResponse.json(
-                { error: { code: 'DATABASE_ERROR', message: error.message } },
-                { status: 500 }
-            );
-        }
-
-        // Auto-create SLA for the new case (P0-3 fix)
-        if (data) {
-            await createDefaultSLA(supabase, data.id);
-
-            // Log audit event for case creation
-            logUserAction(
-                'CASE_CREATED',
-                user.id,
-                user.email,
-                'case',
-                data.id,
-                {
-                    case_number: data.case_number,
-                    customer_name: data.customer_name,
-                    original_amount: data.original_amount,
-                    priority: data.priority,
-                }
-            ).catch(err => console.error('Audit log error:', err));
-        }
-
-        return NextResponse.json({ data }, { status: 201 });
-    } catch (error) {
-        console.error('Cases API error:', error);
-        return NextResponse.json(
-            { error: { code: 'INTERNAL_ERROR', message: 'Failed to create case' } },
-            { status: 500 }
-        );
-    }
+    return NextResponse.json(
+        {
+            error: {
+                code: 'CASE_CREATION_DISABLED',
+                message: 'Human case creation is not permitted. Cases are created automatically via SYSTEM integration.',
+                hint: 'Manual case creation by FEDEX_ADMIN will be available in a future update.',
+            },
+        },
+        { status: 403 }
+    );
 };
-
-/**
- * Helper: Create default SLA for a new case (P0-3 fix)
- */
-async function createDefaultSLA(supabase: any, caseId: string) {
-    try {
-        // Get default SLA template for FIRST_CONTACT
-        const { data: template } = await supabase
-            .from('sla_templates')
-            .select('*')
-            .eq('sla_type', 'FIRST_CONTACT')
-            .eq('is_active', true)
-            .limit(1)
-            .single();
-
-        const durationHours = template?.duration_hours ?? 24;
-        const now = new Date();
-        const dueAt = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
-
-        await supabase.from('sla_logs').insert({
-            case_id: caseId,
-            sla_template_id: template?.id ?? null,
-            sla_type: 'FIRST_CONTACT',
-            started_at: now.toISOString(),
-            due_at: dueAt.toISOString(),
-            status: 'PENDING',
-        });
-    } catch (error) {
-        console.error('Failed to create default SLA:', error);
-        // Don't fail case creation if SLA fails
-    }
-}
 
 // Export wrapped handlers
 export const GET = withPermission('cases:read', handleGetCases);

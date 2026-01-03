@@ -4,9 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { validateApiKey } from '@/lib/auth/api-key-auth';
 import { createAdminClient } from '@/lib/supabase/server';
+import { logSecurityEvent } from '@/lib/audit';
 
 /**
  * GET /api/v1/cases - Get cases via API key authentication
+ * 
+ * This is an EXTERNAL API endpoint using API key auth (not session-based RBAC).
+ * API keys have their own permission scopes validated via validateApiKey().
  * 
  * Headers:
  *   Authorization: Bearer fedex_prod_xxxxx
@@ -17,10 +21,19 @@ import { createAdminClient } from '@/lib/supabase/server';
  *   status: filter by status (open, in_progress, resolved, escalated)
  */
 export async function GET(request: NextRequest) {
-    // Validate API key
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown';
+
+    // Validate API key - this is the RBAC check for external API
     const validation = await validateApiKey(request);
 
     if (!validation.valid) {
+        // Log the failed authentication attempt
+        await logSecurityEvent('API_KEY_INVALID', undefined, {
+            error: validation.error,
+            endpoint: '/api/v1/cases',
+            method: 'GET',
+        }, ipAddress);
+
         return NextResponse.json(
             {
                 error: 'Unauthorized',
@@ -30,6 +43,9 @@ export async function GET(request: NextRequest) {
             { status: 401 }
         );
     }
+
+    // API key validation includes scope check - only keys with 'cases:read' scope can access
+    // This is enforced in validateApiKey()
 
     try {
         const supabase = createAdminClient();

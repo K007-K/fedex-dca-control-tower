@@ -1,13 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+
 /**
  * GET /api/setup/database
  * Instructions for database setup
+ * 
+ * SECURITY: Protected - SUPER_ADMIN only, disabled in production
+ * Permission: admin:security
  */
-export async function GET() {
+const handleGetSetup: ApiHandler = async (request, { user }) => {
+  // SECURITY: Disabled in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Setup endpoints are disabled in production' },
+      { status: 404 }
+    );
+  }
+
   return NextResponse.json({
     message: 'Database Setup Instructions',
     instructions: [
@@ -31,13 +44,23 @@ export async function GET() {
     },
     note: 'SQL migrations must be run manually in Supabase SQL Editor'
   });
-}
+};
 
 /**
  * POST /api/setup/database
  * Placeholder - actual setup requires running SQL in Supabase Dashboard
+ * 
+ * Permission: admin:security
  */
-export async function POST() {
+const handlePostSetup: ApiHandler = async (request, { user }) => {
+  // SECURITY: Disabled in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Setup endpoints are disabled in production' },
+      { status: 404 }
+    );
+  }
+
   return NextResponse.json({
     error: {
       code: 'MANUAL_SETUP_REQUIRED',
@@ -45,4 +68,8 @@ export async function POST() {
       instructions: 'Use GET /api/setup/database for detailed instructions'
     }
   }, { status: 400 });
-}
+};
+
+// CRITICAL: Protected with admin:security - SUPER_ADMIN only
+export const GET = withPermission('admin:security', handleGetSetup);
+export const POST = withPermission('admin:security', handlePostSetup);

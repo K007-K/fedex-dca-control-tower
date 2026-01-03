@@ -7,27 +7,24 @@
  * 1. Testing auto-assignment rules
  * 2. Pre-validation before case creation
  * 3. Manual region lookup
+ * 
+ * Permission: regions:read
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { regionAssignmentEngine, type GeographyData } from '@/lib/region';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
-// POST /api/regions/resolve - Resolve region from geography
-export async function POST(request: NextRequest) {
+/**
+ * POST /api/regions/resolve - Resolve region from geography
+ * Permission: regions:read
+ */
+const handleResolveRegion: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
-
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         // Parse request body
         const body = await request.json();
 
@@ -72,4 +69,7 @@ export async function POST(request: NextRequest) {
         console.error('Region resolve API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected route - regions:read permission required
+export const POST = withPermission('regions:read', handleResolveRegion);

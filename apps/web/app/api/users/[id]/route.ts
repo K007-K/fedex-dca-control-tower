@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth/permissions';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 function getAdminClient() {
     return createAdminSupabase(
@@ -16,11 +16,9 @@ function getAdminClient() {
 
 /**
  * GET /api/users/[id] - Get a specific user
+ * Permission: users:read
  */
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+const handleGetUser: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -40,28 +38,15 @@ export async function GET(
         console.error('Get user error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
 /**
  * PATCH /api/users/[id] - Update a user (deactivate, change role, etc.)
+ * Permission: users:update
  */
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+const handleUpdateUser: ApiHandler = async (request, { params, user: currentUser }) => {
     try {
         const { id } = await params;
-        const currentUser = await getCurrentUser();
-
-        if (!currentUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Only admins can update users
-        if (!['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(currentUser.role)) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
         const body = await request.json();
         const adminClient = getAdminClient();
 
@@ -90,27 +75,15 @@ export async function PATCH(
         console.error('Update user error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
 /**
  * DELETE /api/users/[id] - Delete a user
+ * Permission: users:delete
  */
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+const handleDeleteUser: ApiHandler = async (request, { params, user: currentUser }) => {
     try {
         const { id } = await params;
-        const currentUser = await getCurrentUser();
-
-        if (!currentUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Admins can delete users
-        if (!['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(currentUser.role)) {
-            return NextResponse.json({ error: 'Only Admins can delete users' }, { status: 403 });
-        }
 
         // Can't delete yourself
         if (currentUser.id === id) {
@@ -181,4 +154,9 @@ export async function DELETE(
         console.error('Delete user error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('users:read', handleGetUser);
+export const PATCH = withPermission('users:update', handleUpdateUser);
+export const DELETE = withPermission('users:delete', handleDeleteUser);

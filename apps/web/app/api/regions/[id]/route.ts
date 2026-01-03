@@ -2,47 +2,29 @@
  * Single Region API
  * 
  * GET /api/regions/[id] - Get region details
- * PUT /api/regions/[id] - Update region (Global Admin only)
- * DELETE /api/regions/[id] - Deactivate region (Global Admin only)
+ * PUT /api/regions/[id] - Update region (regions:update permission)
+ * DELETE /api/regions/[id] - Deactivate region (regions:delete permission)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { regionRBAC } from '@/lib/region';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
-interface RouteParams {
-    params: Promise<{ id: string }>;
-}
-
-// GET /api/regions/[id] - Get region details
-export async function GET(request: NextRequest, { params }: RouteParams) {
+/**
+ * GET /api/regions/[id] - Get region details
+ * Permission: regions:read
+ */
+const handleGetRegion: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
 
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
         // Check region access
-        const accessCheck = await regionRBAC.hasRegionAccess(userData.id, id);
+        const accessCheck = await regionRBAC.hasRegionAccess(user.id, id);
 
         if (!accessCheck.allowed) {
             return NextResponse.json(
@@ -80,39 +62,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         console.error('Region API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
-// PUT /api/regions/[id] - Update region
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+/**
+ * PUT /api/regions/[id] - Update region
+ * Permission: regions:update
+ */
+const handleUpdateRegion: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
-
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Only global admins can update regions
-        if (!regionRBAC.isGlobalRole(userData.role)) {
-            return NextResponse.json(
-                { error: 'Only Global Admins can update regions' },
-                { status: 403 }
-            );
-        }
 
         // Get current region state (for audit)
         const { data: oldRegion } = await supabase
@@ -142,7 +101,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
                 status: body.status,
                 default_sla_template_id: body.default_sla_template_id,
                 escalation_matrix_id: body.escalation_matrix_id,
-                updated_by: userData.id,
+                updated_by: user.id,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', id)
@@ -159,8 +118,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             entity_type: 'REGION',
             entity_id: id,
             action: 'UPDATE',
-            performed_by: userData.id,
-            performed_by_role: userData.role,
+            performed_by: user.id,
+            performed_by_role: user.role,
             old_values: oldRegion,
             new_values: updatedRegion,
             change_reason: body.change_reason,
@@ -172,39 +131,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         console.error('Region API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
-// DELETE /api/regions/[id] - Deactivate region (soft delete)
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+/**
+ * DELETE /api/regions/[id] - Deactivate region (soft delete)
+ * Permission: regions:delete
+ */
+const handleDeleteRegion: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
-
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Only global admins can delete regions
-        if (!regionRBAC.isGlobalRole(userData.role)) {
-            return NextResponse.json(
-                { error: 'Only Global Admins can delete regions' },
-                { status: 403 }
-            );
-        }
 
         // Check if region has active cases
         const { count: activeCases } = await supabase
@@ -226,7 +162,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             .update({
                 status: 'INACTIVE',
                 deleted_at: new Date().toISOString(),
-                deleted_by: userData.id,
+                deleted_by: user.id,
             })
             .eq('id', id);
 
@@ -240,8 +176,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             entity_type: 'REGION',
             entity_id: id,
             action: 'DELETE',
-            performed_by: userData.id,
-            performed_by_role: userData.role,
+            performed_by: user.id,
+            performed_by_role: user.role,
         });
 
         return NextResponse.json({ success: true }, { status: 200 });
@@ -250,4 +186,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         console.error('Region API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('regions:read', handleGetRegion);
+export const PUT = withPermission('regions:update', handleUpdateRegion);
+export const DELETE = withPermission('regions:delete', handleDeleteRegion);

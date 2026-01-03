@@ -1,18 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@/lib/supabase/server';
-
-interface RouteParams {
-    params: Promise<{ id: string }>;
-}
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 /**
  * GET /api/escalations/[id] - Get escalation details
+ * Permission: cases:read
  */
-export async function GET(request: Request, { params }: RouteParams) {
+const handleGetEscalation: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -48,12 +46,13 @@ export async function GET(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * PATCH /api/escalations/[id] - Update/resolve escalation
+ * Permission: cases:update
  */
-export async function PATCH(request: Request, { params }: RouteParams) {
+const handleUpdateEscalation: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -77,6 +76,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             updates.resolved_at = new Date().toISOString();
             if (body.resolved_by) {
                 updates.resolved_by = body.resolved_by;
+            } else {
+                updates.resolved_by = user.id;
             }
 
             // Calculate resolution time
@@ -130,12 +131,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * DELETE /api/escalations/[id] - Close escalation (soft delete)
+ * Permission: cases:update
  */
-export async function DELETE(request: Request, { params }: RouteParams) {
+const handleDeleteEscalation: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -173,4 +175,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('cases:read', handleGetEscalation);
+export const PATCH = withPermission('cases:update', handleUpdateEscalation);
+export const DELETE = withPermission('cases:update', handleDeleteEscalation);

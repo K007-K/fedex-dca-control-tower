@@ -1,18 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@/lib/supabase/server';
-
-interface RouteParams {
-    params: Promise<{ id: string }>;
-}
+import { withAuth, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 /**
  * GET /api/notifications/[id] - Get notification details
+ * Permission: Authenticated (own notifications only via RLS)
  */
-export async function GET(request: Request, { params }: RouteParams) {
+const handleGetNotification: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -21,6 +19,7 @@ export async function GET(request: Request, { params }: RouteParams) {
             .from('notifications')
             .select('*')
             .eq('id', id)
+            .eq('recipient_id', user.id) // Ensure user can only see their own
             .single();
 
         if (error) {
@@ -42,12 +41,13 @@ export async function GET(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * PATCH /api/notifications/[id] - Update notification (mark as read/dismissed)
+ * Permission: Authenticated (own notifications only)
  */
-export async function PATCH(request: Request, { params }: RouteParams) {
+const handleUpdateNotification: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -78,6 +78,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             .from('notifications')
             .update(updates)
             .eq('id', id)
+            .eq('recipient_id', user.id) // Ensure user can only update their own
             .select()
             .single();
 
@@ -100,12 +101,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * DELETE /api/notifications/[id] - Delete notification
+ * Permission: Authenticated (own notifications only)
  */
-export async function DELETE(request: Request, { params }: RouteParams) {
+const handleDeleteNotification: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -113,7 +115,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         const { error } = await supabase
             .from('notifications')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('recipient_id', user.id); // Ensure user can only delete their own
 
         if (error) {
             throw error;
@@ -128,4 +131,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
+
+// Protected routes (user-scoped)
+export const GET = withAuth(handleGetNotification);
+export const PATCH = withAuth(handleUpdateNotification);
+export const DELETE = withAuth(handleDeleteNotification);

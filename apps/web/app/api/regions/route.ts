@@ -8,35 +8,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { regionRBAC } from '@/lib/region';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
-// GET /api/regions - List all regions
-export async function GET(request: NextRequest) {
+/**
+ * GET /api/regions - List all regions
+ * Permission: regions:read
+ */
+const handleGetRegions: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
 
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
         // Check if user is global admin - they see all regions
-        const isGlobal = regionRBAC.isGlobalRole(userData.role);
+        const isGlobal = regionRBAC.isGlobalRole(user.role);
 
         if (isGlobal) {
             // Global admin - return all regions
@@ -60,7 +46,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Non-global - return only accessible regions
-        const accessibleRegions = await regionRBAC.getUserAccessibleRegions(userData.id);
+        const accessibleRegions = await regionRBAC.getUserAccessibleRegions(user.id);
 
         if (accessibleRegions.length === 0) {
             return NextResponse.json({ data: [] });
@@ -96,38 +82,15 @@ export async function GET(request: NextRequest) {
         console.error('Regions API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
-// POST /api/regions - Create new region (Global Admin only)
-export async function POST(request: NextRequest) {
+/**
+ * POST /api/regions - Create new region (Global Admin only)
+ * Permission: regions:create
+ */
+const handleCreateRegion: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
-
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Only global admins can create regions
-        if (!regionRBAC.isGlobalRole(userData.role)) {
-            return NextResponse.json(
-                { error: 'Only Global Admins can create regions' },
-                { status: 403 }
-            );
-        }
 
         // Parse request body
         const body = await request.json();
@@ -155,7 +118,7 @@ export async function POST(request: NextRequest) {
                 timezone,
                 business_hours: body.business_hours || { start: '09:00', end: '18:00', days: [1, 2, 3, 4, 5] },
                 status: 'ACTIVE',
-                created_by: userData.id,
+                created_by: user.id,
             })
             .select()
             .single();
@@ -176,8 +139,8 @@ export async function POST(request: NextRequest) {
             entity_type: 'REGION',
             entity_id: newRegion.id,
             action: 'CREATE',
-            performed_by: userData.id,
-            performed_by_role: userData.role,
+            performed_by: user.id,
+            performed_by_role: user.role,
             new_values: newRegion,
         });
 
@@ -187,4 +150,8 @@ export async function POST(request: NextRequest) {
         console.error('Regions API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('regions:read', handleGetRegions);
+export const POST = withPermission('regions:create', handleCreateRegion);

@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
 import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { withAuth, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 function getAdminClient() {
     return createAdminSupabase(
@@ -16,32 +17,12 @@ function getAdminClient() {
 
 /**
  * DELETE /api/notifications/delete-all - Delete all notifications for current user
- * Uses admin client to bypass RLS
+ * Permission: Authenticated (own notifications only)
  */
-export async function DELETE() {
+const handleDeleteAll: ApiHandler = async (request, { user }) => {
     try {
         const adminClient = getAdminClient();
-        const supabase = await createClient();
-
-        // Get current user
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-
-        if (!authUser) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
-
-        // Get the database user ID by email
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profile } = await (supabase as any)
-            .from('users')
-            .select('id')
-            .eq('email', authUser.email)
-            .single();
-
-        const userId = profile?.id || authUser.id;
+        const userId = user.id;
 
         // Delete all notifications for this user using admin client
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,4 +49,7 @@ export async function DELETE() {
             { status: 500 }
         );
     }
-}
+};
+
+// Protected: requires authentication
+export const DELETE = withAuth(handleDeleteAll);

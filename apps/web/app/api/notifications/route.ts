@@ -3,36 +3,22 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 import { createClient } from '@/lib/supabase/server';
+import { withAuth, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 /**
  * GET /api/notifications - Get notifications for current user
+ * Permission: Authenticated user (own notifications only)
  */
-export async function GET(request: NextRequest) {
+const handleGetNotifications: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
-
-        // Get current user
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-
-        if (!authUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get database user ID by email
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profile } = await (supabase as any)
-            .from('users')
-            .select('id')
-            .eq('email', authUser.email)
-            .single();
-
-        const userId = profile?.id || authUser.id;
+        const userId = user.id;
 
         // Get limit from query params
         const { searchParams } = new URL(request.url);
         const limit = parseInt(searchParams.get('limit') || '50');
 
-        // Fetch notifications for this user
+        // Fetch notifications for this user (user.id from auth context)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (supabase as any)
             .from('notifications')
@@ -52,4 +38,7 @@ export async function GET(request: NextRequest) {
         console.error('Notifications API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected: requires authentication (user sees their own notifications)
+export const GET = withAuth(handleGetNotifications);

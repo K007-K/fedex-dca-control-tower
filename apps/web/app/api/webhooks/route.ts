@@ -3,18 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 import { createClient } from '@/lib/supabase/server';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 /**
  * GET /api/webhooks - List all webhooks
+ * Permission: admin:settings
  */
-export async function GET() {
+const handleGetWebhooks: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: webhooks, error } = await (supabase as any)
@@ -32,20 +29,15 @@ export async function GET() {
         console.error('Webhooks GET error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
 /**
  * POST /api/webhooks - Create new webhook
+ * Permission: admin:settings
  */
-export async function POST(request: NextRequest) {
+const handleCreateWebhook: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         const body = await request.json();
         const { name, url, events } = body;
 
@@ -60,12 +52,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
         }
 
-        // Get user's database info
+        // Get user's organization
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: dbUser } = await (supabase as any)
             .from('users')
             .select('id, organization_id')
-            .eq('email', user.email)
+            .eq('id', user.id)
             .single();
 
         if (!dbUser) {
@@ -85,7 +77,7 @@ export async function POST(request: NextRequest) {
                 url,
                 events: events || ['case.updated'],
                 secret,
-                created_by: dbUser.id,
+                created_by: user.id,
                 is_active: true,
             })
             .select()
@@ -104,4 +96,8 @@ export async function POST(request: NextRequest) {
         console.error('Webhooks POST error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('admin:settings', handleGetWebhooks);
+export const POST = withPermission('admin:settings', handleCreateWebhook);

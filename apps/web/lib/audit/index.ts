@@ -30,6 +30,7 @@ export type AuditAction =
     | 'CASE_ASSIGNED'
     | 'CASE_ESCALATED'
     | 'CASE_STATUS_CHANGED'
+    | 'CASE_CREATION_FAILED'
     // Bulk operations
     | 'BULK_ACTION'
     | 'BULK_STATUS_CHANGE'
@@ -45,22 +46,37 @@ export type AuditAction =
     // Permission events (SECURITY)
     | 'PERMISSION_DENIED'
     | 'PERMISSION_GRANTED'
+    | 'ACCESS_DENIED'
+    | 'VALIDATION_FAILED'
+    | 'API_KEY_INVALID'
     // Operations
     | 'REPORT_GENERATED'
-    | 'RATE_LIMITED';
+    | 'RATE_LIMITED'
+    // Security & Governance
+    | 'SECURITY_SETTINGS_UPDATED'
+    // SLA system events
+    | 'SLA_BREACH_CHECK'
+    | 'SLA_BREACH_CHECK_START';
+
 
 export type AuditSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
 
 interface AuditLogEntry {
     action: AuditAction;
+    // Actor identification
+    actorType?: 'SYSTEM' | 'HUMAN';
+    serviceName?: string;  // For SYSTEM actors
     userId?: string;
     userEmail?: string;
+    // Resource affected
     resourceType?: string;
     resourceId?: string;
+    // Context
     details?: Record<string, unknown>;
     ipAddress?: string;
     userAgent?: string;
     severity?: AuditSeverity;
+    requestSource?: 'SYSTEM' | 'MANUAL';
 }
 
 /**
@@ -72,14 +88,20 @@ export async function logAudit(entry: AuditLogEntry): Promise<void> {
 
         const logEntry = {
             action: entry.action,
+            // Actor identification
+            actor_type: entry.actorType || 'HUMAN',
+            service_name: entry.serviceName || null,
             user_id: entry.userId || null,
             user_email: entry.userEmail || null,
+            // Resource affected
             resource_type: entry.resourceType || null,
             resource_id: entry.resourceId || null,
+            // Context
             details: entry.details || {},
             ip_address: entry.ipAddress || null,
             user_agent: entry.userAgent || null,
             severity: entry.severity || 'INFO',
+            request_source: entry.requestSource || 'MANUAL',
             created_at: new Date().toISOString(),
         };
 
@@ -167,4 +189,29 @@ export function getRequestMetadata(request: Request): { ipAddress: string; userA
     const userAgent = request.headers.get('user-agent') ?? 'unknown';
 
     return { ipAddress, userAgent };
+}
+
+/**
+ * Log a SYSTEM actor action
+ * Use this when logging actions performed by automated services
+ */
+export async function logSystemAction(
+    action: AuditAction,
+    serviceName: string,
+    resourceType: string,
+    resourceId: string,
+    details?: Record<string, unknown>,
+    ipAddress?: string
+): Promise<void> {
+    await logAudit({
+        action,
+        actorType: 'SYSTEM',
+        serviceName,
+        resourceType,
+        resourceId,
+        details,
+        ipAddress,
+        severity: 'INFO',
+        requestSource: 'SYSTEM',
+    });
 }

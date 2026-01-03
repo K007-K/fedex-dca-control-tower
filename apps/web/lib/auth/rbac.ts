@@ -13,6 +13,7 @@ export const PERMISSIONS = {
     'cases:assign': 'Assign cases to DCAs',
     'cases:bulk': 'Perform bulk operations on cases',
     'cases:export': 'Export case data',
+    'cases:workflow': 'Execute case status transitions',
 
     // DCA permissions
     'dcas:read': 'View DCAs',
@@ -58,16 +59,21 @@ export const PERMISSIONS = {
 export type Permission = keyof typeof PERMISSIONS;
 
 // User roles in the system
+// FedEx roles: SUPER_ADMIN, FEDEX_ADMIN, FEDEX_MANAGER, FEDEX_ANALYST, FEDEX_AUDITOR, FEDEX_VIEWER
+// DCA roles: DCA_ADMIN, DCA_MANAGER, DCA_AGENT
+// Legacy: AUDITOR (mapped to FEDEX_AUDITOR), READONLY (mapped to FEDEX_VIEWER)
 export type UserRole =
     | 'SUPER_ADMIN'
     | 'FEDEX_ADMIN'
     | 'FEDEX_MANAGER'
     | 'FEDEX_ANALYST'
+    | 'FEDEX_AUDITOR'
+    | 'FEDEX_VIEWER'
     | 'DCA_ADMIN'
     | 'DCA_MANAGER'
     | 'DCA_AGENT'
-    | 'AUDITOR'
-    | 'READONLY';
+    | 'AUDITOR'    // Legacy - maps to FEDEX_AUDITOR
+    | 'READONLY';  // Legacy - maps to FEDEX_VIEWER
 
 // Role hierarchy (higher roles inherit permissions from lower)
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -75,19 +81,38 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
     'FEDEX_ADMIN': 90,
     'FEDEX_MANAGER': 70,
     'FEDEX_ANALYST': 50,
+    'FEDEX_AUDITOR': 35,
+    'FEDEX_VIEWER': 15,
     'DCA_ADMIN': 60,
     'DCA_MANAGER': 40,
     'DCA_AGENT': 20,
-    'AUDITOR': 30,
-    'READONLY': 10,
+    'AUDITOR': 35,   // Legacy - same as FEDEX_AUDITOR
+    'READONLY': 15,  // Legacy - same as FEDEX_VIEWER
 };
 
 // Define permissions for each role
+// CRITICAL: SUPER_ADMIN is a GOVERNANCE role - NO operational permissions
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-    SUPER_ADMIN: Object.keys(PERMISSIONS) as Permission[],
+    // SUPER_ADMIN: Governance/oversight only - CANNOT perform operational actions
+    SUPER_ADMIN: [
+        // READ-ONLY access to all data for oversight
+        'cases:read', 'cases:export',
+        'dcas:read', 'dcas:performance',
+        'users:read',
+        // Full region governance (create/update/delete regions)
+        'regions:read', 'regions:create', 'regions:update', 'regions:delete',
+        'regions:assign-users', 'regions:assign-dcas', 'regions:override',
+        'sla:read',
+        // Full analytics access
+        'analytics:read', 'analytics:export', 'analytics:custom',
+        // Admin functions
+        'admin:settings', 'admin:audit', 'admin:security',
+        // EXPLICITLY FORBIDDEN: cases:create, cases:update, cases:delete, cases:assign, cases:bulk
+    ],
 
     FEDEX_ADMIN: [
-        'cases:read', 'cases:create', 'cases:update', 'cases:delete', 'cases:assign', 'cases:bulk', 'cases:export',
+        // NOTE: cases:assign REMOVED - allocation is SYSTEM-only (STEP 5)
+        'cases:read', 'cases:create', 'cases:update', 'cases:delete', 'cases:bulk', 'cases:export', 'cases:workflow',
         'dcas:read', 'dcas:create', 'dcas:update', 'dcas:delete', 'dcas:performance', 'dcas:manage',
         'users:read', 'users:create', 'users:update', 'users:delete', 'users:roles',
         'sla:read', 'sla:create', 'sla:update', 'sla:exempt',
@@ -96,7 +121,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     ],
 
     FEDEX_MANAGER: [
-        'cases:read', 'cases:create', 'cases:update', 'cases:assign', 'cases:bulk', 'cases:export',
+        // NOTE: cases:assign REMOVED - allocation is SYSTEM-only (STEP 5)
+        'cases:read', 'cases:create', 'cases:update', 'cases:bulk', 'cases:export',
         'dcas:read', 'dcas:update', 'dcas:performance', 'dcas:manage',
         'users:read', 'users:create', 'users:update',
         'sla:read', 'sla:update', 'sla:exempt',
@@ -120,7 +146,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     ],
 
     DCA_MANAGER: [
-        'cases:read', 'cases:update',
+        'cases:read', 'cases:update', 'cases:workflow',
         'dcas:read', 'dcas:performance',
         'users:read',
         'sla:read',
@@ -128,11 +154,30 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     ],
 
     DCA_AGENT: [
-        'cases:read', 'cases:update',
+        'cases:read', 'cases:update', 'cases:workflow',
         'dcas:read',
         'sla:read',
     ],
 
+    // FEDEX_AUDITOR: Read-only access with audit log viewing
+    FEDEX_AUDITOR: [
+        'cases:read',
+        'dcas:read', 'dcas:performance',
+        'users:read',
+        'sla:read',
+        'analytics:read',
+        'admin:audit',
+    ],
+
+    // FEDEX_VIEWER: Minimal read-only access
+    FEDEX_VIEWER: [
+        'cases:read',
+        'dcas:read',
+        'sla:read',
+        'analytics:read',
+    ],
+
+    // Legacy role - maps to FEDEX_AUDITOR permissions
     AUDITOR: [
         'cases:read',
         'dcas:read', 'dcas:performance',
@@ -142,6 +187,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
         'admin:audit',
     ],
 
+    // Legacy role - maps to FEDEX_VIEWER permissions
     READONLY: [
         'cases:read',
         'dcas:read',
@@ -199,7 +245,11 @@ export function getAssignableRoles(role: UserRole): UserRole[] {
  * Check if a role is a FedEx internal role
  */
 export function isFedExRole(role: UserRole): boolean {
-    return ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST'].includes(role);
+    return [
+        'SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST',
+        'FEDEX_AUDITOR', 'FEDEX_VIEWER',
+        'AUDITOR', 'READONLY', // Legacy mappings
+    ].includes(role);
 }
 
 /**
@@ -215,7 +265,11 @@ export function isDCARole(role: UserRole): boolean {
  * They have view-only access for oversight purposes
  */
 export function isGovernanceRole(role: UserRole): boolean {
-    return ['SUPER_ADMIN', 'AUDITOR', 'READONLY'].includes(role);
+    return [
+        'SUPER_ADMIN',
+        'FEDEX_AUDITOR', 'FEDEX_VIEWER',
+        'AUDITOR', 'READONLY', // Legacy
+    ].includes(role);
 }
 
 /**

@@ -4,45 +4,32 @@
  * GET /api/regions/[id]/dcas - Get DCAs assigned to region
  * POST /api/regions/[id]/dcas - Assign DCA to region
  * DELETE /api/regions/[id]/dcas - Remove DCA from region
+ * 
+ * Permissions:
+ * - GET: regions:read
+ * - POST: regions:assign-dcas
+ * - DELETE: regions:assign-dcas
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { regionRBAC } from '@/lib/region';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
-interface RouteParams {
-    params: Promise<{ id: string }>;
-}
-
-// GET /api/regions/[id]/dcas - Get DCAs assigned to region
-export async function GET(request: NextRequest, { params }: RouteParams) {
+/**
+ * GET /api/regions/[id]/dcas - Get DCAs assigned to region
+ * Permission: regions:read
+ */
+const handleGetRegionDCAs: ApiHandler = async (request, { params, user }) => {
     try {
         const { id: regionId } = await params;
         const supabase = await createClient();
 
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
         // Check region access
-        const accessCheck = await regionRBAC.hasRegionAccess(userData.id, regionId);
+        const accessCheck = await regionRBAC.hasRegionAccess(user.id, regionId);
 
         if (!accessCheck.allowed) {
             return NextResponse.json(
@@ -77,39 +64,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         console.error('Region DCAs API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
-// POST /api/regions/[id]/dcas - Assign DCA to region
-export async function POST(request: NextRequest, { params }: RouteParams) {
+/**
+ * POST /api/regions/[id]/dcas - Assign DCA to region
+ * Permission: regions:assign-dcas
+ */
+const handleAssignDCAToRegion: ApiHandler = async (request, { params, user }) => {
     try {
         const { id: regionId } = await params;
         const supabase = await createClient();
-
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Only global admins can assign DCAs to regions
-        if (!regionRBAC.isGlobalRole(userData.role)) {
-            return NextResponse.json(
-                { error: 'Only Global Admins can assign DCAs to regions' },
-                { status: 403 }
-            );
-        }
 
         // Parse request body
         const body = await request.json();
@@ -160,7 +124,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 capacity_allocation_pct: capacity_allocation_pct || 100,
                 is_active: true,
                 suspended_at: null,
-                created_by: userData.id,
+                created_by: user.id,
             }, {
                 onConflict: 'region_id,dca_id',
             })
@@ -177,8 +141,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             entity_type: 'DCA_ASSIGNMENT',
             entity_id: assignment.id,
             action: 'CREATE',
-            performed_by: userData.id,
-            performed_by_role: userData.role,
+            performed_by: user.id,
+            performed_by_role: user.role,
             new_values: assignment,
         });
 
@@ -188,10 +152,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         console.error('Region DCAs API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
-// DELETE /api/regions/[id]/dcas - Remove DCA from region
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+/**
+ * DELETE /api/regions/[id]/dcas - Remove DCA from region
+ * Permission: regions:assign-dcas
+ */
+const handleRemoveDCAFromRegion: ApiHandler = async (request, { params, user }) => {
     try {
         const { id: regionId } = await params;
         const { searchParams } = new URL(request.url);
@@ -205,32 +172,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         const supabase = await createClient();
-
-        // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Get user details
-        const { data: userData } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('email', user.email)
-            .single();
-
-        if (!userData) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        // Only global admins can remove DCAs from regions
-        if (!regionRBAC.isGlobalRole(userData.role)) {
-            return NextResponse.json(
-                { error: 'Only Global Admins can remove DCAs from regions' },
-                { status: 403 }
-            );
-        }
 
         // Check if DCA has active cases in this region
         const { count: activeCases } = await supabase
@@ -252,7 +193,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             .from('region_dca_assignments')
             .update({
                 is_active: false,
-                updated_by: userData.id,
+                updated_by: user.id,
                 updated_at: new Date().toISOString(),
             })
             .eq('region_id', regionId)
@@ -268,8 +209,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             entity_type: 'DCA_ASSIGNMENT',
             entity_id: dcaId,
             action: 'DELETE',
-            performed_by: userData.id,
-            performed_by_role: userData.role,
+            performed_by: user.id,
+            performed_by_role: user.role,
             change_reason: 'DCA removed from region',
         });
 
@@ -279,4 +220,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         console.error('Region DCAs API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('regions:read', handleGetRegionDCAs);
+export const POST = withPermission('regions:assign-dcas', handleAssignDCAToRegion);
+export const DELETE = withPermission('regions:assign-dcas', handleRemoveDCAFromRegion);

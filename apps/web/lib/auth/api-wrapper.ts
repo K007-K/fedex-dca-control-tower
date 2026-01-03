@@ -1,11 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 
 import { getCurrentUser, type AuthUser } from '@/lib/auth/permissions';
 import { hasPermission, type Permission } from '@/lib/auth/rbac';
 import { checkRateLimit, getRateLimitHeaders, RATE_LIMIT_CONFIGS, type RateLimitConfig } from '@/lib/rate-limit';
-import { logSecurityEvent, getRequestMetadata } from '@/lib/audit';
+import { logSecurityEvent, logSystemAction, getRequestMetadata } from '@/lib/audit';
 import { regionRBAC } from '@/lib/region';
 import { isGlobalRole } from '@/lib/config';
+
+// SYSTEM Actor imports
+import {
+    type Actor,
+    type SystemActor,
+    type HumanActor,
+    type RequestContext,
+    type SystemRequestContext,
+    type HumanRequestContext,
+    SYSTEM_AUTH_HEADER,
+    REQUEST_ID_HEADER,
+    isSystemActor,
+} from './actor';
+import {
+    isSystemRequest,
+    authenticateSystemRequest,
+    serviceCanPerform,
+} from './system-auth';
+import {
+    guard as systemGuard,
+    recordFailedAttempt,
+    clearFailedAttempts,
+    isIpBlocked,
+} from './system-guard';
 
 export type ApiHandler = (
     request: NextRequest,
@@ -478,3 +503,339 @@ export function withRegionPermission(
         }
     };
 }
+
+// ===========================================
+// SYSTEM ACTOR TYPES AND HANDLERS
+// ===========================================
+
+/**
+ * Handler context for SYSTEM-only routes
+ */
+export type SystemApiHandler = (
+    request: NextRequest,
+    context: {
+        params: Promise<Record<string, string>>;
+        actor: SystemActor;
+        requestContext: SystemRequestContext;
+    }
+) => Promise<NextResponse>;
+
+/**
+ * Handler context for routes accepting both SYSTEM and HUMAN actors
+ */
+export type ActorApiHandler = (
+    request: NextRequest,
+    context: {
+        params: Promise<Record<string, string>>;
+        actor: Actor;
+        requestContext: RequestContext;
+        // For HUMAN actors, include full user info
+        user?: AuthUser & { accessibleRegions: string[]; isGlobalAdmin: boolean };
+    }
+) => Promise<NextResponse>;
+
+// ===========================================
+// SYSTEM-ONLY AUTHENTICATION WRAPPER
+// ===========================================
+
+/**
+ * Wrap API route for SYSTEM-only access
+ * 
+ * Use this for backend-to-backend endpoints that should NEVER
+ * be accessed by humans (e.g., automated case creation, internal webhooks).
+ * 
+ * SECURITY:
+ * - Requires X-Service-Auth header with valid JWT
+ * - Rejects browser-originated requests
+ * - Logs all access attempts
+ * 
+ * @param operation - Required operation permission (e.g., 'cases:create')
+ * @param handler - The route handler
+ * 
+ * @example
+ * export const POST = withSystemAuth('cases:create', async (request, { actor, requestContext }) => {
+ *   // actor is guaranteed to be a valid SystemActor
+ *   // Create case with actor metadata
+ * });
+ */
+export function withSystemAuth(operation: string, handler: SystemApiHandler) {
+    return async (request: NextRequest, context: { params: Promise<Record<string, string>> }) => {
+        const { ipAddress, userAgent } = getRequestMetadata(request);
+        const requestId = request.headers.get(REQUEST_ID_HEADER) || randomUUID();
+
+        try {
+            // Check if IP is blocked due to repeated failures
+            if (isIpBlocked(ipAddress)) {
+                return NextResponse.json(
+                    { error: { code: 'BLOCKED', message: 'Too many failed attempts. Try again later.' } },
+                    { status: 429 }
+                );
+            }
+
+            // Verify this is a SYSTEM request
+            if (!isSystemRequest(request)) {
+                return NextResponse.json(
+                    { error: { code: 'UNAUTHORIZED', message: 'SYSTEM authentication required' } },
+                    { status: 401 }
+                );
+            }
+
+            // Authenticate SYSTEM request
+            const authResult = await authenticateSystemRequest(request);
+
+            // Run spoofing guard
+            const guardResult = await systemGuard(request, authResult.authenticated);
+            if (!guardResult.allowed) {
+                recordFailedAttempt(ipAddress);
+                return NextResponse.json(
+                    { error: { code: 'FORBIDDEN', message: guardResult.error } },
+                    { status: guardResult.statusCode }
+                );
+            }
+
+            if (!authResult.authenticated || !authResult.actor) {
+                recordFailedAttempt(ipAddress);
+                return NextResponse.json(
+                    { error: { code: 'UNAUTHORIZED', message: authResult.error || 'Authentication failed' } },
+                    { status: 401 }
+                );
+            }
+
+            // Check operation permission
+            if (!serviceCanPerform(authResult.actor, operation)) {
+                await logSecurityEvent('PERMISSION_DENIED', undefined, {
+                    type: 'SYSTEM_OPERATION_DENIED',
+                    service_name: authResult.actor.service_name,
+                    required_operation: operation,
+                    allowed_operations: authResult.actor.allowed_operations,
+                }, ipAddress);
+
+                return NextResponse.json(
+                    { error: { code: 'FORBIDDEN', message: `Service not authorized for operation: ${operation}` } },
+                    { status: 403 }
+                );
+            }
+
+            // Clear failed attempts on successful auth
+            clearFailedAttempts(ipAddress);
+
+            // Build request context
+            const requestContext: SystemRequestContext = {
+                actor: authResult.actor,
+                source: 'SYSTEM',
+                service_name: authResult.actor.service_name,
+                request_id: requestId,
+                timestamp: new Date().toISOString(),
+                ip_address: ipAddress,
+                user_agent: userAgent,
+            };
+
+            // Log successful SYSTEM authentication
+            await logSystemAction(
+                'PERMISSION_GRANTED',
+                authResult.actor.service_name,
+                'api',
+                operation,
+                { endpoint: request.url, method: request.method },
+                ipAddress
+            );
+
+            return handler(request, {
+                ...context,
+                actor: authResult.actor,
+                requestContext,
+            });
+        } catch (error) {
+            console.error('SYSTEM auth error:', error);
+            return NextResponse.json(
+                { error: { code: 'INTERNAL_ERROR', message: 'Authentication failed' } },
+                { status: 500 }
+            );
+        }
+    };
+}
+
+// ===========================================
+// UNIFIED ACTOR CONTEXT WRAPPER
+// ===========================================
+
+/**
+ * Wrap API route with unified actor context (SYSTEM or HUMAN)
+ * 
+ * Use this for endpoints that can be accessed by both:
+ * - Automated SYSTEM services (via X-Service-Auth)
+ * - Human users (via Supabase session)
+ * 
+ * The handler receives a unified Actor that can be either type.
+ * Use type guards (isSystemActor, isHumanActor) to differentiate.
+ * 
+ * @param permission - Required permission (for HUMAN actors)
+ * @param operation - Required operation (for SYSTEM actors)
+ * @param handler - The route handler
+ * 
+ * @example
+ * export const POST = withActorContext('cases:create', 'cases:create', 
+ *   async (request, { actor, requestContext, user }) => {
+ *     if (isSystemActor(actor)) {
+ *       // Handle SYSTEM request
+ *     } else {
+ *       // Handle HUMAN request with user object
+ *     }
+ * });
+ */
+export function withActorContext(
+    permission: Permission,
+    operation: string,
+    handler: ActorApiHandler
+) {
+    return async (request: NextRequest, context: { params: Promise<Record<string, string>> }) => {
+        const { ipAddress, userAgent } = getRequestMetadata(request);
+        const requestId = request.headers.get(REQUEST_ID_HEADER) || randomUUID();
+
+        try {
+            // Check if this is a SYSTEM request
+            if (isSystemRequest(request)) {
+                // Handle as SYSTEM
+                const authResult = await authenticateSystemRequest(request);
+
+                // Run spoofing guard
+                const guardResult = await systemGuard(request, authResult.authenticated);
+                if (!guardResult.allowed) {
+                    recordFailedAttempt(ipAddress);
+                    return NextResponse.json(
+                        { error: { code: 'FORBIDDEN', message: guardResult.error } },
+                        { status: guardResult.statusCode }
+                    );
+                }
+
+                if (!authResult.authenticated || !authResult.actor) {
+                    recordFailedAttempt(ipAddress);
+                    return NextResponse.json(
+                        { error: { code: 'UNAUTHORIZED', message: authResult.error } },
+                        { status: 401 }
+                    );
+                }
+
+                // Check operation permission for SYSTEM
+                if (!serviceCanPerform(authResult.actor, operation)) {
+                    return NextResponse.json(
+                        { error: { code: 'FORBIDDEN', message: `Service not authorized for: ${operation}` } },
+                        { status: 403 }
+                    );
+                }
+
+                clearFailedAttempts(ipAddress);
+
+                const requestContext: SystemRequestContext = {
+                    actor: authResult.actor,
+                    source: 'SYSTEM',
+                    service_name: authResult.actor.service_name,
+                    request_id: requestId,
+                    timestamp: new Date().toISOString(),
+                    ip_address: ipAddress,
+                    user_agent: userAgent,
+                };
+
+                // AUDIT: Log all SYSTEM-authenticated requests
+                await logSystemAction(
+                    'PERMISSION_GRANTED',
+                    authResult.actor.service_name,
+                    'api',
+                    operation,
+                    { endpoint: request.url, method: request.method, wrapper: 'withActorContext' },
+                    ipAddress
+                );
+
+                return handler(request, {
+                    ...context,
+                    actor: authResult.actor,
+                    requestContext,
+                });
+            }
+
+            // Handle as HUMAN (existing logic)
+            const user = await getCurrentUser();
+
+            if (!user) {
+                return NextResponse.json(
+                    { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+                    { status: 401 }
+                );
+            }
+
+            // Check permission
+            if (!hasPermission(user.role, permission)) {
+                await logSecurityEvent('PERMISSION_DENIED', user.id, {
+                    required_permission: permission,
+                    user_role: user.role,
+                }, ipAddress);
+
+                return NextResponse.json(
+                    { error: { code: 'FORBIDDEN', message: `Missing permission: ${permission}` } },
+                    { status: 403 }
+                );
+            }
+
+            // Get accessible regions
+            const accessibleRegions = await regionRBAC.getUserAccessibleRegions(user.id);
+            const regionIds = accessibleRegions.map(r => r.region_id);
+            const userIsGlobalAdmin = isGlobalRole(user.role);
+
+            // Fail-closed for non-global users
+            if (!userIsGlobalAdmin && regionIds.length === 0) {
+                return NextResponse.json(
+                    { error: { code: 'REGION_ACCESS_DENIED', message: 'No region access configured' } },
+                    { status: 403 }
+                );
+            }
+
+            // Build human actor
+            const humanActor: HumanActor = {
+                actor_type: 'HUMAN',
+                actor_id: user.id,
+                actor_role: user.role,
+                region_scope: regionIds.length > 0 ? regionIds : null,
+                email: user.email,
+                organization_id: user.organizationId,
+                dca_id: user.dcaId,
+            };
+
+            const requestContext: HumanRequestContext = {
+                actor: humanActor,
+                source: 'MANUAL',
+                request_id: requestId,
+                timestamp: new Date().toISOString(),
+                ip_address: ipAddress,
+                user_agent: userAgent,
+            };
+
+            return handler(request, {
+                ...context,
+                actor: humanActor,
+                requestContext,
+                user: { ...user, accessibleRegions: regionIds, isGlobalAdmin: userIsGlobalAdmin },
+            });
+        } catch (error) {
+            console.error('Actor context error:', error);
+            return NextResponse.json(
+                { error: { code: 'INTERNAL_ERROR', message: 'Authentication failed' } },
+                { status: 500 }
+            );
+        }
+    };
+}
+
+// ===========================================
+// RE-EXPORTS FOR CONVENIENCE
+// ===========================================
+
+export {
+    type Actor,
+    type SystemActor,
+    type HumanActor,
+    type RequestContext,
+    type SystemRequestContext,
+    type HumanRequestContext,
+    isSystemActor,
+    isSystemRequest,
+} from './actor';

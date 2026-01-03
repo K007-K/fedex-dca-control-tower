@@ -1,15 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 /**
  * Debug endpoint to test user creation
  * GET /api/debug/user-creation
+ * 
+ * SECURITY: This is a debug route - SUPER_ADMIN only, disabled in production
+ * Permission: admin:security
  */
-export async function GET() {
+const handleDebugUserCreation: ApiHandler = async (request, { user }) => {
+    // SECURITY: Disabled in production
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+            { error: 'Debug endpoints are disabled in production' },
+            { status: 404 }
+        );
+    }
+
     const debug: Record<string, unknown> = {};
 
     try {
@@ -31,38 +43,18 @@ export async function GET() {
         }
 
         // Step 2: Check current user
-        const supabase = await createClient();
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-
         debug.authUser = {
-            id: authUser?.id,
-            email: authUser?.email,
-            error: authError?.message,
+            id: user.id,
+            email: user.email,
+            role: user.role,
         };
 
-        // Step 3: Check user profile in database
-        if (authUser?.email) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: profile, error: profileError } = await (supabase as any)
-                .from('users')
-                .select('id, email, role')
-                .eq('email', authUser.email)
-                .single();
-
-            debug.userProfile = {
-                id: profile?.id,
-                email: profile?.email,
-                role: profile?.role,
-                error: profileError?.message,
-            };
-        }
-
-        // Step 4: Test admin client
+        // Step 3: Test admin client
         const adminClient = createAdminSupabase(supabaseUrl, serviceRoleKey, {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
-        // Step 5: Try to create a test auth user
+        // Step 4: Try to create a test auth user
         const testEmail = `test-${Date.now()}@debug.local`;
         const { data: testAuthUser, error: testAuthError } = await adminClient.auth.admin.createUser({
             email: testEmail,
@@ -76,7 +68,7 @@ export async function GET() {
             error: testAuthError?.message,
         };
 
-        // Step 6: Try to insert into users table with admin client
+        // Step 5: Try to insert into users table with admin client
         if (testAuthUser?.user?.id) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: insertData, error: insertError } = await (adminClient as any)
@@ -115,4 +107,7 @@ export async function GET() {
         debug.fatalError = err instanceof Error ? err.message : String(err);
         return NextResponse.json({ error: 'Debug failed', debug }, { status: 500 });
     }
-}
+};
+
+// CRITICAL: Protected with admin:security - SUPER_ADMIN only
+export const GET = withPermission('admin:security', handleDebugUserCreation);

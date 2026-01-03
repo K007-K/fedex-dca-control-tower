@@ -1,21 +1,25 @@
 /**
  * ML Service Proxy API
  * Routes ML service requests through Next.js for production compatibility
+ * 
+ * Permission: analytics:read (for reading ML predictions/scores)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
-interface RouteParams {
-    params: Promise<{ path: string[] }>;
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+/**
+ * GET /api/ml/[...path] - Proxy GET requests to ML service
+ * Permission: analytics:read
+ */
+const handleGetML: ApiHandler = async (request, { params, user }) => {
     const { path } = await params;
-    const pathname = path.join('/');
+    const pathArray = Array.isArray(path) ? path : [path];
+    const pathname = pathArray.join('/');
     const { searchParams } = new URL(request.url);
 
     try {
@@ -40,11 +44,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             { status: 503 }
         );
     }
-}
+};
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+/**
+ * POST /api/ml/[...path] - Proxy POST requests to ML service
+ * Permission: analytics:read (ML predictions are read-only analytics)
+ */
+const handlePostML: ApiHandler = async (request, { params, user }) => {
     const { path } = await params;
-    const pathname = path.join('/');
+    const pathArray = Array.isArray(path) ? path : [path];
+    const pathname = pathArray.join('/');
 
     try {
         const body = await request.json();
@@ -66,4 +75,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             { status: 503 }
         );
     }
-}
+};
+
+// Protected routes - analytics:read permission required
+export const GET = withPermission('analytics:read', handleGetML);
+export const POST = withPermission('analytics:read', handlePostML);

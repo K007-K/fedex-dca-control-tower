@@ -1,13 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@/lib/supabase/server';
-
-interface RouteParams {
-    params: Promise<{ id: string }>;
-}
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 interface SLALogRecord {
     status: string;
@@ -15,8 +12,9 @@ interface SLALogRecord {
 
 /**
  * GET /api/sla/[id] - Get SLA template details with logs
+ * Permission: sla:read
  */
-export async function GET(request: Request, { params }: RouteParams) {
+const handleGetSla: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -90,12 +88,13 @@ export async function GET(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * PATCH /api/sla/[id] - Update SLA template
+ * Permission: sla:update
  */
-export async function PATCH(request: Request, { params }: RouteParams) {
+const handleUpdateSla: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -150,12 +149,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
 
 /**
  * DELETE /api/sla/[id] - Deactivate SLA template
+ * Permission: sla:update (deactivation is an update)
  */
-export async function DELETE(request: Request, { params }: RouteParams) {
+const handleDeleteSla: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
@@ -193,4 +193,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
             { status: 500 }
         );
     }
-}
+};
+
+// Protected routes
+export const GET = withPermission('sla:read', handleGetSla);
+export const PATCH = withPermission('sla:update', handleUpdateSla);
+export const DELETE = withPermission('sla:update', handleDeleteSla);

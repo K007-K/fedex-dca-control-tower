@@ -1,172 +1,164 @@
-import { NextResponse } from 'next/server';
+/**
+ * DCA Allocation API
+ * 
+ * POST /api/cases/allocate
+ * 
+ * SYSTEM-ONLY ENDPOINT
+ * 
+ * This endpoint is DISABLED for human actors.
+ * DCA allocation is performed AUTOMATICALLY by the SYSTEM
+ * after case creation. Humans CANNOT trigger allocation.
+ * 
+ * All allocation happens internally via:
+ * - lib/allocation/dca-allocation.ts
+ * 
+ * Human actors attempting to access this endpoint
+ * will receive 403 Forbidden.
+ */
 
-// Force dynamic rendering - this route uses cookies/headers
+import { NextRequest, NextResponse } from 'next/server';
+import { logSecurityEvent } from '@/lib/audit';
+import { getCurrentUser } from '@/lib/auth/permissions';
+import { isSystemRequest, authenticateSystemRequest } from '@/lib/auth/system-auth';
+import { allocateCaseById } from '@/lib/allocation';
+
+// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-import { createClient } from '@/lib/supabase/server';
-
-interface DCA {
-    id: string;
-    name: string;
-    status: string;
-    capacity_limit: number;
-    capacity_used: number;
-    performance_score: number;
-    recovery_rate: number;
-    specializations: Record<string, unknown> | null;
-}
-
-interface Case {
-    id: string;
-    case_number: string;
-    outstanding_amount: number;
-    customer_segment: string | null;
-    customer_industry: string | null;
-    assigned_dca_id: string | null;
-}
-
 /**
- * POST /api/cases/allocate - Auto-allocate case to best DCA
+ * POST /api/cases/allocate
  * 
- * Algorithm:
- * 1. Find all active DCAs with available capacity
- * 2. Score each DCA based on:
- *    - Available capacity (40%)
- *    - Performance score (40%)
- *    - Specialization match (20%)
- * 3. Assign to highest scoring DCA
+ * SYSTEM-ONLY: Trigger DCA allocation for a specific case.
+ * 
+ * HUMAN ACTORS → 403 FORBIDDEN
+ * SYSTEM ACTORS → Uses internal allocation service
  */
-export async function POST(request: Request) {
-    try {
-        const supabase = await createClient();
-        const body = await request.json();
+export async function POST(request: NextRequest) {
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown';
 
+    // ------------------------------------------
+    // SECURITY CHECK 1: Block ALL human actors
+    // ------------------------------------------
+
+    if (!isSystemRequest(request)) {
+        // This is a human request - BLOCK IT
+        const user = await getCurrentUser();
+
+        await logSecurityEvent(
+            'PERMISSION_DENIED',
+            user?.id || 'anonymous',
+            {
+                action: 'ALLOCATION_BLOCKED',
+                reason: 'DCA allocation is SYSTEM-only. Human actors cannot trigger allocation.',
+                user_role: user?.role || 'anonymous',
+                user_email: user?.email || 'anonymous',
+                endpoint: '/api/cases/allocate',
+            },
+            ipAddress
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+                error: {
+                    code: 'SYSTEM_ONLY_ENDPOINT',
+                    message: 'DCA allocation is performed automatically by SYSTEM. Human actors cannot trigger allocation.',
+                },
+            },
+            { status: 403 }
+        );
+    }
+
+    // ------------------------------------------
+    // SECURITY CHECK 2: Authenticate SYSTEM actor
+    // ------------------------------------------
+
+    const systemAuth = await authenticateSystemRequest(request);
+
+    if (!systemAuth.authenticated) {
+        await logSecurityEvent(
+            'PERMISSION_DENIED',
+            'SYSTEM',
+            {
+                action: 'ALLOCATION_BLOCKED',
+                reason: 'SYSTEM authentication failed',
+                error: systemAuth.error,
+            },
+            ipAddress
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+                error: {
+                    code: 'SYSTEM_AUTH_FAILED',
+                    message: systemAuth.error || 'System authentication failed',
+                },
+            },
+            { status: 403 }
+        );
+    }
+
+    // ------------------------------------------
+    // MAIN LOGIC: Execute allocation
+    // ------------------------------------------
+
+    try {
+        const body = await request.json();
         const { case_id } = body;
 
         if (!case_id) {
             return NextResponse.json(
-                { error: 'Missing required field: case_id' },
+                {
+                    success: false,
+                    error: {
+                        code: 'MISSING_CASE_ID',
+                        message: 'case_id is required',
+                    },
+                },
                 { status: 400 }
             );
         }
 
-        // Get case details
-        const { data: caseData, error: caseError } = await supabase
-            .from('cases')
-            .select('*')
-            .eq('id', case_id)
-            .single();
+        // Use the internal allocation service
+        const result = await allocateCaseById(case_id, systemAuth.actor!.service_name);
 
-        if (caseError || !caseData) {
+        if (!result.success) {
             return NextResponse.json(
-                { error: 'Case not found' },
-                { status: 404 }
+                {
+                    success: false,
+                    error: {
+                        code: 'ALLOCATION_FAILED',
+                        message: result.reason,
+                    },
+                },
+                { status: 500 }
             );
         }
-
-        const caseRecord = caseData as Case;
-
-        // Check if already assigned
-        if (caseRecord.assigned_dca_id) {
-            return NextResponse.json(
-                { error: 'Case is already assigned to a DCA' },
-                { status: 400 }
-            );
-        }
-
-        // Get active DCAs with available capacity
-        const { data: dcas, error: dcaError } = await supabase
-            .from('dcas')
-            .select('*')
-            .eq('status', 'ACTIVE');
-
-        if (dcaError) {
-            throw dcaError;
-        }
-
-        // Filter DCAs with available capacity
-        const availableDcas = (dcas as DCA[] || []).filter(
-            dca => dca.capacity_used < dca.capacity_limit
-        );
-
-        if (availableDcas.length === 0) {
-            return NextResponse.json(
-                { error: 'No DCAs available with capacity' },
-                { status: 400 }
-            );
-        }
-
-        // Score each DCA
-        const scoredDcas = availableDcas.map(dca => {
-            let score = 0;
-
-            // Capacity score (40%) - Higher available capacity = higher score
-            const capacityAvailable = dca.capacity_limit - dca.capacity_used;
-            const capacityRatio = capacityAvailable / dca.capacity_limit;
-            score += capacityRatio * 40;
-
-            // Performance score (40%)
-            score += (dca.performance_score || 0) * 0.4;
-
-            // Specialization match (20%)
-            if (dca.specializations) {
-                const specs = dca.specializations as { industries?: string[]; segments?: string[] };
-                if (specs.industries?.includes(caseRecord.customer_industry || '')) {
-                    score += 10;
-                }
-                if (specs.segments?.includes(caseRecord.customer_segment || '')) {
-                    score += 10;
-                }
-            }
-
-            return { dca, score };
-        });
-
-        // Sort by score descending
-        scoredDcas.sort((a, b) => b.score - a.score);
-
-        const bestDca = scoredDcas[0].dca;
-
-        // Assign case to best DCA
-        const { error: updateError } = await supabase
-            .from('cases')
-            .update({
-                assigned_dca_id: bestDca.id,
-                assigned_at: new Date().toISOString(),
-                assignment_method: 'AUTO_ALLOCATED',
-                status: 'ALLOCATED',
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', case_id);
-
-        if (updateError) {
-            throw updateError;
-        }
-
-        // Log the action
-        await supabase.from('case_actions').insert({
-            case_id: case_id,
-            action_type: 'DCA_ASSIGNED',
-            action_description: `Case auto-allocated to ${bestDca.name}`,
-            old_status: 'PENDING_ALLOCATION',
-            new_status: 'ALLOCATED',
-        });
 
         return NextResponse.json({
-            message: 'Case allocated successfully',
+            success: true,
             data: {
                 case_id,
-                assigned_dca_id: bestDca.id,
-                assigned_dca_name: bestDca.name,
-                allocation_score: scoredDcas[0].score.toFixed(2),
-                candidates_evaluated: availableDcas.length,
-            }
+                allocated: result.allocated,
+                assigned_dca_id: result.dca_id,
+                assigned_dca_name: result.dca_name,
+                reason: result.reason,
+                allocation_score: result.score,
+                candidates_evaluated: result.candidates_evaluated,
+            },
         });
 
     } catch (error) {
-        console.error('Auto-allocation error:', error);
+        console.error('Allocation API error:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: 'An unexpected error occurred',
+                },
+            },
             { status: 500 }
         );
     }

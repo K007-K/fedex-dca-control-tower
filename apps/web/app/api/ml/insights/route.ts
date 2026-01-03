@@ -1,9 +1,12 @@
 /**
  * ML Insights API - Fetches cases and generates ML analysis
  * This endpoint provides authenticated access to case data for ML analysis
+ * 
+ * Permission: analytics:read
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
@@ -19,13 +22,17 @@ interface Case {
     region?: string;
 }
 
-export async function GET(request: NextRequest) {
+/**
+ * GET /api/ml/insights - Get ML insights for cases
+ * Permission: analytics:read
+ */
+const handleGetInsights: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const { searchParams } = new URL(request.url);
         const region = searchParams.get('region');
 
-        // Fetch cases from database - no auth required for this endpoint
+        // Fetch cases from database
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let casesQuery = (supabase as any)
             .from('cases')
@@ -127,4 +134,7 @@ export async function GET(request: NextRequest) {
         console.error('ML Insights API error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected route - analytics:read permission required
+export const GET = withPermission('analytics:read', handleGetInsights);

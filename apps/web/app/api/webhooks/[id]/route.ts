@@ -3,24 +3,18 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 import { createClient } from '@/lib/supabase/server';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 /**
  * PATCH /api/webhooks/[id] - Update webhook
+ * Permission: admin:settings
  */
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+const handleUpdateWebhook: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         const body = await request.json();
+
         const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
         if (body.name !== undefined) updates.name = body.name;
@@ -46,23 +40,16 @@ export async function PATCH(
         console.error('Webhooks PATCH error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
 
 /**
  * DELETE /api/webhooks/[id] - Delete webhook
+ * Permission: admin:settings
  */
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+const handleDeleteWebhook: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any)
@@ -80,4 +67,8 @@ export async function DELETE(
         console.error('Webhooks DELETE error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-}
+};
+
+// Protected routes
+export const PATCH = withPermission('admin:settings', handleUpdateWebhook);
+export const DELETE = withPermission('admin:settings', handleDeleteWebhook);
