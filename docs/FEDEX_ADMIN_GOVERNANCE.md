@@ -460,15 +460,26 @@ All FEDEX_ADMIN actions are logged:
 
 ## 13. IMPLEMENTATION STATUS
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Regional visibility | ✅ Implemented | Via user_region_access |
-| Dashboard KPIs | ✅ Implemented | Region-filtered |
-| Cases regional filter | ✅ Implemented | Enforced at API |
-| DCAs regional scope | ✅ Implemented | Via region_dca_assignments |
-| User management | ✅ Implemented | Role hierarchy enforced |
-| Settings restrictions | ✅ Implemented | UI + backend |
-| Audit logging | ✅ Implemented | All actions logged |
+| Feature | Status | Verification |
+|---------|--------|--------------|
+| Regional visibility | ✅ Verified | `secureQuery` uses `accessibleRegions` |
+| Dashboard KPIs | ✅ Hardened | Added region filter in `/api/dashboard` |
+| Cases regional filter | ✅ Verified | Uses `secureQuery` with region column |
+| DCAs regional scope | ✅ Verified | Uses `secureQuery` with region column |
+| Analytics dashboard | ✅ Hardened | Added region filter for cases AND DCAs |
+| User management | ✅ Hardened | Added `primary_region_id` filter |
+| API key regeneration | ✅ Hardened | Backend blocks non-SUPER_ADMIN (403) |
+| Settings restrictions | ✅ Hardened | UI + backend both enforce |
+| Audit logging | ✅ Verified | All actions logged |
+
+### Hardening Applied (Commit `10d83b9`)
+
+| Gap | Fix Applied |
+|-----|-------------|
+| Analytics API missing region filter | Added `in('region', accessibleRegions)` for cases and DCAs |
+| API key regeneration open to all | Added `dbUser.role !== 'SUPER_ADMIN'` check with 403 response |
+| Users API no regional scope | Added `in('primary_region_id', accessibleRegions)` filter |
+| UI showed regenerate to all | Conditional render: shows "🔒 Only SUPER_ADMIN" for others |
 
 ---
 
