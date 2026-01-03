@@ -93,16 +93,18 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
 // Define permissions for each role
 // CRITICAL: SUPER_ADMIN is a GOVERNANCE role - NO operational permissions
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-    // SUPER_ADMIN: Governance/oversight only - CANNOT perform operational actions
+    // SUPER_ADMIN: Primary Governance Authority
+    // Can create/manage DCAs (governance) but CANNOT perform case operations
     SUPER_ADMIN: [
-        // READ-ONLY access to all data for oversight
+        // READ-ONLY access to case data for oversight
         'cases:read', 'cases:export',
-        'dcas:read', 'dcas:performance',
-        'users:read',
+        // DCA GOVERNANCE: Can onboard and manage DCAs
+        'dcas:read', 'dcas:create', 'dcas:update', 'dcas:delete', 'dcas:performance', 'dcas:manage',
+        'users:read', 'users:create', 'users:update', 'users:delete', 'users:roles',
         // Full region governance (create/update/delete regions)
         'regions:read', 'regions:create', 'regions:update', 'regions:delete',
         'regions:assign-users', 'regions:assign-dcas', 'regions:override',
-        'sla:read',
+        'sla:read', 'sla:create', 'sla:update',
         // Full analytics access
         'analytics:read', 'analytics:export', 'analytics:custom',
         // Admin functions
@@ -110,23 +112,48 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
         // EXPLICITLY FORBIDDEN: cases:create, cases:update, cases:delete, cases:assign, cases:bulk
     ],
 
+    // FEDEX_ADMIN: Regional Operations Administrator
+    // - Multi-region scoped (NOT global)
+    // - Cannot create/edit SLA templates (governance is SUPER_ADMIN)
+    // - Cannot enable/disable DCAs (governance is SUPER_ADMIN)
+    // - Cannot assign DCA (SYSTEM-only)
     FEDEX_ADMIN: [
-        // NOTE: cases:assign REMOVED - allocation is SYSTEM-only (STEP 5)
+        // Case operations within assigned regions
         'cases:read', 'cases:create', 'cases:update', 'cases:delete', 'cases:bulk', 'cases:export', 'cases:workflow',
-        'dcas:read', 'dcas:create', 'dcas:update', 'dcas:delete', 'dcas:performance', 'dcas:manage',
+        // DCA visibility (view performance, NOT manage)
+        'dcas:read', 'dcas:performance',
+        // User management (FedEx users only)
         'users:read', 'users:create', 'users:update', 'users:delete', 'users:roles',
-        'sla:read', 'sla:create', 'sla:update', 'sla:exempt',
+        // SLA visibility only (cannot create/edit)
+        'sla:read',
+        // Analytics for assigned regions
         'analytics:read', 'analytics:export', 'analytics:custom',
+        // Settings access
         'admin:settings', 'admin:audit',
+        // REMOVED: sla:create, sla:update, sla:exempt (governance is SUPER_ADMIN)
+        // REMOVED: dcas:create, dcas:delete, dcas:update, dcas:manage (governance is SUPER_ADMIN)
     ],
 
+    // FEDEX_MANAGER: Regional Operational Supervisor
+    // - Single-region scoped (by policy)
+    // - Cannot manage DCAs (view only)
+    // - Cannot edit SLAs (view only)
+    // - Cannot manage users (view only)
+    // - Cannot assign DCA (SYSTEM-only)
     FEDEX_MANAGER: [
-        // NOTE: cases:assign REMOVED - allocation is SYSTEM-only (STEP 5)
+        // Case operations within assigned region
         'cases:read', 'cases:create', 'cases:update', 'cases:bulk', 'cases:export',
-        'dcas:read', 'dcas:update', 'dcas:performance', 'dcas:manage',
-        'users:read', 'users:create', 'users:update',
-        'sla:read', 'sla:update', 'sla:exempt',
+        // DCA visibility only (no management)
+        'dcas:read', 'dcas:performance',
+        // User visibility only (no management)
+        'users:read',
+        // SLA visibility only (no editing)
+        'sla:read',
+        // Analytics for assigned region
         'analytics:read', 'analytics:export',
+        // REMOVED: dcas:update, dcas:manage (governance is FEDEX_ADMIN+)
+        // REMOVED: sla:update, sla:exempt (governance is SUPER_ADMIN)
+        // REMOVED: users:create, users:update (governance is FEDEX_ADMIN+)
     ],
 
     FEDEX_ANALYST: [

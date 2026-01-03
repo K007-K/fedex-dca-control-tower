@@ -56,7 +56,18 @@ export type AuditAction =
     | 'SECURITY_SETTINGS_UPDATED'
     // SLA system events
     | 'SLA_BREACH_CHECK'
-    | 'SLA_BREACH_CHECK_START';
+    | 'SLA_BREACH_CHECK_START'
+    // Report governance events (CRITICAL - Data exfiltration surface)
+    | 'REPORT_PREVIEWED'
+    | 'REPORT_EXPORTED'
+    | 'REPORT_ACCESS_DENIED'
+    | 'REPORT_EXPORT_DENIED'
+    // Integration events
+    | 'INTEGRATION_ACTION'
+    | 'API_KEY_REGENERATED'
+    // Notification events
+    | 'NOTIFICATION_DELIVERED'
+    | 'NOTIFICATION_PREFERENCE_UPDATED';
 
 
 export type AuditSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';

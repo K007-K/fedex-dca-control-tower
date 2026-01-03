@@ -117,11 +117,11 @@ export async function middleware(request: NextRequest) {
 
             if (mfaData?.currentLevel === 'aal1' && mfaData?.nextLevel === 'aal2') {
                 // User needs to verify MFA
-                return NextResponse.redirect(new URL('/mfa-verify?redirect=/dashboard', request.url));
+                return NextResponse.redirect(new URL('/mfa-verify?redirect=/overview', request.url));
             }
         }
 
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+        return NextResponse.redirect(new URL('/overview', request.url));
     }
 
     // If user is not logged in and trying to access protected routes

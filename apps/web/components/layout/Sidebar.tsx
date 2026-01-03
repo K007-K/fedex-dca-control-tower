@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { DemoModeToggle } from '@/components/demo/DemoModeComponents';
 
 const navigation = [
+    { name: 'Overview', href: '/overview', icon: OverviewIcon },
     { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
     { name: 'Cases', href: '/cases', icon: CasesIcon },
     { name: 'DCAs', href: '/dcas', icon: DCAsIcon },
@@ -79,6 +81,11 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
                 </ul>
             </nav>
 
+            {/* Demo Mode Toggle */}
+            <div className={`px-4 pb-2 ${collapsed ? 'px-2' : ''}`}>
+                {!collapsed && <DemoModeToggle variant="sidebar" />}
+            </div>
+
             {/* User Info */}
             <div className={`border-t border-gray-100 dark:border-gray-800 p-4 ${collapsed ? 'px-2' : ''}`}>
                 <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
@@ -102,6 +109,14 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
 }
 
 // Icons
+function OverviewIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+}
+
 function DashboardIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">

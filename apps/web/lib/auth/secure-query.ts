@@ -176,9 +176,10 @@ export class SecureQueryBuilder {
 
     /**
      * Check if user is a global admin (bypasses region filters)
+     * ONLY SUPER_ADMIN is global - FEDEX_ADMIN is regional
      */
     private isGlobalAdmin(): boolean {
-        return ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(this.user.role);
+        return this.user.role === 'SUPER_ADMIN';
     }
 
     /**

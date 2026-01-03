@@ -7,6 +7,7 @@ import { secureQuery, type SecureUser } from '@/lib/auth/secure-query';
 import { getCurrentUser } from '@/lib/auth';
 import { regionRBAC } from '@/lib/region';
 import { REGION_COOKIE_NAME } from '@/lib/context/RegionContext';
+import { CasesDemoMessage } from '@/components/demo/CaseDemoMessages';
 
 interface PageProps {
     searchParams: Promise<{
@@ -39,7 +40,8 @@ async function CasesContent({ searchParams }: { searchParams: PageProps['searchP
     // Enrich user with accessible regions for SecureQueryBuilder
     const accessibleRegions = await regionRBAC.getUserAccessibleRegions(authUser.id);
     const regionIds = accessibleRegions.map(r => r.region_id);
-    const isGlobalAdmin = ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(authUser.role);
+    // Only SUPER_ADMIN is global - FEDEX_ADMIN is regional
+    const isGlobalAdmin = authUser.role === 'SUPER_ADMIN';
 
     const user: SecureUser = {
         id: authUser.id,
@@ -61,7 +63,7 @@ async function CasesContent({ searchParams }: { searchParams: PageProps['searchP
     // Use SecureQueryBuilder for region-enforced queries
     const queryBuilder = secureQuery(user)
         .from('cases')
-        .select('*, region, assigned_dca:dcas(id, name)')
+        .select('*, region, actor_type, assigned_dca:dcas(id, name)')
         .withOptions({ regionColumn: 'region' });
 
     // Add search filter
@@ -151,23 +153,32 @@ function CasesLoading() {
 }
 
 export default async function CasesPage({ searchParams }: PageProps) {
+    const authUser = await getCurrentUser();
+    const isFedexAdmin = authUser?.role === 'FEDEX_ADMIN';
+
     return (
         <div className="space-y-6">
+            {/* Demo Mode Message */}
+            <CasesDemoMessage />
+
             {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cases</h1>
                     <p className="text-gray-500 dark:text-gray-400">Manage and track all debt collection cases</p>
                 </div>
-                <a
-                    href="/cases/new"
-                    className="inline-flex items-center px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    New Case
-                </a>
+                {/* GOVERNANCE: New Case button visible only to FEDEX_ADMIN */}
+                {isFedexAdmin && (
+                    <a
+                        href="/cases/new"
+                        className="inline-flex items-center px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                    >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        New Case
+                    </a>
+                )}
             </div>
 
             <Suspense fallback={<CasesLoading />}>
@@ -176,3 +187,4 @@ export default async function CasesPage({ searchParams }: PageProps) {
         </div>
     );
 }
+

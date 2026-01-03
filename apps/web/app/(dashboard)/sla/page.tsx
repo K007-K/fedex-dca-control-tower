@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 
 type SLATemplate = {
     id: string;
@@ -60,6 +61,8 @@ const SLA_TYPE_LABELS: Record<string, { label: string; description: string }> = 
 
 export default async function SLAPage() {
     const supabase = await createClient();
+    const user = await getCurrentUser();
+    const canManageSLA = user && ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(user.role);
 
     // Fetch SLA templates
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,12 +95,33 @@ export default async function SLAPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">SLA Management</h1>
                     <p className="text-gray-500 dark:text-gray-400">Monitor SLA compliance and manage templates</p>
                 </div>
-                <Link
-                    href="/sla/new"
-                    className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors"
-                >
-                    + New SLA Template
-                </Link>
+                {/* GOVERNANCE: New SLA Template button visible only to SUPER_ADMIN and FEDEX_ADMIN */}
+                {canManageSLA && (
+                    <Link
+                        href="/sla/new"
+                        className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                    >
+                        + New SLA Template
+                    </Link>
+                )}
+            </div>
+
+            {/* SYSTEM Enforcement Notice */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300">SYSTEM-Enforced SLAs</h3>
+                        <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                            SLA timers are started, monitored, and enforced automatically by SYSTEM. Breaches trigger
+                            automatic escalation when configured. SLA deadlines cannot be paused, reset, or bypassed.
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {/* Metrics Cards */}

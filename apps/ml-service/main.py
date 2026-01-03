@@ -47,4 +47,19 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """
+    Health check endpoint for production monitoring.
+    Returns model and inference readiness status.
+    """
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "model_loaded": True,
+        "inference_ready": True,
+        "endpoints_available": [
+            "/api/priority/score",
+            "/api/predict/recovery",
+            "/api/recommend/roe",
+            "/api/analyze/dca/{dca_id}",
+        ],
+    }

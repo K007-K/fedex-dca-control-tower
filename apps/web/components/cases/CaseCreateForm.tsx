@@ -24,7 +24,6 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
         customer_phone: '',
         original_amount: '',
         priority: 'MEDIUM',
-        assigned_dca_id: '',
         notes: '',
     });
 
@@ -47,9 +46,15 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
             setError('Valid original amount is required');
             return;
         }
+        if (!formData.notes.trim()) {
+            setError('Justification notes are required for manual case creation');
+            return;
+        }
 
         startTransition(async () => {
             try {
+                // GOVERNANCE: DO NOT send assigned_dca_id or assigned_agent_id
+                // These are SYSTEM-controlled fields
                 const response = await fetch('/api/cases', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -59,11 +64,9 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                         customer_email: formData.customer_email.trim() || null,
                         customer_phone: formData.customer_phone.trim() || null,
                         original_amount: parseFloat(formData.original_amount),
-                        outstanding_amount: parseFloat(formData.original_amount),
                         priority: formData.priority,
-                        assigned_dca_id: formData.assigned_dca_id || null,
-                        notes: formData.notes.trim() || null,
-                        status: formData.assigned_dca_id ? 'ALLOCATED' : 'PENDING_ALLOCATION',
+                        notes: formData.notes.trim(),
+                        // NEVER SEND: assigned_dca_id, assigned_agent_id
                     }),
                 });
 
@@ -86,6 +89,24 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
+            {/* GOVERNANCE BANNER */}
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">Manual Case Creation</h3>
+                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                            Manual case creation is intended only for exceptional scenarios when upstream systems
+                            are unavailable or delayed. All DCA and agent assignments are handled automatically by SYSTEM.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                     {error}
@@ -93,16 +114,16 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
             )}
             {success && (
                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-                    Case created successfully! Redirecting...
+                    Case created successfully! DCA assignment will be performed automatically. Redirecting...
                 </div>
             )}
 
             {/* Customer Information */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Customer Information</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Customer Name <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -111,15 +132,15 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                             name="customer_name"
                             value={formData.customer_name}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
                             placeholder="Enter customer name"
                             required
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="customer_id" className="block text-sm font-medium text-gray-700 mb-2">
-                            Customer ID
+                        <label htmlFor="customer_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Customer ID <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
@@ -127,13 +148,14 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                             name="customer_id"
                             value={formData.customer_id}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
                             placeholder="e.g., CUST-001"
+                            required
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="customer_email" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="customer_email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Email
                         </label>
                         <input
@@ -142,13 +164,13 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                             name="customer_email"
                             value={formData.customer_email}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
                             placeholder="customer@example.com"
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="customer_phone" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="customer_phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Phone
                         </label>
                         <input
@@ -157,7 +179,7 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                             name="customer_phone"
                             value={formData.customer_phone}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
                             placeholder="+1 (555) 000-0000"
                         />
                     </div>
@@ -165,11 +187,11 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
             </div>
 
             {/* Case Details */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Case Details</h2>
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Case Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label htmlFor="original_amount" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="original_amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Original Amount <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
@@ -180,7 +202,7 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                                 name="original_amount"
                                 value={formData.original_amount}
                                 onChange={handleChange}
-                                className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                                className="w-full pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
                                 placeholder="0.00"
                                 step="0.01"
                                 min="0"
@@ -190,15 +212,15 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                     </div>
 
                     <div>
-                        <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
-                            Priority
+                        <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Priority (Hint)
                         </label>
                         <select
                             id="priority"
                             name="priority"
                             value={formData.priority}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
                         >
                             {PRIORITY_OPTIONS.map(priority => (
                                 <option key={priority} value={priority}>
@@ -206,33 +228,35 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                                 </option>
                             ))}
                         </select>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            SYSTEM may override based on AI analysis
+                        </p>
                     </div>
 
+                    {/* DCA Assignment - DISABLED / READ-ONLY */}
                     <div className="md:col-span-2">
-                        <label htmlFor="assigned_dca_id" className="block text-sm font-medium text-gray-700 mb-2">
-                            Assign to DCA (Optional)
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            DCA Assignment
                         </label>
-                        <select
-                            id="assigned_dca_id"
-                            name="assigned_dca_id"
-                            value={formData.assigned_dca_id}
-                            onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-                        >
-                            <option value="">Leave Unassigned</option>
-                            {dcas.map(dca => (
-                                <option key={dca.id} value={dca.id}>
-                                    {dca.name}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 cursor-not-allowed">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                                </svg>
+                                <span>Automatic — Assigned by SYSTEM</span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            DCA and agent assignment are performed automatically by SYSTEM based on capacity,
+                            performance, and SLA rules.
+                        </p>
                     </div>
                 </div>
 
-                {/* Notes */}
+                {/* Notes - REQUIRED for justification */}
                 <div className="mt-6">
-                    <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
-                        Notes
+                    <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Justification Notes <span className="text-red-500">*</span>
                     </label>
                     <textarea
                         id="notes"
@@ -240,9 +264,13 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
                         value={formData.notes}
                         onChange={handleChange}
                         rows={4}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="Add any relevant notes about this case..."
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                        placeholder="Explain why this case is being created manually (e.g., upstream system outage, delayed data feed)..."
+                        required
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Required: Provide justification for creating this case manually instead of via SYSTEM integration.
+                    </p>
                 </div>
             </div>
 
@@ -263,3 +291,4 @@ export function CaseCreateForm({ dcas }: CaseCreateFormProps) {
         </form>
     );
 }
+

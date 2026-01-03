@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { SkeletonCard } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 
 const statusColors: Record<string, { bg: string; text: string }> = {
     ACTIVE: { bg: 'bg-green-500/20 border border-green-500/30', text: 'text-green-400' },
@@ -73,6 +74,16 @@ async function DCAsContent() {
 
     return (
         <>
+            {/* SYSTEM Metrics Notice */}
+            <div className="bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#222] rounded-lg p-3 flex items-center gap-3">
+                <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                </svg>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                    All performance metrics are <strong>SYSTEM-calculated</strong> and updated automatically based on case outcomes, SLA compliance, and recovery rates.
+                </p>
+            </div>
+
             {/* Search Bar */}
             <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-4">
                 <div className="flex items-center gap-4">
@@ -214,9 +225,6 @@ async function DCAsContent() {
                     <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
                         Get started by adding your first debt collection agency.
                     </p>
-                    <Link href="/dcas/new" className="inline-block mt-4">
-                        <Button>+ Add DCA</Button>
-                    </Link>
                 </div>
             )}
         </>
@@ -224,6 +232,9 @@ async function DCAsContent() {
 }
 
 export default async function DCAsPage() {
+    const user = await getCurrentUser();
+    const canManageDCAs = user && ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(user.role);
+
     return (
         <div className="space-y-6">
             {/* Page Header */}
@@ -236,9 +247,12 @@ export default async function DCAsPage() {
                     <Link href="/dcas/compare">
                         <Button variant="outline">📊 Compare</Button>
                     </Link>
-                    <Link href="/dcas/new">
-                        <Button>+ Add DCA</Button>
-                    </Link>
+                    {/* GOVERNANCE: Add DCA button visible only to SUPER_ADMIN and FEDEX_ADMIN */}
+                    {canManageDCAs && (
+                        <Link href="/dcas/new">
+                            <Button>+ Add DCA</Button>
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -248,4 +262,5 @@ export default async function DCAsPage() {
         </div>
     );
 }
+
 

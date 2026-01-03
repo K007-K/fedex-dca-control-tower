@@ -66,54 +66,41 @@ const handleBulkOperation: ApiHandler = async (request: NextRequest, { user }) =
             }
 
             case 'assign_dca': {
-                if (!dca_id) {
-                    return NextResponse.json(
-                        { error: 'dca_id is required for assign_dca operation' },
-                        { status: 400 }
-                    );
-                }
+                // ============================================================
+                // SECURITY: BLOCK MANUAL DCA ASSIGNMENT
+                // ============================================================
+                // DCA assignment is a SYSTEM-ONLY operation.
+                // Humans CANNOT assign DCAs through any endpoint.
+                // Assignment is performed ONLY by the SYSTEM allocation service:
+                //   POST /api/cases/allocate (SYSTEM-auth required)
+                // ============================================================
 
-                // Verify DCA exists and is active
-                const { data: dca, error: dcaError } = await supabase
-                    .from('dcas')
-                    .select('id, name, status')
-                    .eq('id', dca_id)
-                    .single();
+                const { logSecurityEvent } = await import('@/lib/audit');
+                await logSecurityEvent(
+                    'PERMISSION_DENIED',
+                    user.id,
+                    {
+                        action: 'BULK_ASSIGNMENT_BLOCKED',
+                        reason: 'Human attempted bulk DCA assignment - SYSTEM-only operation',
+                        user_role: user.role,
+                        user_email: user.email,
+                        case_ids: case_ids,
+                        attempted_dca_id: dca_id,
+                        endpoint: '/api/cases/bulk',
+                    },
+                    request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown'
+                );
 
-                if (dcaError || !dca) {
-                    return NextResponse.json(
-                        { error: 'DCA not found' },
-                        { status: 404 }
-                    );
-                }
-
-                if (dca.status !== 'ACTIVE') {
-                    return NextResponse.json(
-                        { error: 'DCA is not active' },
-                        { status: 400 }
-                    );
-                }
-
-                const { data, error } = await supabase
-                    .from('cases')
-                    .update({
-                        assigned_dca_id: dca_id,
-                        assigned_at: new Date().toISOString(),
-                        assignment_method: 'BULK_ASSIGNED',
-                        status: 'ALLOCATED',
-                        updated_at: new Date().toISOString(),
-                    })
-                    .in('id', case_ids)
-                    .select('id, case_number');
-
-                if (error) throw error;
-
-                return NextResponse.json({
-                    message: `Assigned ${data?.length || 0} cases to ${dca.name}`,
-                    updated: data?.length || 0,
-                    dca_name: dca.name,
-                    cases: data,
-                });
+                return NextResponse.json(
+                    {
+                        error: {
+                            code: 'SYSTEM_ONLY_OPERATION',
+                            message: 'DCA assignment is controlled exclusively by SYSTEM. Bulk manual assignment is not permitted.',
+                            hint: 'Cases are automatically assigned to DCAs by the SYSTEM allocation engine based on capacity and performance metrics.',
+                        },
+                    },
+                    { status: 403 }
+                );
             }
 
             case 'export': {

@@ -118,7 +118,43 @@ export async function POST(request: NextRequest) {
     });
 
     if (updateError) {
+        // Log failed password change attempt
+        try {
+            const { logUserAction } = await import('@/lib/audit');
+            await logUserAction(
+                'PASSWORD_CHANGED',
+                user.id,
+                user.email || 'unknown',
+                'security',
+                user.id,
+                {
+                    success: false,
+                    error: updateError.message,
+                    ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+                    user_agent: request.headers.get('user-agent') || 'unknown',
+                }
+            );
+        } catch { }
         return NextResponse.json({ error: updateError.message }, { status: 400 });
+    }
+
+    // Log successful password change
+    try {
+        const { logUserAction } = await import('@/lib/audit');
+        await logUserAction(
+            'PASSWORD_CHANGED',
+            user.id,
+            user.email || 'unknown',
+            'security',
+            user.id,
+            {
+                success: true,
+                ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+                user_agent: request.headers.get('user-agent') || 'unknown',
+            }
+        );
+    } catch (auditError) {
+        console.error('Failed to log password change:', auditError);
     }
 
     return NextResponse.json({

@@ -1,57 +1,276 @@
 # FedEx DCA Control Tower
 
-Enterprise-grade Debt Collection Agency Management System for FedEx.
+**Enterprise-grade Debt Collection Agency Management Platform**
 
-## Overview
+---
 
-The DCA Control Tower is a centralized command center for managing Debt Collection Agencies. It provides real-time dashboards, case management, DCA performance tracking, and analytics.
+## 1. Project Overview
 
-## Tech Stack
+### What It Is
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 14+ (App Router), React 18, TypeScript |
-| Styling | Tailwind CSS |
-| Charts | Recharts |
-| Backend | Next.js API Routes |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth |
+The FedEx DCA Control Tower is a **governance-first** platform for managing Debt Collection Agencies across global regions. It provides centralized control over case assignment, SLA enforcement, DCA performance tracking, and compliance monitoring.
 
-## Quick Start
+### Problem Solved
 
-### Prerequisites
+| Challenge | Solution |
+|-----------|----------|
+| Manual case routing | Automated SYSTEM-driven allocation |
+| Inconsistent SLA tracking | Region-aware SLA templates with breach detection |
+| Unaudited operations | Complete audit trail for every action |
+| Role confusion | Strict RBAC with backend enforcement |
 
-- Node.js 20+
-- npm (recommended) or pnpm 8+
-- Supabase account with project set up
+### Why Governance-First
 
-### Installation
+- **SYSTEM is the primary actor** — Humans supervise, not operate
+- **Backend enforces all rules** — UI cannot bypass security
+- **Immutable financial data** — Core fields protected by DB triggers
+- **Full audit trail** — Every action is traceable
 
-1. Clone the repository:
+---
+
+## 2. System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        INTERNET                                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+     ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+     │   Browser   │  │ ERP/Source  │  │   Cron/     │
+     │   (Human)   │  │   Systems   │  │  Scheduler  │
+     └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
+            │                │                │
+            ▼                ▼                ▼
+     ┌─────────────────────────────────────────────┐
+     │         FRONTEND (Vercel - Next.js)         │
+     │  • Dashboard • Cases • DCAs • Analytics     │
+     └──────────────────────┬──────────────────────┘
+                            │
+                            ▼
+     ┌─────────────────────────────────────────────┐
+     │           BACKEND API (Next.js)             │
+     │  • Auth • RBAC • Business Logic • Webhooks  │
+     └────────┬─────────────────────┬──────────────┘
+              │                     │
+              ▼                     ▼
+     ┌─────────────┐        ┌─────────────┐
+     │  ML Service │        │   Supabase  │
+     │   (Render)  │        │  (Postgres) │
+     │  • Scoring  │        │  • RLS      │
+     │  • Predict  │        │  • Triggers │
+     └─────────────┘        └─────────────┘
+```
+
+### Components
+
+| Component | Technology | Responsibility |
+|-----------|------------|----------------|
+| Frontend | Next.js 14 (Vercel) | UI, dashboards, forms |
+| Backend | Next.js API Routes | Auth, RBAC, business logic |
+| ML Service | FastAPI (Render) | Priority scoring, predictions |
+| Database | Supabase (PostgreSQL) | Data storage, RLS, triggers |
+| SYSTEM Jobs | Cron-triggered APIs | SLA breach check, allocation |
+
+---
+
+## 3. Roles & Responsibilities
+
+### FedEx Roles
+
+| Role | Purpose | Powers |
+|------|---------|--------|
+| `SUPER_ADMIN` | Governance oversight | Read-only global view, security settings, NO operational powers |
+| `FEDEX_ADMIN` | Operations lead | Manual case creation, user management, workflow transitions |
+| `FEDEX_MANAGER` | Team supervision | DCA performance review, escalation handling |
+| `FEDEX_ANALYST` | Reporting | Analytics access, report generation |
+| `FEDEX_AUDITOR` | Compliance | Audit log access, read-only operations |
+| `FEDEX_VIEWER` | Read-only | Dashboard view only |
+
+### DCA Roles
+
+| Role | Purpose | Powers |
+|------|---------|--------|
+| `DCA_ADMIN` | Agency admin | Manage DCA users, view assigned cases |
+| `DCA_MANAGER` | Team lead | Escalate cases, view DCA performance |
+| `DCA_AGENT` | Field agent | Work assigned cases, update status |
+
+### Non-Human Actor
+
+| Actor | Purpose | Powers |
+|-------|---------|--------|
+| `SYSTEM` | Automation | Case creation, DCA allocation, SLA enforcement |
+
+---
+
+## 4. Case Lifecycle
+
+```
+┌─────────────┐
+│  ERP/Source │
+│   System    │
+└──────┬──────┘
+       │ API call
+       ▼
+┌─────────────┐     ┌─────────────┐
+│   SYSTEM    │────▶│    Case     │──── status: OPEN
+│   Creates   │     │   Created   │
+└─────────────┘     └──────┬──────┘
+                           │ Auto-allocation
+                           ▼
+                    ┌─────────────┐
+                    │    DCA      │──── assigned_dca_id set
+                    │  Assigned   │
+                    └──────┬──────┘
+                           │ DCA works case
+                           ▼
+                    ┌─────────────┐
+                    │  IN_PROGRESS│──── DCA_AGENT transitions
+                    │  CONTACTED  │
+                    │  PROMISE_PAY│
+                    └──────┬──────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+       ┌───────────┐ ┌───────────┐ ┌───────────┐
+       │ RECOVERED │ │  FAILED   │ │ ESCALATED │
+       └─────┬─────┘ └─────┬─────┘ └─────┬─────┘
+             │             │             │
+             └─────────────┴─────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   CLOSED    │──── Terminal state
+                    └─────────────┘
+```
+
+### Key Transitions
+
+| From | To | Who |
+|------|----|-----|
+| OPEN | IN_PROGRESS | DCA_AGENT |
+| IN_PROGRESS | CONTACTED | DCA_AGENT |
+| CONTACTED | PROMISE_TO_PAY / FAILED | DCA_AGENT |
+| ANY | ESCALATED | DCA_MANAGER |
+| RECOVERED / FAILED / ESCALATED | CLOSED | FEDEX_ADMIN |
+
+### SLA Breach Flow
+
+1. **SYSTEM** detects SLA violation (`due_at < now`)
+2. `sla_logs.status` → `BREACHED`
+3. `escalation` record created
+4. `case.status` → `ESCALATED` (if configured)
+5. All actions audited
+
+---
+
+## 5. Governance & Security Principles
+
+### Backend-Enforced RBAC
+
+- Permissions defined in `lib/auth/rbac.ts`
+- Every API endpoint checks `withPermission()`
+- UI visibility reflects backend truth
+
+### SYSTEM as Primary Actor
+
+| Action | Who |
+|--------|-----|
+| Case creation | SYSTEM (ERP integration) |
+| DCA allocation | SYSTEM (algorithm) |
+| SLA enforcement | SYSTEM (cron job) |
+| Workflow transitions | HUMAN (DCA roles) |
+
+### Immutability Rules
+
+| Field | Protected By |
+|-------|--------------|
+| `original_amount`, `currency`, `region_id` | DB trigger |
+| `actor_type`, `created_source`, `created_by` | DB trigger |
+| `sla_start_time`, `sla_due_time` | Service logic |
+
+### Audit-First Design
+
+Every action creates entries in:
+- `audit_logs` — Who did what
+- `case_timeline` — Case history
+
+---
+
+## 6. Failure Handling
+
+| Failure | Behavior | Safe |
+|---------|----------|------|
+| ML down | Fallback stub scoring | ✅ |
+| SLA job fails | Retry on next run | ✅ |
+| Allocation fails | Case stays unassigned | ✅ |
+| DB write fails | Full rollback | ✅ |
+
+---
+
+## 7. Deployment
+
+### Environment Matrix
+
+| Service | Platform | Environment |
+|---------|----------|-------------|
+| Frontend | Vercel | `NEXT_PUBLIC_*` only |
+| Backend | Vercel | Full secrets |
+| ML Service | Render | Read-only DB access |
+| Database | Supabase | RLS enabled |
+
+### Environment Separation
+
+```
+production/
+├── SUPABASE_SERVICE_ROLE_KEY (backend only)
+├── SERVICE_SECRET (backend only)
+└── NEXT_PUBLIC_SUPABASE_URL (frontend)
+
+staging/
+├── Separate Supabase project
+└── Separate secrets
+```
+
+---
+
+## 8. API Surface Summary
+
+### SYSTEM-Only Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/v1/cases/system-create` | Create case from ERP |
+| `POST /api/v1/sla/breach-check` | Trigger breach detection |
+| `POST /api/cases/allocate` | Trigger DCA allocation |
+
+### Role-Protected Endpoints
+
+| Endpoint | Roles |
+|----------|-------|
+| `POST /api/v1/cases/manual-create` | FEDEX_ADMIN |
+| `POST /api/v1/cases/{id}/transition` | DCA_AGENT, DCA_MANAGER, FEDEX_ADMIN |
+| `GET /api/v1/governance/*` | SUPER_ADMIN |
+| `GET /api/health` | Public |
+
+---
+
+## 9. Quick Start
+
 ```bash
+# Clone and install
 git clone <repository-url>
-cd FEDEX_PROJECT
-```
-
-2. Install dependencies:
-```bash
-cd apps/web
+cd FEDEX_PROJECT/apps/web
 npm install
-```
 
-3. Configure environment:
-```bash
-# Create .env.local in apps/web/
+# Configure environment
 cp .env.example .env.local
 # Edit .env.local with your Supabase credentials
-```
 
-4. Start development server:
-```bash
+# Start development
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Demo Login
 
@@ -60,90 +279,16 @@ Email: admin@fedex.com
 Password: Password123!
 ```
 
-## Environment Variables
+---
 
-Create `apps/web/.env.local` with:
+## 10. Health Monitoring
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-```
+| Endpoint | Response |
+|----------|----------|
+| `GET /api/health` | Overall system health |
+| `GET /health` (ML) | Model readiness |
 
-## Project Structure
-
-```
-FEDEX_PROJECT/
-├── apps/
-│   └── web/                    # Next.js frontend + API
-│       ├── app/                # App Router pages
-│       │   ├── (auth)/         # Login page
-│       │   ├── (dashboard)/    # Dashboard, Cases, DCAs, Analytics
-│       │   └── api/            # API routes
-│       ├── components/         # UI components
-│       │   ├── analytics/      # Charts
-│       │   ├── cases/          # Case forms
-│       │   ├── dcas/           # DCA forms
-│       │   ├── layout/         # Sidebar, Header
-│       │   └── ui/             # Base UI components
-│       └── lib/                # Utilities, types
-├── scripts/                    # Setup scripts
-├── supabase/                   # Database migrations
-└── README.md
-```
-
-## Available Scripts
-
-Run from `apps/web/` directory:
-
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-
-## Features Implemented
-
-### Phase 1-4: Foundation
-- ✅ Project setup with Next.js 14
-- ✅ Supabase integration
-- ✅ Authentication (email/password)
-- ✅ Dashboard layout with sidebar
-
-### Phase 5: Case Management
-- ✅ Cases list with filters and pagination
-- ✅ Case detail view
-- ✅ Case create/edit forms
-
-### Phase 6: DCA Management
-- ✅ DCA list with performance cards
-- ✅ DCA detail view with capacity tracking
-- ✅ DCA create/edit forms
-
-### Phase 7: Analytics & Reports
-- ✅ Analytics dashboard with charts
-- ✅ Recovery trend visualization
-- ✅ DCA performance comparison
-- ✅ Reports template gallery
-
-## Database Setup
-
-1. Run the migrations in order in Supabase SQL Editor:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_seed_data.sql`
-   - `supabase/migrations/003_fix_rls_policies.sql`
-
-2. Run auth user seeding:
-```bash
-node scripts/seed-auth-users.js
-```
-
-3. Run RLS policies for authenticated users:
-```bash
-# Execute in Supabase SQL Editor
-scripts/add-authenticated-policies.sql
-```
+---
 
 ## License
 

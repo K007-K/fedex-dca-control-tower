@@ -6,6 +6,9 @@ export const dynamic = 'force-dynamic';
 import { withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { createClient } from '@/lib/supabase/server';
 import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
+import { logUserAction } from '@/lib/audit';
+import { GOVERNED_REPORTS, canAccessReport, canExportReport } from '@/lib/reports/governance';
+import { UserRole } from '@/lib/auth/rbac';
 
 interface ReportRequest {
     reportType: string;
@@ -16,6 +19,11 @@ interface ReportRequest {
  * POST /api/reports/generate - Generate a report
  * Permission: analytics:export
  * Rate limited for export operations
+ * 
+ * GOVERNANCE:
+ * - Per-report role validation
+ * - Audit logging for all actions
+ * - Scope enforcement via secure query
  */
 const handleGenerateReport: ApiHandler = async (request, { user }) => {
     try {
@@ -30,6 +38,80 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
                 { status: 400 }
             );
         }
+
+        // ============================================================
+        // GOVERNANCE: Per-Report Access Control
+        // ============================================================
+        const reportConfig = GOVERNED_REPORTS[reportType];
+        if (!reportConfig) {
+            return NextResponse.json(
+                { error: `Unknown report type: ${reportType}` },
+                { status: 400 }
+            );
+        }
+
+        // Check if user role can access this specific report
+        if (!canAccessReport(reportType, user.role as UserRole)) {
+            // Log security event for unauthorized access attempt
+            await logUserAction(
+                'REPORT_ACCESS_DENIED',
+                user.id,
+                user.email,
+                'report',
+                reportType,
+                {
+                    role: user.role,
+                    reportType,
+                    format,
+                    reason: 'Role not authorized for this report',
+                }
+            );
+
+            return NextResponse.json(
+                { error: 'You do not have permission to access this report' },
+                { status: 403 }
+            );
+        }
+
+        // For CSV exports, check export permission
+        if (format === 'csv' && !canExportReport(reportType, user.role as UserRole)) {
+            await logUserAction(
+                'REPORT_EXPORT_DENIED',
+                user.id,
+                user.email,
+                'report',
+                reportType,
+                {
+                    role: user.role,
+                    reportType,
+                    reason: 'CSV export not permitted for this role',
+                }
+            );
+
+            return NextResponse.json(
+                { error: 'CSV export is not permitted for your role' },
+                { status: 403 }
+            );
+        }
+
+        // ============================================================
+        // AUDIT: Log report action BEFORE generation
+        // ============================================================
+        const auditAction = format === 'csv' ? 'REPORT_EXPORTED' : 'REPORT_PREVIEWED';
+        await logUserAction(
+            auditAction,
+            user.id,
+            user.email,
+            'report',
+            reportType,
+            {
+                reportName: reportConfig.name,
+                role: user.role,
+                scope: reportConfig.scope,
+                sensitivity: reportConfig.sensitivity,
+                format,
+            }
+        );
 
         let reportData: Record<string, unknown> = {};
         let csvContent = '';

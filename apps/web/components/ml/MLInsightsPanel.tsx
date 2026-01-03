@@ -101,13 +101,24 @@ export function MLInsightsPanel() {
                         </p>
                     </div>
                 </div>
-                <span className={`text-xs font-medium px-3 py-1 rounded-full flex items-center gap-1 ${mlServiceStatus === 'online'
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-purple-500 dark:text-purple-400 font-medium bg-purple-100 dark:bg-purple-900/20 px-2 py-0.5 rounded">
+                        Automated insight (ML-assisted)
+                    </span>
+                    <span className={`text-xs font-medium px-3 py-1 rounded-full flex items-center gap-1 ${mlServiceStatus === 'online'
                         ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                         : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    }`}>
-                    <span className={`w-2 h-2 rounded-full ${mlServiceStatus === 'online' ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                    {mlServiceStatus === 'online' ? 'Live' : 'Offline'}
-                </span>
+                        }`}>
+                        <span className={`w-2 h-2 rounded-full ${mlServiceStatus === 'online' ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                        {mlServiceStatus === 'online' ? 'Live' : 'Offline'}
+                    </span>
+                </div>
+            </div>
+
+            {/* ML Automation Notice */}
+            <div className="mb-4 flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                <span className="text-[10px] uppercase tracking-wide text-purple-600 dark:text-purple-400 font-medium">Automated insight (ML-assisted)</span>
             </div>
 
             {/* Stats Grid */}

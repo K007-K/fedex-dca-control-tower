@@ -128,9 +128,53 @@ const handleUpdateCase: ApiHandler = async (request, { params, user }) => {
             }
         }
 
+        // ============================================================
+        // SECURITY: BLOCK SYSTEM-ONLY FIELDS
+        // ============================================================
+        // assigned_dca_id and assigned_agent_id are SYSTEM-ONLY fields.
+        // Humans CANNOT set or modify these fields under any circumstance.
+        // Assignment is performed ONLY by the SYSTEM allocation service.
+        // ============================================================
+
+        const SYSTEM_ONLY_FIELDS = ['assigned_dca_id', 'assigned_agent_id'];
+        const attemptedSystemFields = SYSTEM_ONLY_FIELDS.filter(field => body[field] !== undefined);
+
+        if (attemptedSystemFields.length > 0) {
+            // Log security event for attempted override
+            const { logSecurityEvent } = await import('@/lib/audit');
+            await logSecurityEvent(
+                'PERMISSION_DENIED',
+                user.id,
+                {
+                    action: 'ASSIGNMENT_OVERRIDE_BLOCKED',
+                    reason: 'Human attempted to modify SYSTEM-controlled assignment fields',
+                    blocked_fields: attemptedSystemFields,
+                    user_role: user.role,
+                    user_email: user.email,
+                    case_id: id,
+                    endpoint: `/api/cases/${id}`,
+                },
+                request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown'
+            );
+
+            return NextResponse.json(
+                {
+                    error: {
+                        code: 'SYSTEM_ONLY_FIELD',
+                        message: 'DCA and agent assignment are controlled exclusively by SYSTEM. Human override is not permitted.',
+                        blocked_fields: attemptedSystemFields,
+                    },
+                },
+                { status: 403 }
+            );
+        }
+
         const updateData: Record<string, any> = {};
+
+        // SECURITY: Assignment fields REMOVED from allowed list
+        // Only SYSTEM can set: assigned_dca_id, assigned_agent_id
         const allowedFields = [
-            'status', 'priority', 'assigned_dca_id', 'assigned_agent_id',
+            'status', 'priority',
             'outstanding_amount', 'recovered_amount', 'internal_notes', 'tags',
             'is_disputed', 'dispute_reason', 'high_priority_flag', 'vip_customer'
         ];
@@ -150,10 +194,8 @@ const handleUpdateCase: ApiHandler = async (request, { params, user }) => {
             updateData['internal_notes'] = body.notes;
         }
 
-        if (body.assigned_dca_id !== undefined && updateData['assigned_dca_id']) {
-            updateData['assigned_at'] = new Date().toISOString();
-            updateData['assignment_method'] = body.assignment_method ?? 'MANUAL';
-        }
+        // REMOVED: Manual assignment handling (was security vulnerability)
+        // Assignment is now ONLY through /api/cases/allocate (SYSTEM-only)
 
         // Handle terminal status
         if (body.status && CaseStateMachine.isTerminal(body.status)) {

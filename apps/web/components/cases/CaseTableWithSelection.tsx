@@ -17,6 +17,8 @@ interface CaseData {
     priority: string;
     created_at: string;
     region?: string;
+    actor_type?: 'SYSTEM' | 'HUMAN';
+    created_source?: string;
     assigned_dca?: {
         id: string;
         name: string;
@@ -190,6 +192,9 @@ export function CaseTableWithSelection({ cases, dcas, userRole }: CaseTableWithS
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     DCA
                                 </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Source
+                                </th>
                                 {renderSortHeader('status', 'Status')}
                                 {renderSortHeader('priority', 'Priority')}
                                 {renderSortHeader('created_at', 'Created')}
@@ -233,6 +238,19 @@ export function CaseTableWithSelection({ cases, dcas, userRole }: CaseTableWithS
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                                             {caseItem.assigned_dca?.name ?? '-'}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {caseItem.actor_type === 'SYSTEM' ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" /></svg>
+                                                    SYSTEM
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
+                                                    Manual
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.text}`}>

@@ -19,7 +19,7 @@ function LoginForm() {
 
     const router = useRouter();
     const searchParams = useSearchParams();
-    const redirectTo = searchParams.get('redirect') ?? '/dashboard';
+    const redirectTo = searchParams.get('redirect') ?? '/overview';
     const errorParam = searchParams.get('error');
 
     // Show error from callback

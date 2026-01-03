@@ -1,18 +1,21 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import { CaseCreateForm } from '@/components/cases/CaseCreateForm';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 
 export default async function NewCasePage() {
-    const supabase = await createClient();
+    const user = await getCurrentUser();
 
-    // Fetch DCAs for dropdown
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dcas } = await (supabase as any)
-        .from('dcas')
-        .select('id, name')
-        .eq('status', 'ACTIVE')
-        .order('name');
+    // ============================================================
+    // GOVERNANCE: FEDEX_ADMIN ONLY
+    // ============================================================
+    // Manual case creation is restricted to FEDEX_ADMIN role.
+    // All other roles should use SYSTEM integration.
+    // ============================================================
+    if (!user || user.role !== 'FEDEX_ADMIN') {
+        redirect('/cases?error=unauthorized');
+    }
 
     return (
         <div className="space-y-6">
@@ -21,14 +24,17 @@ export default async function NewCasePage() {
                 <nav className="flex items-center text-sm text-gray-500 mb-2">
                     <Link href="/cases" className="hover:text-primary">Cases</Link>
                     <span className="mx-2">/</span>
-                    <span className="text-gray-900">New Case</span>
+                    <span className="text-gray-900 dark:text-white">New Case</span>
                 </nav>
-                <h1 className="text-2xl font-bold text-gray-900">Create New Case</h1>
-                <p className="text-gray-500">Add a new debt collection case to the system</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create New Case</h1>
+                <p className="text-gray-500 dark:text-gray-400">
+                    Manual entry for exceptional scenarios only. DCA assignment is automatic.
+                </p>
             </div>
 
-            {/* Form */}
-            <CaseCreateForm dcas={dcas ?? []} />
+            {/* Form - DCAs prop not needed, DCA selection is SYSTEM-controlled */}
+            <CaseCreateForm dcas={[]} />
         </div>
     );
 }
+

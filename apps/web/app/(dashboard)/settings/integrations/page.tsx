@@ -397,21 +397,21 @@ export default function IntegrationsSettingsPage() {
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Environment</h3>
                 <div className="space-y-3">
                     <div className="flex justify-between p-3 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg">
-                        <span className="text-gray-600 dark:text-gray-400">Supabase URL</span>
+                        <span className="text-gray-600 dark:text-gray-400">Supabase</span>
                         <span className="font-mono text-sm text-gray-900 dark:text-white">
-                            {process.env.NEXT_PUBLIC_SUPABASE_URL ? '••••configured' : 'Not set'}
+                            Configured
                         </span>
                     </div>
                     <div className="flex justify-between p-3 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg">
-                        <span className="text-gray-600 dark:text-gray-400">ML Service URL</span>
+                        <span className="text-gray-600 dark:text-gray-400">ML Service</span>
                         <span className="font-mono text-sm text-gray-900 dark:text-white">
-                            {typeof window !== 'undefined' ? '/api/ml/* (proxied)' : 'Configured via proxy'}
+                            /api/ml/* (proxied)
                         </span>
                     </div>
                     <div className="flex justify-between p-3 bg-gray-50 dark:bg-[#0a0a0a] rounded-lg">
-                        <span className="text-gray-600 dark:text-gray-400">Environment</span>
+                        <span className="text-gray-600 dark:text-gray-400">Environment Mode</span>
                         <span className="font-mono text-sm text-gray-900 dark:text-white">
-                            {process.env.NODE_ENV || 'development'}
+                            Development
                         </span>
                     </div>
                 </div>

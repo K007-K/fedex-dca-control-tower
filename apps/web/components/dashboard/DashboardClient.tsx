@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRegion } from '@/lib/context/RegionContext';
 import { MLInsightsPanel } from '@/components/ml';
 import { SLABreachAlerts } from '@/components/sla';
+import { GovernanceModeIndicator, GovernanceBadge } from '@/components/ui/GovernanceModeIndicator';
+import { DemoPageMessage } from '@/components/demo/DemoModeComponents';
+import { type UserRole, isGovernanceRole } from '@/lib/auth/rbac';
 
 interface DashboardMetrics {
     totalCases: number;
@@ -38,10 +41,15 @@ interface DashboardData {
     currency: 'USD' | 'INR';
 }
 
-export function DashboardClient() {
+interface DashboardClientProps {
+    userRole?: UserRole;
+}
+
+export function DashboardClient({ userRole = 'FEDEX_VIEWER' }: DashboardClientProps) {
     const { region } = useRegion();
     const [data, setData] = useState<DashboardData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const isGovernance = isGovernanceRole(userRole);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -93,6 +101,15 @@ export function DashboardClient() {
 
     return (
         <div className="space-y-6">
+            {/* Demo Mode Message */}
+            <DemoPageMessage
+                step={2}
+                message="This view is for oversight, not execution. Metrics are SYSTEM-generated."
+            />
+
+            {/* Governance Mode Indicator - for SUPER_ADMIN */}
+            <GovernanceModeIndicator role={userRole} />
+
             {/* SLA Breach Alerts */}
             <SLABreachAlerts />
 
@@ -148,10 +165,18 @@ export function DashboardClient() {
                     icon={<CheckIcon />}
                     value={`${metrics.slaCompliance.toFixed(1)}%`}
                     title="SLA Compliance"
-                    subtitle="On-time performance"
+                    subtitle="SYSTEM-enforced monitoring"
                     trend={metrics.slaCompliance >= 90 ? 'Above 90% target' : `${(90 - metrics.slaCompliance).toFixed(1)}% below target`}
                     trendUp={metrics.slaCompliance >= 90}
                 />
+            </div>
+
+            {/* SYSTEM Automation Notice */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    SLA enforcement is automated by SYSTEM — Allocation and breach detection run continuously
+                </span>
             </div>
 
             {/* Secondary Stats */}
@@ -253,13 +278,14 @@ export function DashboardClient() {
 }
 
 // Component helpers
-function MetricCard({ icon, value, title, subtitle, trend, trendUp }: {
+function MetricCard({ icon, value, title, subtitle, trend, trendUp, isSystemGenerated = true }: {
     icon: React.ReactNode;
     value: string;
     title: string;
     subtitle: string;
     trend: string;
     trendUp: boolean | null;
+    isSystemGenerated?: boolean;
 }) {
     return (
         <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-5">
@@ -281,6 +307,12 @@ function MetricCard({ icon, value, title, subtitle, trend, trendUp }: {
             <h3 className="text-4xl font-bold text-gray-900 dark:text-white mb-1">{value}</h3>
             <p className="text-sm font-semibold text-gray-900 dark:text-white">{title}</p>
             <p className="text-xs text-gray-500 dark:text-gray-500">{subtitle}</p>
+            {isSystemGenerated && (
+                <div className="mt-3 flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 font-medium">System-Generated</span>
+                </div>
+            )}
         </div>
     );
 }

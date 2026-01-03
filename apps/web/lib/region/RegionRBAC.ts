@@ -39,11 +39,13 @@ export interface AccessCheckResult {
     access_level?: string;
 }
 
-// Global roles that bypass region checks
-const GLOBAL_ROLES: UserRole[] = ['SUPER_ADMIN', 'FEDEX_ADMIN'];
+// Global roles that bypass region checks - ONLY SUPER_ADMIN
+// FEDEX_ADMIN is REGIONAL, NOT GLOBAL (enforces multi-region scope)
+const GLOBAL_ROLES: UserRole[] = ['SUPER_ADMIN'];
 
-// Roles that can have region-specific access
-const REGIONAL_ROLES: UserRole[] = ['FEDEX_MANAGER', 'FEDEX_ANALYST', 'DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT'];
+// Roles that MUST have explicit region assignments
+// FEDEX_ADMIN is regional - must have regions assigned
+const REGIONAL_ROLES: UserRole[] = ['FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT'];
 
 // ===========================================
 // REGION RBAC CLASS
@@ -62,7 +64,8 @@ export class RegionRBAC {
         const supabase = await createClient();
 
         // Get user role
-        const { data: user } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: user } = await (supabase as any)
             .from('users')
             .select('role, dca_id')
             .eq('id', userId)

@@ -15,6 +15,7 @@ interface Notification {
     created_at: string;
     related_case_id: string | null;
     related_dca_id: string | null;
+    actor_type?: 'SYSTEM' | 'HUMAN';
 }
 
 interface NotificationsListProps {
@@ -41,6 +42,26 @@ const TYPE_COLORS: Record<string, { bg: string; border: string; darkBg: string; 
     DISPUTE_RAISED: { bg: 'bg-purple-50', border: 'border-purple-200', darkBg: 'dark:bg-purple-500/10', darkBorder: 'dark:border-purple-500/30' },
     PERFORMANCE_ALERT: { bg: 'bg-indigo-50', border: 'border-indigo-200', darkBg: 'dark:bg-indigo-500/10', darkBorder: 'dark:border-indigo-500/30' },
     SYSTEM_ALERT: { bg: 'bg-gray-50', border: 'border-gray-200', darkBg: 'dark:bg-gray-500/10', darkBorder: 'dark:border-gray-500/30' },
+};
+
+/**
+ * Notification types that are always triggered by SYSTEM
+ */
+const SYSTEM_NOTIFICATION_TYPES = [
+    'SLA_WARNING',
+    'SLA_BREACH',
+    'CASE_ASSIGNED',
+    'ESCALATION_CREATED',
+    'PERFORMANCE_ALERT',
+    'SYSTEM_ALERT',
+];
+
+/**
+ * Check if a notification is SYSTEM-triggered
+ */
+const isSystemNotification = (notification: Notification): boolean => {
+    if (notification.actor_type === 'SYSTEM') return true;
+    return SYSTEM_NOTIFICATION_TYPES.includes(notification.notification_type);
 };
 
 /**
@@ -132,6 +153,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                         };
                         const icon = TYPE_ICONS[notification.notification_type] || '🔔';
                         const timeAgo = getTimeAgo(new Date(notification.created_at));
+                        const isSystem = isSystemNotification(notification);
 
                         return (
                             <div
@@ -144,6 +166,11 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <span className={`text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded ${isSystem ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                                                        {isSystem ? 'SYSTEM ALERT' : 'HUMAN ACTION'}
+                                                    </span>
+                                                </div>
                                                 <h3 className={`font-medium ${!notification.is_read ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                                                     {notification.title}
                                                 </h3>
