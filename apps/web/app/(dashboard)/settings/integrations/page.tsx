@@ -59,6 +59,23 @@ export default function IntegrationsSettingsPage() {
     const [fullApiKey, setFullApiKey] = useState<string | null>(null); // Full key only available after regeneration
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [userRole, setUserRole] = useState<string>('');
+
+    // Fetch user role on mount
+    useEffect(() => {
+        const fetchUserRole = async () => {
+            try {
+                const res = await fetch('/api/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    setUserRole(data.role || '');
+                }
+            } catch (err) {
+                console.error('Failed to fetch user role:', err);
+            }
+        };
+        fetchUserRole();
+    }, []);
 
     // Show toast notification
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -355,13 +372,19 @@ export default function IntegrationsSettingsPage() {
                         >
                             📋 {fullApiKey ? 'Copy Key' : 'Copy (Regenerate first)'}
                         </button>
-                        <button
-                            onClick={handleRegenerateApiKey}
-                            disabled={isRegenerating}
-                            className="px-4 py-2 text-sm bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50"
-                        >
-                            {isRegenerating ? '⏳ Regenerating...' : '🔄 Regenerate Key'}
-                        </button>
+                        {userRole === 'SUPER_ADMIN' ? (
+                            <button
+                                onClick={handleRegenerateApiKey}
+                                disabled={isRegenerating}
+                                className="px-4 py-2 text-sm bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50"
+                            >
+                                {isRegenerating ? '⏳ Regenerating...' : '🔄 Regenerate Key'}
+                            </button>
+                        ) : (
+                            <span className="px-4 py-2 text-xs text-gray-400 dark:text-gray-500">
+                                🔒 Only SUPER_ADMIN can regenerate keys
+                            </span>
+                        )}
                     </div>
                     <p className="text-xs text-amber-600 dark:text-amber-400">
                         ⚠️ Regenerating the API key will invalidate all existing integrations using the current key.

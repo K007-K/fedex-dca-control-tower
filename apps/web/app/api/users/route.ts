@@ -155,6 +155,16 @@ const handleGetUsers: ApiHandler = async (request, { user }) => {
             query = query.eq('dca_id', user.dcaId);
         }
 
+        // FEDEX_ADMIN: Filter users by their accessible regions
+        // SUPER_ADMIN sees all users (isGlobalAdmin bypasses)
+        if (!user.isGlobalAdmin && !isDCARole(user.role)) {
+            if (user.accessibleRegions && user.accessibleRegions.length > 0) {
+                // Filter users by primary_region_id within FEDEX_ADMIN's accessible regions
+                query = query.in('primary_region_id', user.accessibleRegions);
+            }
+            // Note: Users without primary_region_id (global users) may need special handling
+        }
+
         // Apply filters
         if (role) {
             query = query.eq('role', role);

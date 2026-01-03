@@ -16,16 +16,25 @@ const handleGetAnalytics: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
 
-        // Build cases query with DCA data isolation
+        // Build cases query with DCA data isolation AND region filtering
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let casesQuery = (supabase as any)
             .from('cases')
-            .select('status, outstanding_amount, recovered_amount, priority_score, recovery_probability, assigned_dca_id')
+            .select('status, outstanding_amount, recovered_amount, priority_score, recovery_probability, assigned_dca_id, region')
             .not('status', 'eq', 'CLOSED');
 
         // DCA users can only see their assigned cases (data isolation)
         if (isDCARole(user.role) && user.dcaId) {
             casesQuery = casesQuery.eq('assigned_dca_id', user.dcaId);
+        }
+
+        // FEDEX_ADMIN and other regional roles: filter by accessible regions
+        // SUPER_ADMIN bypasses region filter (isGlobalAdmin)
+        if (!user.isGlobalAdmin && user.accessibleRegions && user.accessibleRegions.length > 0) {
+            casesQuery = casesQuery.in('region', user.accessibleRegions);
+        } else if (!user.isGlobalAdmin && (!user.accessibleRegions || user.accessibleRegions.length === 0)) {
+            // No accessible regions = no data (fail-closed)
+            return NextResponse.json({ data: { totalCases: 0, statusBreakdown: {} } });
         }
 
         const caseResult = await casesQuery;
@@ -70,7 +79,7 @@ const handleGetAnalytics: ApiHandler = async (request, { user }) => {
             }
         }
 
-        // Get active DCAs count (respect DCA isolation)
+        // Get active DCAs count (respect DCA isolation AND region filtering)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let dcaQuery = (supabase as any)
             .from('dcas')
@@ -79,6 +88,9 @@ const handleGetAnalytics: ApiHandler = async (request, { user }) => {
 
         if (isDCARole(user.role) && user.dcaId) {
             dcaQuery = dcaQuery.eq('id', user.dcaId);
+        } else if (!user.isGlobalAdmin && user.accessibleRegions && user.accessibleRegions.length > 0) {
+            // FEDEX_ADMIN: Only count DCAs in accessible regions
+            dcaQuery = dcaQuery.in('region', user.accessibleRegions);
         }
 
         const dcaResult = await dcaQuery;

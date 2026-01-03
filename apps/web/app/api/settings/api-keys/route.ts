@@ -49,6 +49,7 @@ export async function GET() {
 
 /**
  * POST /api/settings/api-keys - Generate new API key (regenerate)
+ * SECURITY: Only SUPER_ADMIN can regenerate API keys
  */
 export async function POST() {
     try {
@@ -69,6 +70,14 @@ export async function POST() {
 
         if (!dbUser) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // SECURITY: Only SUPER_ADMIN can regenerate API keys
+        if (dbUser.role !== 'SUPER_ADMIN') {
+            return NextResponse.json(
+                { error: 'Forbidden: Only SUPER_ADMIN can regenerate API keys' },
+                { status: 403 }
+            );
         }
 
         // Revoke all existing active keys
