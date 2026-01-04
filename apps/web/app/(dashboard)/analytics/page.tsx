@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
-import { AnalyticsCharts, DateFilter } from '@/components/analytics';
+import { AnalyticsCharts } from '@/components/analytics';
+import { AnalyticsPageHeader } from '@/components/analytics/AnalyticsPageHeader';
 import { createClient } from '@/lib/supabase/server';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -142,28 +143,8 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Track recovery trends and DCA performance metrics</p>
-                </div>
-                <div className="flex gap-2">
-                    {/* P2-4 FIX: Export button */}
-                    <a
-                        href={`/api/reports/generate?format=csv&days=${days}`}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-[#111] border border-gray-300 dark:border-[#222] rounded-lg hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Export CSV
-                    </a>
-                    <Suspense fallback={<div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />}>
-                        <DateFilter currentRange={days} />
-                    </Suspense>
-                </div>
-            </div>
+            {/* Page Header with Region Filter */}
+            <AnalyticsPageHeader days={days} />
 
             {/* Key Metrics Cards - Dark mode compatible */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

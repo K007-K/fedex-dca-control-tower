@@ -1,13 +1,19 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface CaseFiltersProps {
     dcas: { id: string; name: string }[];
+}
+
+interface Region {
+    id: string;
+    name: string;
+    region_code: string;
 }
 
 const STATUS_OPTIONS = [
@@ -36,11 +42,41 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
+    const [regions, setRegions] = useState<Region[]>([]);
 
     const [search, setSearch] = useState(searchParams.get('search') ?? '');
     const [status, setStatus] = useState(searchParams.get('status') ?? '');
     const [priority, setPriority] = useState(searchParams.get('priority') ?? '');
     const [dcaId, setDcaId] = useState(searchParams.get('dca_id') ?? '');
+    const [region, setRegion] = useState(searchParams.get('region') ?? '');
+
+    // Fetch regions on mount
+    useEffect(() => {
+        async function fetchRegions() {
+            try {
+                const res = await fetch('/api/regions');
+                if (res.ok) {
+                    const data = await res.json();
+                    setRegions(data.regions || []);
+                } else {
+                    setRegions([
+                        { id: 'INDIA', name: 'India', region_code: 'INDIA' },
+                        { id: 'AMERICAS', name: 'Americas', region_code: 'AMERICAS' },
+                        { id: 'EMEA', name: 'EMEA', region_code: 'EMEA' },
+                        { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
+                    ]);
+                }
+            } catch {
+                setRegions([
+                    { id: 'INDIA', name: 'India', region_code: 'INDIA' },
+                    { id: 'AMERICAS', name: 'Americas', region_code: 'AMERICAS' },
+                    { id: 'EMEA', name: 'EMEA', region_code: 'EMEA' },
+                    { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
+                ]);
+            }
+        }
+        fetchRegions();
+    }, []);
 
     const applyFilters = () => {
         startTransition(() => {
@@ -49,6 +85,7 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
             if (status) params.set('status', status);
             if (priority) params.set('priority', priority);
             if (dcaId) params.set('dca_id', dcaId);
+            if (region) params.set('region', region);
             params.set('page', '1');
             router.push(`/cases?${params.toString()}`);
         });
@@ -59,16 +96,17 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
         setStatus('');
         setPriority('');
         setDcaId('');
+        setRegion('');
         startTransition(() => {
             router.push('/cases');
         });
     };
 
-    const hasFilters = search || status || priority || dcaId;
+    const hasFilters = search || status || priority || dcaId || region;
 
     return (
         <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Search */}
                 <div className="lg:col-span-1">
                     <Input
@@ -78,6 +116,20 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
                         onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
                     />
                 </div>
+
+                {/* Region Filter - NEW */}
+                <select
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                    <option value="">All Regions</option>
+                    {regions.map((r) => (
+                        <option key={r.id} value={r.region_code || r.id}>
+                            {r.name}
+                        </option>
+                    ))}
+                </select>
 
                 {/* Status */}
                 <select
@@ -136,3 +188,4 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
 }
 
 export default CaseFilters;
+

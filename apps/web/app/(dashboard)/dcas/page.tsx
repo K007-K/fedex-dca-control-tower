@@ -5,6 +5,7 @@ import { SkeletonCard } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { DCAsPageHeader } from '@/components/dcas/DCAsPageHeader';
 
 const statusColors: Record<string, { bg: string; text: string }> = {
     ACTIVE: { bg: 'bg-green-500/20 border border-green-500/30', text: 'text-green-400' },
@@ -35,15 +36,22 @@ function DCAsLoading() {
     );
 }
 
-async function DCAsContent() {
+async function DCAsContent({ region }: { region?: string }) {
     const supabase = await createClient();
 
-    // Fetch DCAs with case counts
+    // Fetch DCAs with optional region filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dcas, error } = await (supabase as any)
+    let dcasQuery = (supabase as any)
         .from('dcas')
         .select('*')
         .order('name');
+
+    // Apply region filter if specified
+    if (region && region !== 'ALL') {
+        dcasQuery = dcasQuery.eq('region', region);
+    }
+
+    const { data: dcas, error } = await dcasQuery;
 
     // Fetch case counts per DCA
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,33 +239,23 @@ async function DCAsContent() {
     );
 }
 
-export default async function DCAsPage() {
+interface PageProps {
+    searchParams: Promise<{ region?: string; status?: string }>;
+}
+
+export default async function DCAsPage({ searchParams }: PageProps) {
+    const params = await searchParams;
+    const region = params.region;
     const user = await getCurrentUser();
     const canManageDCAs = user && ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(user.role);
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">DCAs</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Manage debt collection agencies and their performance</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Link href="/dcas/compare">
-                        <Button variant="outline">📊 Compare</Button>
-                    </Link>
-                    {/* GOVERNANCE: Add DCA button visible only to SUPER_ADMIN and FEDEX_ADMIN */}
-                    {canManageDCAs && (
-                        <Link href="/dcas/new">
-                            <Button>+ Add DCA</Button>
-                        </Link>
-                    )}
-                </div>
-            </div>
+            {/* Page Header with Region Filter */}
+            <DCAsPageHeader canManageDCAs={canManageDCAs ?? false} />
 
             <Suspense fallback={<DCAsLoading />}>
-                <DCAsContent />
+                <DCAsContent region={region} />
             </Suspense>
         </div>
     );

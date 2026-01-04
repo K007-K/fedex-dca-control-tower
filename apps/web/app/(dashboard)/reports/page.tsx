@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { ReportCard } from '@/components/reports/ReportCard';
+import { ReportsPageHeader } from '@/components/reports/ReportsPageHeader';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -42,18 +43,33 @@ const REPORT_TEMPLATES = [
     },
 ];
 
-export default async function ReportsPage() {
+interface PageProps {
+    searchParams: Promise<{ region?: string }>;
+}
+
+export default async function ReportsPage({ searchParams }: PageProps) {
+    const params = await searchParams;
+    const region = params.region;
     const supabase = await createClient();
     const user = await getCurrentUser();
 
     // GOVERNANCE: Check export permission
     const canExport = user && !['FEDEX_VIEWER'].includes(user.role) && !user.role.startsWith('DCA_');
 
-    // Get summary stats for the quick metrics
+    // Get summary stats for the quick metrics (with region filter)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: cases } = await (supabase as any).from('cases').select('status, outstanding_amount, recovered_amount');
+    let casesQuery = (supabase as any).from('cases').select('status, outstanding_amount, recovered_amount');
+    if (region && region !== 'ALL') {
+        casesQuery = casesQuery.eq('region', region);
+    }
+    const { data: cases } = await casesQuery;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dcas } = await (supabase as any).from('dcas').select('name, total_cases_handled, total_amount_recovered');
+    let dcasQuery = (supabase as any).from('dcas').select('name, total_cases_handled, total_amount_recovered');
+    if (region && region !== 'ALL') {
+        dcasQuery = dcasQuery.eq('region', region);
+    }
+    const { data: dcas } = await dcasQuery;
 
     const totalCases = cases?.length || 0;
     const totalRecovered = cases?.reduce((sum: number, c: Case) => sum + (c.recovered_amount || 0), 0) || 0;
@@ -61,13 +77,8 @@ export default async function ReportsPage() {
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics & Reports</h1>
-                    <p className="text-gray-500 dark:text-gray-400">View SYSTEM-calculated metrics and generate reports</p>
-                </div>
-            </div>
+            {/* Page Header with Region Filter */}
+            <ReportsPageHeader userRole={user?.role} canExport={canExport ?? false} />
 
             {/* SYSTEM-Derived Analytics Notice */}
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-4">
