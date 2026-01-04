@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { useToast } from '@/components/ui';
+import { useRegion } from '@/lib/context/RegionContext';
 
 interface ReportTemplate {
     id: string;
@@ -18,6 +19,7 @@ interface ReportCardProps {
 
 export function ReportCard({ report }: ReportCardProps) {
     const toast = useToast();
+    const { region } = useRegion();
     const [generating, setGenerating] = useState(false);
     const [previewData, setPreviewData] = useState<Record<string, unknown> | null>(null);
 
@@ -27,7 +29,11 @@ export function ReportCard({ report }: ReportCardProps) {
             const res = await fetch('/api/reports/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reportType: report.id, format: 'json' }),
+                body: JSON.stringify({
+                    reportType: report.id,
+                    format: 'json',
+                    region: region || 'ALL',  // GOVERNANCE: Pass selected region
+                }),
             });
 
             if (!res.ok) {
@@ -36,7 +42,7 @@ export function ReportCard({ report }: ReportCardProps) {
 
             const data = await res.json();
             setPreviewData(data);
-            toast.success('Report preview generated');
+            toast.success(`Report preview generated for ${region || 'ALL'} region`);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Failed to preview');
         } finally {
@@ -50,7 +56,11 @@ export function ReportCard({ report }: ReportCardProps) {
             const res = await fetch('/api/reports/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reportType: report.id, format: 'csv' }),
+                body: JSON.stringify({
+                    reportType: report.id,
+                    format: 'csv',
+                    region: region || 'ALL',  // GOVERNANCE: Pass selected region
+                }),
             });
 
             if (!res.ok) {
@@ -62,7 +72,8 @@ export function ReportCard({ report }: ReportCardProps) {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `${report.id}_${new Date().toISOString().split('T')[0]}.csv`;
+            const regionSuffix = region && region !== 'ALL' ? `_${region}` : '';
+            link.download = `${report.id}${regionSuffix}_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

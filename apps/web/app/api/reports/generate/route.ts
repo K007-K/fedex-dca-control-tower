@@ -13,6 +13,9 @@ import { UserRole } from '@/lib/auth/rbac';
 interface ReportRequest {
     reportType: string;
     format?: 'json' | 'csv';
+    region?: string;  // REQUIRED: Region filter for reports
+    startDate?: string;
+    endDate?: string;
 }
 
 /**
@@ -24,13 +27,14 @@ interface ReportRequest {
  * - Per-report role validation
  * - Audit logging for all actions
  * - Scope enforcement via secure query
+ * - Region filtering MANDATORY
  */
 const handleGenerateReport: ApiHandler = async (request, { user }) => {
     try {
         const supabase = await createClient();
         const body: ReportRequest = await request.json();
 
-        const { reportType, format = 'json' } = body;
+        const { reportType, format = 'json', region, startDate, endDate } = body;
 
         if (!reportType) {
             return NextResponse.json(
@@ -110,18 +114,41 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
                 scope: reportConfig.scope,
                 sensitivity: reportConfig.sensitivity,
                 format,
+                region: region || 'ALL',
             }
         );
 
         let reportData: Record<string, unknown> = {};
         let csvContent = '';
 
+        // Helper to apply region filter
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const applyRegionFilter = (query: any) => {
+            if (region && region !== 'ALL') {
+                return query.eq('region', region);
+            }
+            return query;
+        };
+
         switch (reportType) {
             case 'recovery-summary': {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const { data: cases } = await (supabase as any)
+                let casesQuery = (supabase as any)
                     .from('cases')
-                    .select('status, outstanding_amount, recovered_amount, created_at');
+                    .select('status, outstanding_amount, recovered_amount, created_at, region');
+
+                // GOVERNANCE: Apply region filter
+                casesQuery = applyRegionFilter(casesQuery);
+
+                // Apply date filters if provided
+                if (startDate) {
+                    casesQuery = casesQuery.gte('created_at', startDate);
+                }
+                if (endDate) {
+                    casesQuery = casesQuery.lte('created_at', endDate);
+                }
+
+                const { data: cases } = await casesQuery;
 
                 const totalOutstanding = cases?.reduce((sum: number, c: { outstanding_amount: number }) =>
                     sum + (c.outstanding_amount || 0), 0) || 0;
@@ -137,6 +164,7 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
                 reportData = {
                     reportName: 'Recovery Summary',
                     generatedAt: new Date().toISOString(),
+                    region: region || 'ALL',
                     summary: {
                         totalCases: cases?.length || 0,
                         totalOutstanding,
@@ -147,7 +175,7 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
                 };
 
                 if (format === 'csv') {
-                    csvContent = `Recovery Summary Report\nGenerated: ${new Date().toISOString()}\n\n`;
+                    csvContent = `Recovery Summary Report\nGenerated: ${new Date().toISOString()}\nRegion: ${region || 'ALL'}\n\n`;
                     csvContent += `Metric,Value\n`;
                     csvContent += `Total Cases,${cases?.length || 0}\n`;
                     csvContent += `Total Outstanding,$${totalOutstanding.toLocaleString()}\n`;
@@ -159,13 +187,19 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
 
             case 'dca-performance': {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const { data: dcas } = await (supabase as any)
+                let dcasQuery = (supabase as any)
                     .from('dcas')
-                    .select('name, code, status, performance_score, recovery_rate, capacity_used, capacity_limit, total_cases_handled, total_amount_recovered');
+                    .select('name, code, status, performance_score, recovery_rate, capacity_used, capacity_limit, total_cases_handled, total_amount_recovered, region');
+
+                // GOVERNANCE: Apply region filter
+                dcasQuery = applyRegionFilter(dcasQuery);
+
+                const { data: dcas } = await dcasQuery;
 
                 reportData = {
                     reportName: 'DCA Performance Report',
                     generatedAt: new Date().toISOString(),
+                    region: region || 'ALL',
                     dcas: dcas || [],
                     summary: {
                         totalDCAs: dcas?.length || 0,
@@ -176,7 +210,8 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
                 };
 
                 if (format === 'csv') {
-                    csvContent = `DCA Name,Code,Status,Performance,Recovery Rate,Capacity Used,Capacity Limit\n`;
+                    csvContent = `DCA Performance Report\nGenerated: ${new Date().toISOString()}\nRegion: ${region || 'ALL'}\n\n`;
+                    csvContent += `DCA Name,Code,Status,Performance,Recovery Rate,Capacity Used,Capacity Limit\n`;
                     dcas?.forEach((d: { name: string; code: string; status: string; performance_score: number; recovery_rate: number; capacity_used: number; capacity_limit: number }) => {
                         csvContent += `"${d.name}","${d.code}","${d.status}",${d.performance_score || 0},${d.recovery_rate || 0}%,${d.capacity_used || 0},${d.capacity_limit || 0}\n`;
                     });
@@ -186,31 +221,40 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
 
             case 'sla-compliance': {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const { data: slaLogs } = await (supabase as any)
+                let slaQuery = (supabase as any)
                     .from('sla_logs')
-                    .select('*')
+                    .select('*, cases!inner(region)')
                     .order('created_at', { ascending: false })
                     .limit(100);
 
-                const breached = slaLogs?.filter((l: { is_breach: boolean }) => l.is_breach).length || 0;
-                const compliant = (slaLogs?.length || 0) - breached;
+                const { data: slaLogs } = await slaQuery;
+
+                // Filter by region if specified
+                let filteredLogs = slaLogs || [];
+                if (region && region !== 'ALL') {
+                    filteredLogs = slaLogs?.filter((l: { cases: { region: string } }) => l.cases?.region === region) || [];
+                }
+
+                const breached = filteredLogs.filter((l: { is_breach: boolean }) => l.is_breach).length || 0;
+                const compliant = filteredLogs.length - breached;
 
                 reportData = {
                     reportName: 'SLA Compliance Report',
                     generatedAt: new Date().toISOString(),
+                    region: region || 'ALL',
                     summary: {
-                        totalEvents: slaLogs?.length || 0,
+                        totalEvents: filteredLogs.length,
                         compliant,
                         breached,
-                        complianceRate: slaLogs?.length ? ((compliant / slaLogs.length) * 100).toFixed(1) + '%' : 'N/A',
+                        complianceRate: filteredLogs.length ? ((compliant / filteredLogs.length) * 100).toFixed(1) + '%' : 'N/A',
                     },
-                    recentEvents: slaLogs?.slice(0, 10) || [],
+                    recentEvents: filteredLogs.slice(0, 10),
                 };
 
                 if (format === 'csv') {
-                    csvContent = `SLA Compliance Report\nCompliant: ${compliant}, Breached: ${breached}\n\n`;
+                    csvContent = `SLA Compliance Report\nGenerated: ${new Date().toISOString()}\nRegion: ${region || 'ALL'}\nCompliant: ${compliant}, Breached: ${breached}\n\n`;
                     csvContent += `Event ID,Case ID,Is Breach,Created At\n`;
-                    slaLogs?.slice(0, 50).forEach((l: { id: string; case_id: string; is_breach: boolean; created_at: string }) => {
+                    filteredLogs.slice(0, 50).forEach((l: { id: string; case_id: string; is_breach: boolean; created_at: string }) => {
                         csvContent += `"${l.id}","${l.case_id}",${l.is_breach ? 'Yes' : 'No'},"${l.created_at}"\n`;
                     });
                 }
@@ -219,10 +263,15 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
 
             case 'aging-report': {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const { data: cases } = await (supabase as any)
+                let casesQuery = (supabase as any)
                     .from('cases')
-                    .select('case_number, customer_name, outstanding_amount, days_past_due, status')
+                    .select('case_number, customer_name, outstanding_amount, days_past_due, status, region')
                     .order('days_past_due', { ascending: false });
+
+                // GOVERNANCE: Apply region filter
+                casesQuery = applyRegionFilter(casesQuery);
+
+                const { data: cases } = await casesQuery;
 
                 const buckets = {
                     '0-30': cases?.filter((c: { days_past_due: number }) => c.days_past_due <= 30) || [],
@@ -234,6 +283,7 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
                 reportData = {
                     reportName: 'Aging Report',
                     generatedAt: new Date().toISOString(),
+                    region: region || 'ALL',
                     summary: {
                         '0-30 days': buckets['0-30'].length,
                         '31-60 days': buckets['31-60'].length,
@@ -244,7 +294,8 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
                 };
 
                 if (format === 'csv') {
-                    csvContent = `Case Number,Customer,Outstanding,Days Past Due,Status\n`;
+                    csvContent = `Aging Report\nGenerated: ${new Date().toISOString()}\nRegion: ${region || 'ALL'}\n\n`;
+                    csvContent += `Case Number,Customer,Outstanding,Days Past Due,Status\n`;
                     cases?.forEach((c: { case_number: string; customer_name: string; outstanding_amount: number; days_past_due: number; status: string }) => {
                         csvContent += `"${c.case_number}","${c.customer_name}",$${c.outstanding_amount},${c.days_past_due},"${c.status}"\n`;
                     });
