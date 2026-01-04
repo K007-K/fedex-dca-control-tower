@@ -79,9 +79,9 @@ EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'audit_logs.region_id NOT NULL skipped: %', SQLERRM;
 END $$;
 
--- Add default region_id for new entries (first active region)
-ALTER TABLE audit_logs 
-ALTER COLUMN region_id SET DEFAULT (SELECT id FROM regions WHERE status = 'ACTIVE' ORDER BY name LIMIT 1);
+-- NOTE: PostgreSQL doesn't allow subqueries in DEFAULT expressions
+-- Region_id will be set by application layer or trigger, not as column default
+-- The NOT NULL constraint ensures it's always provided
 
 -- ===========================================
 -- PART 4: CREATE INDEXES FOR AUDIT QUERIES
