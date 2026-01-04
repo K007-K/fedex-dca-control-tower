@@ -9,7 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 
 // ===========================================
 // AUDIT ACTION TYPES
@@ -164,7 +164,8 @@ async function writeAuditLog(entry: AuditEntry): Promise<string | null> {
             created_at: new Date().toISOString(),
         };
 
-        const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
             .from('audit_logs')
             .insert(logEntry)
             .select('id')

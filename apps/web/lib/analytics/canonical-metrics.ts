@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Canonical Metrics Library
  * 
@@ -86,7 +87,7 @@ export async function getCaseSummaryMetrics(filters: MetricFilters = {}): Promis
         query = query.lte('created_at', filters.endDate.toISOString());
     }
 
-    const { data: cases, error } = await query;
+    const { data: cases, error } = await query as { data: any[] | null; error: any };
 
     if (error || !cases) {
         console.error('Failed to fetch case metrics:', error);
@@ -157,7 +158,7 @@ export async function getSLAMetrics(filters: MetricFilters = {}): Promise<SLAMet
         query = query.lte('created_at', filters.endDate.toISOString());
     }
 
-    const { data: slaLogs, error } = await query;
+    const { data: slaLogs, error } = await query as { data: any[] | null; error: any };
 
     if (error || !slaLogs) {
         console.error('Failed to fetch SLA metrics:', error);
@@ -224,7 +225,7 @@ export async function getAgingBuckets(filters: MetricFilters = {}): Promise<Agin
         query = query.eq('region', filters.region);
     }
 
-    const { data: cases, error } = await query;
+    const { data: cases, error } = await query as { data: any[] | null; error: any };
 
     if (error || !cases) {
         return [
@@ -294,7 +295,7 @@ export async function getDCAPerformanceMetrics(filters: MetricFilters = {}): Pro
         query = query.eq('region_id', filters.regionId);
     }
 
-    const { data: metrics, error } = await query;
+    const { data: metrics, error } = await query as { data: any[] | null; error: any };
 
     if (error) {
         console.error('Failed to fetch DCA metrics from view, falling back to raw query:', error);
