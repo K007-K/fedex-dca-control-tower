@@ -57,20 +57,40 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
                 const res = await fetch('/api/regions');
                 if (res.ok) {
                     const data = await res.json();
-                    setRegions(data.regions || []);
+                    const apiRegions = data.data || data.regions || [];
+                    if (apiRegions.length > 0) {
+                        // Map to include enum_value for database filtering
+                        const ENUM_MAP: Record<string, string> = {
+                            'India': 'INDIA', 'America': 'AMERICA', 'Europe': 'EUROPE',
+                            'Asia Pacific': 'APAC', 'Latin America': 'LATAM',
+                            'Middle East': 'MIDDLE_EAST', 'Africa': 'AFRICA',
+                        };
+                        setRegions(apiRegions.map((r: Region) => ({
+                            ...r,
+                            region_code: ENUM_MAP[r.name] || r.name.toUpperCase().replace(/\s+/g, '_'),
+                        })));
+                    } else {
+                        // Fallback with correct ENUM values
+                        setRegions([
+                            { id: 'INDIA', name: 'India', region_code: 'INDIA' },
+                            { id: 'AMERICA', name: 'America', region_code: 'AMERICA' },
+                            { id: 'EUROPE', name: 'Europe', region_code: 'EUROPE' },
+                            { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
+                        ]);
+                    }
                 } else {
                     setRegions([
                         { id: 'INDIA', name: 'India', region_code: 'INDIA' },
-                        { id: 'AMERICAS', name: 'Americas', region_code: 'AMERICAS' },
-                        { id: 'EMEA', name: 'EMEA', region_code: 'EMEA' },
+                        { id: 'AMERICA', name: 'America', region_code: 'AMERICA' },
+                        { id: 'EUROPE', name: 'Europe', region_code: 'EUROPE' },
                         { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
                     ]);
                 }
             } catch {
                 setRegions([
                     { id: 'INDIA', name: 'India', region_code: 'INDIA' },
-                    { id: 'AMERICAS', name: 'Americas', region_code: 'AMERICAS' },
-                    { id: 'EMEA', name: 'EMEA', region_code: 'EMEA' },
+                    { id: 'AMERICA', name: 'America', region_code: 'AMERICA' },
+                    { id: 'EUROPE', name: 'Europe', region_code: 'EUROPE' },
                     { id: 'APAC', name: 'Asia Pacific', region_code: 'APAC' },
                 ]);
             }
