@@ -321,7 +321,7 @@ export async function deriveRegionFromCase(caseId: string): Promise<string | nul
             .select('region_id')
             .eq('id', caseId)
             .single();
-        return data?.region_id || null;
+        return (data as { region_id: string } | null)?.region_id || null;
     } catch {
         return null;
     }
