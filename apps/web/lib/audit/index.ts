@@ -338,7 +338,7 @@ export async function deriveRegionFromDCA(dcaId: string): Promise<string | null>
             .select('region_id')
             .eq('id', dcaId)
             .single();
-        return data?.region_id || null;
+        return (data as { region_id: string } | null)?.region_id || null;
     } catch {
         return null;
     }
@@ -355,7 +355,7 @@ export async function deriveRegionFromUser(userId: string): Promise<string | nul
             .select('primary_region_id')
             .eq('id', userId)
             .single();
-        return data?.primary_region_id || null;
+        return (data as { primary_region_id: string } | null)?.primary_region_id || null;
     } catch {
         return null;
     }
@@ -374,7 +374,7 @@ export async function getDefaultRegion(): Promise<string> {
             .order('name')
             .limit(1)
             .single();
-        return data?.id || 'DEFAULT_REGION';
+        return (data as { id: string } | null)?.id || 'DEFAULT_REGION';
     } catch {
         return 'DEFAULT_REGION';
     }
