@@ -32,23 +32,17 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         async function loadUserRole() {
             try {
-                const supabase = createClient();
-                const { data: { user } } = await supabase.auth.getUser();
-
-                if (!user) {
+                // Use API endpoint instead of direct Supabase call
+                // This avoids RLS issues and uses admin client on backend
+                const res = await fetch('/api/auth/me');
+                if (!res.ok) {
                     setRole(null);
                     setIsLoading(false);
                     return;
                 }
 
-                // Fetch user profile to get role
-                const { data: profile } = await supabase
-                    .from('users')
-                    .select('role')
-                    .eq('id', user.id)
-                    .single();
-
-                setRole((profile?.role as UserRole) ?? 'READONLY');
+                const data = await res.json();
+                setRole((data.role as UserRole) ?? 'READONLY');
             } catch (error) {
                 console.error('Failed to load user role:', error);
                 setRole('READONLY');

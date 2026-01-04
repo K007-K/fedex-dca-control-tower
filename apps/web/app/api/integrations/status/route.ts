@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logUserAction } from '@/lib/audit';
 
 export interface IntegrationStatus {
@@ -28,8 +28,10 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Use admin client for role lookup to bypass RLS
+    const adminClient = createAdminClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profile } = await (supabase as any)
+    const { data: profile } = await (adminClient as any)
         .from('users')
         .select('role')
         .eq('auth_user_id', user.id)
@@ -52,11 +54,15 @@ export async function GET() {
     // 1. SUPABASE (Auth + Database)
     // ============================================================
     try {
+        // Use admin client to bypass RLS for health check
+        const adminClient = createAdminClient();
         const startTime = Date.now();
-        const { error: pingError } = await supabase
-            .from('users')
-            .select('id')
-            .limit(1);
+
+        // Query regions table instead of users - less RLS restrictions
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error: pingError } = await (adminClient as any)
+            .from('regions')
+            .select('id', { count: 'exact', head: true });
 
         const latency = Date.now() - startTime;
 
@@ -68,6 +74,7 @@ export async function GET() {
             error_message: pingError?.message || null,
             metadata: {
                 latency_ms: latency,
+                description: 'Database and authentication service',
                 url: process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/https?:\/\//, '').split('.')[0] + '...',
             },
         });
@@ -78,6 +85,9 @@ export async function GET() {
             last_checked_at: now,
             last_success_at: null,
             error_message: error instanceof Error ? error.message : 'Connection failed',
+            metadata: {
+                description: 'Database and authentication service',
+            },
         });
     }
 

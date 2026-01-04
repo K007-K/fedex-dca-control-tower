@@ -90,13 +90,14 @@ export default function IntegrationsSettingsPage() {
         try {
             const supabaseRes = await fetch('/api/health');
             const supabaseData = await supabaseRes.json();
-            const isConnected = supabaseData.services?.database?.connected === true;
+            // Health API returns services.database as a string ("connected" or "error")
+            const isConnected = supabaseData.services?.database === 'connected';
             setServices(prev => prev.map(s =>
                 s.name === 'Supabase'
                     ? {
                         ...s,
                         status: isConnected ? 'connected' : 'error',
-                        message: isConnected ? 'Connected & healthy' : (supabaseData.services?.database?.error || 'Connection failed')
+                        message: isConnected ? 'Connected & healthy' : (supabaseData.services?.database || 'Connection failed')
                     }
                     : s
             ));

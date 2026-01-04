@@ -349,10 +349,36 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         // =====================================================
         // VALIDATION 4: Region enforcement for FedEx users
         // =====================================================
+        let regionIds: string[] = []; // For FEDEX_ADMIN multi-region
+
         if (isFedExRole(targetRole)) {
-            // FedEx users need explicit region
-            if (body.region_id) {
-                // Validate region exists and is active
+            // FEDEX_ADMIN can have multiple regions via region_ids
+            if (targetRole === 'FEDEX_ADMIN' && body.region_ids && Array.isArray(body.region_ids) && body.region_ids.length > 0) {
+                // Validate all regions exist and are active
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: validRegions, error: regionsError } = await (supabase as any)
+                    .from('regions')
+                    .select('id')
+                    .in('id', body.region_ids)
+                    .eq('status', 'ACTIVE');
+
+                if (regionsError || !validRegions || validRegions.length !== body.region_ids.length) {
+                    await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                        reason: 'One or more regions are invalid or inactive',
+                        creator_role: user.role,
+                        target_role: targetRole,
+                        region_ids: body.region_ids,
+                    });
+                    return NextResponse.json(
+                        { error: 'One or more regions are invalid or inactive' },
+                        { status: 400 }
+                    );
+                }
+                regionIds = body.region_ids;
+                // Use first region as primary
+                regionId = body.region_ids[0];
+            } else if (body.region_id) {
+                // Single region for other FedEx roles
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { data: regionData } = await (supabase as any)
                     .from('regions')
@@ -373,6 +399,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                     );
                 }
                 regionId = body.region_id;
+                regionIds = [body.region_id]; // Single region as array for user_region_access
             }
             // Note: Region is optional for FedEx users as they may have global access
         }
@@ -473,12 +500,39 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
             target_role: body.role,
             dca_id: dcaId,
             region_id: regionId,
+            region_ids: regionIds.length > 0 ? regionIds : undefined,
             creator_role: user.role,
             method: user.role === 'DCA_ADMIN' ? 'dca_self_service' : 'fedex_admin',
         });
 
-        // Also log region assignment if applicable
-        if (regionId) {
+        // =====================================================
+        // CREATE USER_REGION_ACCESS ENTRIES (for FEDEX_ADMIN multi-region)
+        // =====================================================
+        if (regionIds.length > 0) {
+            const regionAccessEntries = regionIds.map(rId => ({
+                user_id: data.id,
+                region_id: rId,
+                access_type: 'ASSIGNED',
+                granted_by: user.id,
+            }));
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error: accessError } = await (adminClient as any)
+                .from('user_region_access')
+                .upsert(regionAccessEntries, { onConflict: 'user_id,region_id' });
+
+            if (accessError) {
+                console.error('Failed to create region access entries:', accessError);
+                // Non-fatal - user is created, but log the error
+            } else {
+                await logUserCreationAudit(adminClient, 'REGION_ASSIGNED', 'INFO', user.id, user.email, {
+                    target_user_id: data.id,
+                    region_ids: regionIds,
+                    assignment_type: 'explicit_multi_region',
+                });
+            }
+        } else if (regionId) {
+            // Also log single region assignment if applicable
             await logUserCreationAudit(adminClient, 'REGION_ASSIGNED', 'INFO', user.id, user.email, {
                 target_user_id: data.id,
                 region_id: regionId,

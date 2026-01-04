@@ -87,6 +87,7 @@ export default function CreateUserPage() {
         role: '',
         dcaId: '',
         regionId: '',
+        regionIds: [] as string[], // For FEDEX_ADMIN multi-region
         phone: '',
     });
 
@@ -211,6 +212,7 @@ export default function CreateUserPage() {
     const isDCARole = selectedRoleInfo?.org === 'dca';
     const isFedExRole = selectedRoleInfo?.org === 'fedex';
     const showRegionSelector = isFedExUser && isFedExRole;
+    const showMultiRegionSelector = isFedExUser && formData.role === 'FEDEX_ADMIN'; // FEDEX_ADMIN gets multi-region
     const showDCASelector = isFedExUser && formData.role === 'DCA_ADMIN';
 
     // Set default role when available roles are loaded
@@ -240,7 +242,8 @@ export default function CreateUserPage() {
                     full_name: fullName,
                     role: formData.role,
                     dca_id: showDCASelector ? formData.dcaId : (isDCAUser ? undefined : null), // Server will use context for DCA users
-                    region_id: showRegionSelector ? formData.regionId : undefined, // Auto-inherited for DCA
+                    region_id: showMultiRegionSelector ? undefined : (showRegionSelector ? formData.regionId : undefined), // Auto-inherited for DCA
+                    region_ids: showMultiRegionSelector ? formData.regionIds : undefined, // FEDEX_ADMIN multi-region
                     phone: formData.phone || null,
                     personal_email: formData.personalEmail || null,
                 }),
@@ -447,8 +450,44 @@ export default function CreateUserPage() {
                         </div>
                     )}
 
-                    {/* Region/Location Selection (only for FedEx creating FedEx roles) */}
-                    {showRegionSelector && (
+                    {/* Multi-Region Selection for FEDEX_ADMIN */}
+                    {showMultiRegionSelector && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Regions <span className="text-red-500">*</span>
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                Select one or more regions this FEDEX_ADMIN will manage.
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {regions.map(region => (
+                                    <label key={region.id} className="flex items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.regionIds.includes(region.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setFormData({ ...formData, regionIds: [...formData.regionIds, region.id] });
+                                                } else {
+                                                    setFormData({ ...formData, regionIds: formData.regionIds.filter(id => id !== region.id) });
+                                                }
+                                            }}
+                                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">{region.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {formData.regionIds.length > 0 && (
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                                    ✓ {formData.regionIds.length} region(s) selected
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Single Region/Location Selection (for other FedEx roles) */}
+                    {showRegionSelector && !showMultiRegionSelector && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Location / Region <span className="text-gray-400">(optional)</span>
