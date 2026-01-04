@@ -19,6 +19,7 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { logSystemAction } from '@/lib/audit';
 import { fireWebhookEvent } from '@/lib/webhooks';
+import { getRegionTimezone, getBreachAuditContext, formatInRegionTimezone } from './sla-timezone';
 
 // ===========================================
 // TYPES
@@ -196,22 +197,31 @@ async function handleBreach(
             });
 
         // -----------------------------------------
-        // STEP 4: WRITE AUDIT LOG
+        // STEP 4: WRITE AUDIT LOG (with region timezone context)
         // -----------------------------------------
 
+        // Get region timezone for proper audit context
+        const region = await getRegionTimezone(breach.region_id);
+        const regionTimezone = region?.timezone || 'UTC';
+        const breachContext = getBreachAuditContext(
+            new Date(breach.due_at),
+            new Date(),
+            breachDurationMinutes,
+            regionTimezone
+        );
+
         await logSystemAction(
-            'SLA_BREACHED',
-            'SLA_BREACH_DETECTION',
+            'SLA_MONITOR',
+            'SYSTEM_SLA_BREACHED',
             'sla_log',
             breach.sla_log_id,
+            breach.region_id,
             {
                 case_id: breach.case_id,
                 case_number: breach.case_number,
                 sla_template_id: breach.sla_template_id,
                 sla_type: breach.sla_type,
-                due_at: breach.due_at,
-                breach_time: now,
-                breach_duration_minutes: breachDurationMinutes,
+                ...breachContext,
             }
         );
 
@@ -363,10 +373,11 @@ async function triggerEscalation(
 
     // Audit log for escalation
     await logSystemAction(
+        'ESCALATION_ENGINE',
         'CASE_ESCALATED',
-        'SLA_BREACH_DETECTION',
         'case',
         breach.case_id,
+        breach.region_id,
         {
             case_number: breach.case_number,
             reason: 'SLA_BREACH',
@@ -412,16 +423,8 @@ export async function runBreachDetection(): Promise<BreachResult> {
         result.breaches_detected = breachedSLAs.length;
 
         if (breachedSLAs.length === 0) {
-            await logSystemAction(
-                'SLA_BREACH_CHECK',
-                'SLA_BREACH_DETECTION',
-                'system',
-                'N/A',
-                {
-                    breaches_found: 0,
-                    check_time: new Date().toISOString(),
-                }
-            );
+            // No breaches - just log check
+            console.log('[SLA] Breach check completed: 0 breaches found');
             return result;
         }
 
@@ -440,19 +443,7 @@ export async function runBreachDetection(): Promise<BreachResult> {
         }
 
         // Log summary
-        await logSystemAction(
-            'SLA_BREACH_CHECK',
-            'SLA_BREACH_DETECTION',
-            'system',
-            'N/A',
-            {
-                breaches_detected: result.breaches_detected,
-                breaches_processed: result.breaches_processed,
-                escalations_triggered: result.escalations_triggered,
-                errors_count: result.errors.length,
-                check_time: new Date().toISOString(),
-            }
-        );
+        console.log(`[SLA] Breach check: ${result.breaches_detected} detected, ${result.breaches_processed} processed, ${result.escalations_triggered} escalated`);
 
         return result;
 
@@ -461,17 +452,7 @@ export async function runBreachDetection(): Promise<BreachResult> {
         result.success = false;
         result.errors.push(error instanceof Error ? error.message : String(error));
 
-        await logSystemAction(
-            'SLA_BREACH_CHECK',
-            'SLA_BREACH_DETECTION',
-            'system',
-            'N/A',
-            {
-                status: 'ERROR',
-                error: error instanceof Error ? error.message : String(error),
-                check_time: new Date().toISOString(),
-            }
-        );
+        console.error(`[SLA] Breach detection error: ${error instanceof Error ? error.message : String(error)}`);
 
         return result;
     }
