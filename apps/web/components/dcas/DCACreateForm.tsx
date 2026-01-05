@@ -44,6 +44,12 @@ export function DCACreateForm() {
         primary_contact_name: '',
         primary_contact_email: '',
         primary_contact_phone: '',
+        // Compliance fields
+        license_number: '',
+        license_authority: '',
+        license_expiry: '',
+        contract_start_date: '',
+        contract_end_date: '',
     });
 
     // Per-region capacity configuration
@@ -56,11 +62,42 @@ export function DCACreateForm() {
                 const res = await fetch('/api/regions');
                 if (res.ok) {
                     const data = await res.json();
-                    const activeRegions = (data.data || []).filter((r: Region) => r.status === 'ACTIVE');
-                    setAvailableRegions(activeRegions);
+                    const regions = data.data || [];
+                    // Filter for active regions or use all if none marked ACTIVE
+                    const activeRegions = regions.filter((r: Region) => r.status === 'ACTIVE');
+
+                    if (activeRegions.length > 0) {
+                        setAvailableRegions(activeRegions);
+                    } else if (regions.length > 0) {
+                        // Use all regions if none explicitly ACTIVE
+                        setAvailableRegions(regions);
+                    } else {
+                        // Fallback: Standard global regions
+                        setAvailableRegions([
+                            { id: 'india', name: 'India', code: 'INDIA', status: 'ACTIVE' },
+                            { id: 'americas', name: 'Americas', code: 'AMERICAS', status: 'ACTIVE' },
+                            { id: 'emea', name: 'EMEA', code: 'EMEA', status: 'ACTIVE' },
+                            { id: 'apac', name: 'APAC', code: 'APAC', status: 'ACTIVE' },
+                        ]);
+                    }
+                } else {
+                    // API error - use fallback regions
+                    setAvailableRegions([
+                        { id: 'india', name: 'India', code: 'INDIA', status: 'ACTIVE' },
+                        { id: 'americas', name: 'Americas', code: 'AMERICAS', status: 'ACTIVE' },
+                        { id: 'emea', name: 'EMEA', code: 'EMEA', status: 'ACTIVE' },
+                        { id: 'apac', name: 'APAC', code: 'APAC', status: 'ACTIVE' },
+                    ]);
                 }
             } catch (error) {
                 console.error('Failed to fetch regions:', error);
+                // Fallback on error
+                setAvailableRegions([
+                    { id: 'india', name: 'India', code: 'INDIA', status: 'ACTIVE' },
+                    { id: 'americas', name: 'Americas', code: 'AMERICAS', status: 'ACTIVE' },
+                    { id: 'emea', name: 'EMEA', code: 'EMEA', status: 'ACTIVE' },
+                    { id: 'apac', name: 'APAC', code: 'APAC', status: 'ACTIVE' },
+                ]);
             } finally {
                 setLoadingRegions(false);
             }
@@ -133,6 +170,12 @@ export function DCACreateForm() {
                         primary_contact_name: formData.primary_contact_name.trim() || null,
                         primary_contact_email: formData.primary_contact_email.trim() || null,
                         primary_contact_phone: formData.primary_contact_phone.trim() || null,
+                        // Compliance fields
+                        license_number: formData.license_number.trim() || null,
+                        license_authority: formData.license_authority.trim() || null,
+                        license_expiry: formData.license_expiry || null,
+                        contract_start_date: formData.contract_start_date || null,
+                        contract_end_date: formData.contract_end_date || null,
                         // Region assignments with per-region capacity
                         region_assignments: regionCapacities.map(rc => ({
                             region_id: rc.region_id,
@@ -266,8 +309,8 @@ export function DCACreateForm() {
                                         type="button"
                                         onClick={() => toggleRegion(region)}
                                         className={`p-3 rounded-lg border-2 text-left transition-all ${isSelected
-                                                ? 'border-primary bg-primary/10 dark:bg-primary/20'
-                                                : 'border-gray-200 dark:border-[#333] hover:border-gray-300 dark:hover:border-[#444]'
+                                            ? 'border-primary bg-primary/10 dark:bg-primary/20'
+                                            : 'border-gray-200 dark:border-[#333] hover:border-gray-300 dark:hover:border-[#444]'
                                             }`}
                                     >
                                         <div className="flex items-center gap-2">
@@ -409,6 +452,90 @@ export function DCACreateForm() {
                             min="0"
                             step="0.01"
                             placeholder="Optional"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* License & Compliance */}
+            <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">License & Compliance</h2>
+                    <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded">
+                        COMPLIANCE
+                    </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label htmlFor="license_number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            License Number
+                        </label>
+                        <input
+                            type="text"
+                            id="license_number"
+                            name="license_number"
+                            value={formData.license_number}
+                            onChange={handleChange}
+                            placeholder="e.g., DCA-LIC-2024-001"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="license_authority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Issuing Authority
+                        </label>
+                        <input
+                            type="text"
+                            id="license_authority"
+                            name="license_authority"
+                            value={formData.license_authority}
+                            onChange={handleChange}
+                            placeholder="e.g., State Regulatory Board"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="license_expiry" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            License Expiry Date
+                        </label>
+                        <input
+                            type="date"
+                            id="license_expiry"
+                            name="license_expiry"
+                            value={formData.license_expiry}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            DCA cannot be ACTIVE with expired license
+                        </p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div>
+                        <label htmlFor="contract_start_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Contract Start Date
+                        </label>
+                        <input
+                            type="date"
+                            id="contract_start_date"
+                            name="contract_start_date"
+                            value={formData.contract_start_date}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="contract_end_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Contract End Date
+                        </label>
+                        <input
+                            type="date"
+                            id="contract_end_date"
+                            name="contract_end_date"
+                            value={formData.contract_end_date}
+                            onChange={handleChange}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
                         />
                     </div>
