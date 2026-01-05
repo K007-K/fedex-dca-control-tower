@@ -219,8 +219,8 @@ export default function SettingsPage() {
                                 disabled={!canEditPhone}
                                 placeholder={canEditPhone ? "+1 (555) 000-0000" : "Not editable for your role"}
                                 className={`w-full px-4 py-2 border border-gray-200 dark:border-[#222] rounded-lg ${canEditPhone
-                                        ? 'bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary'
-                                        : 'bg-gray-50 dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                    ? 'bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary'
+                                    : 'bg-gray-50 dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 cursor-not-allowed'
                                     }`}
                             />
                             {!canEditPhone && (
@@ -267,7 +267,7 @@ export default function SettingsPage() {
                         <div className="mt-4">
                             <DisabledActionHint
                                 action="Administrative Actions"
-                                reason="SUPER_ADMIN provides oversight and governance. System configuration requires FEDEX_ADMIN."
+                                reason="Execution permitted for: FEDEX_ADMIN. Oversight and audit visibility: SUPER_ADMIN."
                                 isSystemControlled={false}
                                 allowedRole="FEDEX_ADMIN"
                                 mode="inline"
