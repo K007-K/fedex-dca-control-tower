@@ -16,6 +16,9 @@ import {
     MetricFilters
 } from '@/lib/analytics/canonical-metrics';
 
+// Force dynamic rendering - this route uses cookies/headers
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient();
