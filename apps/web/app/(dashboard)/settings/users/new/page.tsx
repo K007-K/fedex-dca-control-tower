@@ -84,6 +84,7 @@ export default function CreateUserPage() {
         firstName: '',
         lastName: '',
         personalEmail: '',
+        corporateEmail: '', // For DCA roles - manual entry
         role: '',
         dcaId: '',
         regionId: '',
@@ -222,10 +223,13 @@ export default function CreateUserPage() {
         }
     }, [getAvailableRoles, formData.role]);
 
-    // Generate work email preview
-    const generatedWorkEmail = formData.firstName && formData.lastName
-        ? `${formData.firstName.toLowerCase().replace(/\s+/g, '')}.${formData.lastName.toLowerCase().replace(/\s+/g, '')}@fedex-dca.com`
+    // Generate work email for FEDEX roles ONLY (uses @fedex.com)
+    const generatedFedExEmail = formData.firstName && formData.lastName && isFedExRole
+        ? `${formData.firstName.toLowerCase().replace(/\s+/g, '')}.${formData.lastName.toLowerCase().replace(/\s+/g, '')}@fedex.com`
         : '';
+
+    // Determine which email to use based on role
+    const emailToSubmit = isDCARole ? formData.corporateEmail : generatedFedExEmail;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -238,7 +242,7 @@ export default function CreateUserPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: generatedWorkEmail,
+                    email: emailToSubmit,
                     full_name: fullName,
                     role: formData.role,
                     dca_id: showDCASelector ? formData.dcaId : (isDCAUser ? undefined : null), // Server will use context for DCA users
@@ -257,7 +261,7 @@ export default function CreateUserPage() {
 
             // Show credentials modal
             setCreatedUser({
-                email: generatedWorkEmail,
+                email: emailToSubmit,
                 tempPassword: data.tempPassword,
                 fullName: fullName,
             });
@@ -379,16 +383,37 @@ export default function CreateUserPage() {
                         </div>
                     </div>
 
-                    {/* Auto-generated Work Email Preview */}
-                    {generatedWorkEmail && (
+                    {/* Email Display - Role-aware */}
+                    {/* FedEx roles: Auto-generated @fedex.com */}
+                    {isFedExRole && generatedFedExEmail && (
                         <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Work Email (auto-generated)
                             </label>
                             <div className="flex items-center gap-2">
-                                <span className="text-primary font-mono text-lg">{generatedWorkEmail}</span>
-                                <span className="text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded">Auto-generated</span>
+                                <span className="text-primary font-mono text-lg">{generatedFedExEmail}</span>
+                                <span className="text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded">@fedex.com</span>
                             </div>
+                        </div>
+                    )}
+
+                    {/* DCA roles: Manual corporate email entry */}
+                    {isDCARole && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Corporate Email (DCA-owned) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="email"
+                                required
+                                value={formData.corporateEmail}
+                                onChange={(e) => setFormData({ ...formData, corporateEmail: e.target.value })}
+                                placeholder="name@your-dca-company.com"
+                                className="w-full px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Must belong to DCA organization. No @fedex.com or personal emails (gmail, yahoo, etc).
+                            </p>
                         </div>
                     )}
 
@@ -531,7 +556,7 @@ export default function CreateUserPage() {
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-100 dark:border-[#222] flex items-center gap-3">
-                    <Button type="submit" disabled={isSubmitting || !generatedWorkEmail}>
+                    <Button type="submit" disabled={isSubmitting || !emailToSubmit}>
                         {isSubmitting ? 'Creating...' : 'Create User'}
                     </Button>
                     <Link href="/settings/users">

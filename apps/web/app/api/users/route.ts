@@ -46,6 +46,80 @@ const DCA_ADMIN_CAN_CREATE: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 // Roles that are DCA internal (FedEx cannot create)
 const DCA_INTERNAL_ROLES: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 
+// =====================================================
+// IDENTITY GOVERNANCE - EMAIL DOMAIN RULES
+// =====================================================
+// FedEx roles: MUST use @fedex.com
+// DCA roles: MUST use corporate email, NO @fedex.com, NO personal domains
+
+const BLOCKED_PERSONAL_DOMAINS = [
+    'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+    'live.com', 'aol.com', 'icloud.com', 'mail.com',
+    'protonmail.com', 'yandex.com', 'zoho.com'
+];
+
+/**
+ * Validate email domain based on role type
+ * CRITICAL: This is backend-only enforcement - NOT bypassable via UI
+ */
+function validateEmailDomain(
+    email: string,
+    targetRole: UserRole
+): { valid: boolean; error?: string; domain: string } {
+    const emailParts = email.toLowerCase().split('@');
+    if (emailParts.length !== 2) {
+        return { valid: false, error: 'Invalid email format', domain: '' };
+    }
+    const domain = emailParts[1];
+
+    // FedEx roles MUST use @fedex.com
+    if (isFedExRole(targetRole)) {
+        if (domain !== 'fedex.com') {
+            return {
+                valid: false,
+                error: `FedEx roles must use @fedex.com email. Got: @${domain}`,
+                domain
+            };
+        }
+        return { valid: true, domain };
+    }
+
+    // DCA roles: FORBIDDEN domains
+    if (isDCARole(targetRole)) {
+        // Block @fedex.com for DCA users
+        if (domain === 'fedex.com') {
+            return {
+                valid: false,
+                error: 'DCA users cannot use @fedex.com email. Use your corporate DCA email.',
+                domain
+            };
+        }
+
+        // Block personal domains
+        if (BLOCKED_PERSONAL_DOMAINS.includes(domain)) {
+            return {
+                valid: false,
+                error: `Personal email domains are not allowed for DCA users. Got: @${domain}`,
+                domain
+            };
+        }
+
+        // DCA roles must have a corporate email (not auto-generated)
+        if (domain === 'fedex-dca.com') {
+            return {
+                valid: false,
+                error: 'Auto-generated emails are not allowed for DCA roles. Enter your corporate email.',
+                domain
+            };
+        }
+
+        return { valid: true, domain };
+    }
+
+    // Other roles (AUDITOR, READONLY) - basic validation
+    return { valid: true, domain };
+}
+
 /**
  * Validate creator can create the target role
  */
@@ -265,6 +339,27 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         }
 
         const targetRole = body.role as UserRole;
+
+        // =====================================================
+        // VALIDATION 1.5: Email domain enforcement (CRITICAL)
+        // =====================================================
+        // FedEx roles: MUST use @fedex.com
+        // DCA roles: MUST use corporate email, NO @fedex.com, NO personal domains
+        const emailValidation = validateEmailDomain(body.email, targetRole);
+        if (!emailValidation.valid) {
+            await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                reason: emailValidation.error,
+                creator_role: user.role,
+                target_role: targetRole,
+                target_email: body.email,
+                email_domain: emailValidation.domain,
+                violation_type: 'EMAIL_DOMAIN_POLICY',
+            });
+            return NextResponse.json(
+                { error: emailValidation.error },
+                { status: 400 }
+            );
+        }
 
         // =====================================================
         // VALIDATION 2: Creator permission matrix
