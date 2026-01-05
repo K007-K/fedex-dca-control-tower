@@ -212,8 +212,7 @@ export default function CreateUserPage() {
     const selectedRoleInfo = ALL_ROLES.find(r => r.value === formData.role);
     const isDCARole = selectedRoleInfo?.org === 'dca';
     const isFedExRole = selectedRoleInfo?.org === 'fedex';
-    const showRegionSelector = isFedExUser && isFedExRole;
-    const showMultiRegionSelector = isFedExUser && formData.role === 'FEDEX_ADMIN'; // FEDEX_ADMIN gets multi-region
+    // GOVERNANCE: No region selectors - region derived from dca_id
     const showDCASelector = isFedExUser && formData.role === 'DCA_ADMIN';
 
     // Set default role when available roles are loaded
@@ -480,58 +479,8 @@ export default function CreateUserPage() {
                         </div>
                     )}
 
-                    {/* Multi-Region Selection for FEDEX_ADMIN */}
-                    {showMultiRegionSelector && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Regions <span className="text-red-500">*</span>
-                            </label>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                                Select one or more regions this FEDEX_ADMIN will manage.
-                            </p>
-                            <div className="grid grid-cols-2 gap-2">
-                                {regions.map(region => (
-                                    <label key={region.id} className="flex items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.regionIds.includes(region.id)}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setFormData({ ...formData, regionIds: [...formData.regionIds, region.id] });
-                                                } else {
-                                                    setFormData({ ...formData, regionIds: formData.regionIds.filter(id => id !== region.id) });
-                                                }
-                                            }}
-                                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                                        />
-                                        <span className="text-sm text-gray-700 dark:text-gray-300">{region.name}</span>
-                                    </label>
-                                ))}
-                            </div>
-                            {formData.regionIds.length > 0 && (
-                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                                    ✓ {formData.regionIds.length} region(s) selected
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Single Region/Location Selection (for other FedEx roles) */}
-                    {showRegionSelector && !showMultiRegionSelector && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Location / Region <span className="text-gray-400">(optional)</span>
-                            </label>
-                            <LocationSearch
-                                value={formData.regionId}
-                                onChange={(value) => setFormData({ ...formData, regionId: value })}
-                                placeholder="Search for a region, country, or city..."
-                            />
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Type to search. Leave empty for global access.
-                            </p>
-                        </div>
-                    )}
+                    {/* GOVERNANCE: No region selectors - region access derived from dca_id */}
+                    {/* Region UI components removed per governance model */}
 
                     {/* DCA Info for DCA users (read-only) */}
                     {isDCAUser && isDCARole && (
