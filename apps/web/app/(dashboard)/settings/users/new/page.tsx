@@ -76,6 +76,7 @@ export default function CreateUserPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [dcas, setDcas] = useState<DCA[]>([]);
     const [regions, setRegions] = useState<Region[]>([]);
+    const [dcaOperatingRegions, setDcaOperatingRegions] = useState<string[]>([]); // DCA's operating region IDs
     const [createdUser, setCreatedUser] = useState<CreatedUserResult | null>(null);
     const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -215,12 +216,56 @@ export default function CreateUserPage() {
     // GOVERNANCE: No region selectors - region derived from dca_id
     const showDCASelector = isFedExUser && formData.role === 'DCA_ADMIN';
 
+
     // Set default role when available roles are loaded
     useEffect(() => {
         if (getAvailableRoles.length > 0 && !formData.role) {
             setFormData(prev => ({ ...prev, role: getAvailableRoles[0].value }));
         }
     }, [getAvailableRoles, formData.role]);
+
+    // Fetch DCA operating regions when DCA is selected (for DCA_ADMIN creation)
+    useEffect(() => {
+        async function fetchDcaOperatingRegions() {
+            if (!formData.dcaId || formData.role !== 'DCA_ADMIN') {
+                setDcaOperatingRegions([]);
+                return;
+            }
+
+            try {
+                // Fetch region_dca_assignments for this DCA
+                const response = await fetch(`/api/dcas/${formData.dcaId}/regions`);
+                if (response.ok) {
+                    const data = await response.json();
+                    // Extract region IDs from assignments
+                    const regionIds = data.regions?.map((r: { region_id: string }) => r.region_id) || [];
+                    setDcaOperatingRegions(regionIds);
+                    // Auto-clear selected regions that are not in DCA's operating regions
+                    setFormData(prev => ({
+                        ...prev,
+                        regionIds: prev.regionIds.filter(id => regionIds.includes(id))
+                    }));
+                } else {
+                    console.error('Failed to fetch DCA regions');
+                    setDcaOperatingRegions([]);
+                }
+            } catch (error) {
+                console.error('Error fetching DCA regions:', error);
+                setDcaOperatingRegions([]);
+            }
+        }
+        fetchDcaOperatingRegions();
+    }, [formData.dcaId, formData.role]);
+
+    // Get filtered regions based on context
+    const availableRegions = useMemo(() => {
+        // For DCA_ADMIN creation: only show DCA's operating regions
+        if (formData.role === 'DCA_ADMIN' && formData.dcaId && dcaOperatingRegions.length > 0) {
+            return regions.filter(r => dcaOperatingRegions.includes(r.id));
+        }
+        // For FedEx roles: show all regions
+        return regions;
+    }, [regions, formData.role, formData.dcaId, dcaOperatingRegions]);
 
     // Generate work email for FEDEX roles ONLY (uses @fedex.com)
     const generatedFedExEmail = formData.firstName && formData.lastName && isFedExRole
@@ -481,7 +526,7 @@ export default function CreateUserPage() {
 
                     {/* ENTERPRISE MODEL: Explicit Region Selection */}
                     {/* All users need explicit region assignment */}
-                    {regions.length > 0 && (
+                    {availableRegions.length > 0 && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Regions <span className="text-red-500">*</span>
@@ -490,7 +535,7 @@ export default function CreateUserPage() {
                                 Select one or more regions this user will have access to.
                             </p>
                             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-[#333] rounded-lg p-3">
-                                {regions.map(region => (
+                                {availableRegions.map(region => (
                                     <label key={region.id} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                                         <input
                                             type="checkbox"
