@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/ui';
+import { AccessGuard } from '@/components/auth/AccessGuard';
 
 interface Region {
     id: string;
@@ -23,7 +24,7 @@ interface AuditEntry {
     performed_by_role: string;
 }
 
-export default function GovernancePage() {
+function GovernanceContent() {
     const toast = useToast();
     const [loading, setLoading] = useState(true);
     const [regions, setRegions] = useState<Region[]>([]);
@@ -104,8 +105,8 @@ export default function GovernancePage() {
                     <button
                         onClick={() => setActiveTab('regions')}
                         className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === 'regions'
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
                             }`}
                     >
                         🌍 Regions ({regions.length})
@@ -113,8 +114,8 @@ export default function GovernancePage() {
                     <button
                         onClick={() => setActiveTab('flags')}
                         className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === 'flags'
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
                             }`}
                     >
                         🚩 Feature Flags
@@ -122,8 +123,8 @@ export default function GovernancePage() {
                     <button
                         onClick={() => setActiveTab('audit')}
                         className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === 'audit'
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
                             }`}
                     >
                         📋 Audit Log
@@ -182,8 +183,8 @@ export default function GovernancePage() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${region.status === 'ACTIVE'
-                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                                     }`}>
                                                     {region.status}
                                                 </span>
@@ -279,9 +280,9 @@ export default function GovernancePage() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${log.action === 'CREATE' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                                        log.action === 'UPDATE' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
-                                                            log.action === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                    log.action === 'UPDATE' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                        log.action === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                                     }`}>
                                                     {log.action}
                                                 </span>
@@ -298,5 +299,14 @@ export default function GovernancePage() {
                 </div>
             )}
         </div>
+    );
+}
+
+// GOVERNANCE: Wrap with AccessGuard - SUPER_ADMIN only
+export default function GovernancePage() {
+    return (
+        <AccessGuard allowedRoles={['SUPER_ADMIN']}>
+            <GovernanceContent />
+        </AccessGuard>
     );
 }

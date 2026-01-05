@@ -24,8 +24,8 @@ const handleGetDcaRegions: ApiHandler = async (request, { user }) => {
             .from('region_dca_assignments')
             .select(`
                 region_id,
-                capacity,
-                priority,
+                is_primary,
+                allocation_priority,
                 is_active,
                 regions:region_id (
                     id,

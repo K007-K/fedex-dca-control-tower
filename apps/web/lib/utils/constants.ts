@@ -183,10 +183,11 @@ export const USER_ROLE = {
     FEDEX_ADMIN: 'FEDEX_ADMIN',
     FEDEX_MANAGER: 'FEDEX_MANAGER',
     FEDEX_ANALYST: 'FEDEX_ANALYST',
+    FEDEX_AUDITOR: 'FEDEX_AUDITOR',
     DCA_ADMIN: 'DCA_ADMIN',
     DCA_MANAGER: 'DCA_MANAGER',
     DCA_AGENT: 'DCA_AGENT',
-    AUDITOR: 'AUDITOR',
+    AUDITOR: 'AUDITOR',  // Legacy - maps to FEDEX_AUDITOR
     READONLY: 'READONLY',
 } as const;
 
@@ -216,6 +217,11 @@ export const USER_ROLE_CONFIG: Record<
         description: 'FedEx analytics and reporting',
         level: 70,
     },
+    FEDEX_AUDITOR: {
+        label: 'FedEx Auditor',
+        description: 'FedEx internal audit access',
+        level: 35,
+    },
     DCA_ADMIN: {
         label: 'DCA Admin',
         description: 'DCA administrative access',
@@ -232,13 +238,13 @@ export const USER_ROLE_CONFIG: Record<
         level: 40,
     },
     AUDITOR: {
-        label: 'Auditor',
+        label: 'Auditor (Legacy)',
         description: 'Read-only audit access',
         level: 30,
     },
     READONLY: {
         label: 'Read Only',
-        description: 'View-only access',
+        description: 'External view-only access',
         level: 10,
     },
 };

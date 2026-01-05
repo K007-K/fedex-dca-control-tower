@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { AccessGuard } from '@/components/auth/AccessGuard';
 
 interface ServiceStatus {
     name: string;
@@ -19,7 +20,7 @@ interface Webhook {
     enabled: boolean;
 }
 
-export default function IntegrationsSettingsPage() {
+function IntegrationsContent() {
     const [services, setServices] = useState<ServiceStatus[]>([
         {
             name: 'Supabase',
@@ -530,5 +531,14 @@ export default function IntegrationsSettingsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+// GOVERNANCE: Wrap with AccessGuard - SUPER_ADMIN only
+export default function IntegrationsSettingsPage() {
+    return (
+        <AccessGuard allowedRoles={['SUPER_ADMIN']}>
+            <IntegrationsContent />
+        </AccessGuard>
     );
 }

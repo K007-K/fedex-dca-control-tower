@@ -40,10 +40,10 @@ function generateTempPassword(): string {
 // All others: CANNOT create users
 
 const SUPER_ADMIN_CAN_CREATE: UserRole[] = [
-    'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'AUDITOR', 'READONLY', 'DCA_ADMIN'
+    'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'READONLY', 'DCA_ADMIN'
 ];
 const FEDEX_ADMIN_CAN_CREATE: UserRole[] = [
-    'FEDEX_MANAGER', 'FEDEX_ANALYST', 'READONLY', 'AUDITOR', 'DCA_ADMIN'
+    'FEDEX_MANAGER', 'FEDEX_ANALYST', 'READONLY', 'FEDEX_AUDITOR', 'DCA_ADMIN'
 ];
 const DCA_ADMIN_CAN_CREATE: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 
@@ -120,7 +120,8 @@ function validateEmailDomain(
         return { valid: true, domain };
     }
 
-    // Other roles (AUDITOR, READONLY) - basic validation
+    // READONLY role: Allow any email (external users)
+    // READONLY users use personal email for login, so any domain is acceptable
     return { valid: true, domain };
 }
 
@@ -505,6 +506,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         // =====================================================
         // VALIDATION 5: Check if email already exists
         // =====================================================
+        // Check users table
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: existing } = await (supabase as any)
             .from('users')
@@ -514,7 +516,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
         if (existing) {
             await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
-                reason: 'Email already exists',
+                reason: 'Email already exists in users table',
                 creator_role: user.role,
                 target_email: body.email,
             });
@@ -540,14 +542,24 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
         if (authError) {
             console.error('Auth user creation error:', authError);
+
+            // Check for specific error types
+            let errorMessage = 'Failed to create user authentication';
+            if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
+                errorMessage = 'User with this email already exists in authentication system';
+            } else if (authError.message) {
+                errorMessage = `Auth error: ${authError.message}`;
+            }
+
             await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'ERROR', user.id, user.email, {
                 reason: 'Auth creation failed',
                 error_message: authError.message,
+                error_code: (authError as { code?: string }).code,
                 creator_role: user.role,
                 target_email: body.email,
             });
             return NextResponse.json(
-                { error: 'Failed to create user authentication', details: authError.message },
+                { error: errorMessage },
                 { status: 500 }
             );
         }

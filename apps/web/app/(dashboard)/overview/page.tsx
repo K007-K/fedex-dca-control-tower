@@ -22,8 +22,9 @@ import {
     Eye,
 } from 'lucide-react';
 import { DemoPageMessage } from '@/components/demo/DemoModeComponents';
+import { AccessGuard } from '@/components/auth/AccessGuard';
 
-export default function OverviewPage() {
+function OverviewContent() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
             {/* Demo Mode Message */}
@@ -302,5 +303,17 @@ export default function OverviewPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+// GOVERNANCE: Block DCA_AGENT from overview page - they should use /agent/dashboard
+export default function OverviewPage() {
+    return (
+        <AccessGuard
+            allowedRoles={['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY']}
+            fallbackUrl="/agent/dashboard"
+        >
+            <OverviewContent />
+        </AccessGuard>
     );
 }

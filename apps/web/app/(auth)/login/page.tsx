@@ -34,7 +34,7 @@ function LoginForm() {
 
         try {
             const supabase = getSupabaseClient();
-            const { error: authError } = await supabase.auth.signInWithPassword({
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -44,7 +44,29 @@ function LoginForm() {
                 return;
             }
 
-            router.push(redirectTo);
+            // Fetch user role to determine redirect
+            let targetRedirect = redirectTo;
+
+            if (authData?.user?.id) {
+                try {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('role')
+                        .eq('id', authData.user.id)
+                        .single();
+
+                    // DCA_AGENT should go to their workbench
+                    const userRole = (userData as { role?: string } | null)?.role;
+                    if (userRole === 'DCA_AGENT') {
+                        targetRedirect = '/agent/dashboard';
+                    }
+                } catch {
+                    // If role fetch fails, use default redirect
+                    console.warn('Could not fetch user role for redirect');
+                }
+            }
+
+            router.push(targetRedirect);
             router.refresh();
         } catch {
             setError('An unexpected error occurred. Please try again.');

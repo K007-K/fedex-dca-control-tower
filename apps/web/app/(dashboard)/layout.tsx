@@ -32,7 +32,8 @@ export default async function DashboardGroupLayout({
     }
 
     // Fetch user's role from database
-    let userRole = 'User';
+    let rawRole = 'READONLY';
+    let userRoleLabel = 'User';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: dbUser } = await (supabase as any)
         .from('users')
@@ -41,17 +42,20 @@ export default async function DashboardGroupLayout({
         .single();
 
     if (dbUser?.role) {
-        userRole = ROLE_LABELS[dbUser.role] || dbUser.role;
+        rawRole = dbUser.role;
+        userRoleLabel = ROLE_LABELS[dbUser.role] || dbUser.role;
     }
 
     return (
         <DashboardLayout
             userEmail={user.email}
             userAvatarUrl={user.user_metadata?.avatar_url}
-            userRole={userRole}
+            userRole={rawRole}
+            userRoleLabel={userRoleLabel}
         >
             {children}
         </DashboardLayout>
     );
 }
+
 

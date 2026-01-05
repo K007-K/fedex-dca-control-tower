@@ -29,9 +29,15 @@ const handleGetRegions: ApiHandler = async (request, { user }) => {
             const { data: regions, error } = await supabase
                 .from('regions')
                 .select(`
-                    *,
-                    dca_count:region_dca_assignments(count),
-                    escalation_matrix:escalation_matrices(name)
+                    id,
+                    region_code,
+                    name,
+                    description,
+                    status,
+                    country_codes,
+                    timezone,
+                    default_currency,
+                    dca_count:region_dca_assignments(count)
                 `)
                 .eq('status', 'ACTIVE')
                 .is('deleted_at', null)

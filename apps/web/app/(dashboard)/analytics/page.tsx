@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { AnalyticsCharts } from '@/components/analytics';
 import { AnalyticsPageHeader } from '@/components/analytics/AnalyticsPageHeader';
 import { createClient } from '@/lib/supabase/server';
+import { guardPage } from '@/lib/auth/page-guard';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {
@@ -28,6 +29,9 @@ interface PageProps {
 }
 
 export default async function AnalyticsPage({ searchParams }: PageProps) {
+    // GOVERNANCE: Page-level access guard
+    await guardPage('/analytics');
+
     const params = await searchParams;
     const days = params.days ?? '30';
     const region = params.region ?? 'ALL';

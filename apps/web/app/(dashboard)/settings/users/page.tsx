@@ -2,6 +2,21 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { AccessGuard } from '@/components/auth/AccessGuard';
+
+// Role hierarchy for permission checks - higher number = higher authority
+const ROLE_HIERARCHY: Record<string, number> = {
+    'SUPER_ADMIN': 100,
+    'FEDEX_ADMIN': 90,
+    'FEDEX_MANAGER': 70,
+    'DCA_ADMIN': 60,
+    'FEDEX_ANALYST': 50,
+    'DCA_MANAGER': 40,
+    'FEDEX_AUDITOR': 30,
+    'DCA_AGENT': 20,
+    'AUDITOR': 15,
+    'READONLY': 10,
+};
 
 const roleColors: Record<string, { bg: string; text: string }> = {
     SUPER_ADMIN: { bg: 'bg-purple-500/20 border border-purple-500/30', text: 'text-purple-400' },
@@ -38,25 +53,43 @@ interface User {
     dca?: { name: string } | null;
 }
 
-export default function UsersSettingsPage() {
+function UsersContent() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
     useEffect(() => {
-        async function fetchUsers() {
+        async function fetchData() {
             try {
+                // Fetch current user's role
+                const profileRes = await fetch('/api/settings/profile');
+                if (profileRes.ok) {
+                    const profile = await profileRes.json();
+                    setCurrentUserRole(profile.role);
+                }
+
+                // Fetch all users
                 const response = await fetch('/api/users');
                 const data = await response.json();
                 setUsers(data.data || []);
             } catch (error) {
-                console.error('Failed to fetch users:', error);
+                console.error('Failed to fetch data:', error);
             } finally {
                 setLoading(false);
             }
         }
-        fetchUsers();
+        fetchData();
     }, []);
+
+    // Check if current user can edit a target user (must have higher authority)
+    const canEditUser = (targetRole: string): boolean => {
+        if (!currentUserRole) return false;
+        const currentLevel = ROLE_HIERARCHY[currentUserRole] ?? 0;
+        const targetLevel = ROLE_HIERARCHY[targetRole] ?? 0;
+        // Can only edit users with LOWER role level
+        return currentLevel > targetLevel;
+    };
 
     // Filter users based on search
     const filteredUsers = users.filter(user => {
@@ -165,12 +198,18 @@ export default function UsersSettingsPage() {
                                             }
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <Link
-                                                href={`/settings/users/${user.id}/edit`}
-                                                className="inline-flex items-center px-3 py-1.5 bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-200 dark:hover:bg-[#333] transition-colors"
-                                            >
-                                                Edit
-                                            </Link>
+                                            {canEditUser(user.role) ? (
+                                                <Link
+                                                    href={`/settings/users/${user.id}/edit`}
+                                                    className="inline-flex items-center px-3 py-1.5 bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm hover:bg-gray-200 dark:hover:bg-[#333] transition-colors"
+                                                >
+                                                    Edit
+                                                </Link>
+                                            ) : (
+                                                <span className="inline-flex items-center px-3 py-1.5 text-gray-400 dark:text-gray-600 text-sm cursor-not-allowed" title="You cannot edit users with equal or higher role">
+                                                    —
+                                                </span>
+                                            )}
                                         </td>
                                     </tr>
                                 );
@@ -187,5 +226,14 @@ export default function UsersSettingsPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+// GOVERNANCE: Wrap with AccessGuard - only roles that can manage users
+export default function UsersSettingsPage() {
+    return (
+        <AccessGuard allowedRoles={['SUPER_ADMIN', 'FEDEX_ADMIN', 'DCA_ADMIN']}>
+            <UsersContent />
+        </AccessGuard>
     );
 }

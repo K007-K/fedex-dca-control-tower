@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useNotificationsRealtime } from '@/lib/realtime';
@@ -25,8 +25,43 @@ interface Notification {
     notification_type: string;
 }
 
-export function Header({ userEmail, userAvatarUrl, userRole, pageTitle = 'Dashboard', breadcrumbs }: HeaderProps) {
+// Map URL path to page title
+const PAGE_TITLES: Record<string, string> = {
+    '/agent/overview': 'Overview',
+    '/agent/dashboard': 'My Dashboard',
+    '/agent/cases': 'My Cases',
+    '/agent/notifications': 'Notifications',
+    '/agent/calendar': 'Calendar',
+    '/settings': 'Settings',
+    '/settings/profile': 'Profile Settings',
+    '/settings/notifications': 'Notification Preferences',
+    '/settings/security': 'Security',
+    '/dashboard': 'Dashboard',
+    '/cases': 'Cases',
+    '/overview': 'Overview',
+    '/analytics': 'Analytics',
+    '/dcas': 'DCA Management',
+    '/users': 'User Management',
+    '/audit-log': 'Audit Log',
+};
+
+function getPageTitleFromPath(pathname: string): string {
+    // Exact match first
+    if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+
+    // Check for case detail pages
+    if (pathname.match(/^\/agent\/cases\/[^/]+$/)) return 'Case Details';
+    if (pathname.match(/^\/agent\/cases\/[^/]+\/timeline$/)) return 'Case Timeline';
+    if (pathname.match(/^\/agent\/cases\/[^/]+\/customer$/)) return 'Customer Profile';
+    if (pathname.match(/^\/cases\/[^/]+$/)) return 'Case Details';
+
+    // Default fallback
+    return 'Dashboard';
+}
+
+export function Header({ userEmail, userAvatarUrl, userRole, pageTitle, breadcrumbs }: HeaderProps) {
     const router = useRouter();
+    const pathname = usePathname();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -36,6 +71,9 @@ export function Header({ userEmail, userAvatarUrl, userRole, pageTitle = 'Dashbo
     const userMenuRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
     const confirmDialog = useConfirm();
+
+    // Use provided pageTitle or auto-detect from URL
+    const displayTitle = pageTitle || getPageTitleFromPath(pathname);
 
     // Fetch notifications from API
     const fetchNotifications = useCallback(async () => {
@@ -119,7 +157,7 @@ export function Header({ userEmail, userAvatarUrl, userRole, pageTitle = 'Dashbo
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black px-6">
-            {/* Left: Title and Breadcrumbs */}
+            {/* Left: Breadcrumbs only (no title) */}
             <div>
                 {breadcrumbs && breadcrumbs.length > 0 && (
                     <nav className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
@@ -133,7 +171,6 @@ export function Header({ userEmail, userAvatarUrl, userRole, pageTitle = 'Dashbo
                         ))}
                     </nav>
                 )}
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{pageTitle}</h1>
             </div>
 
             {/* Right: Search, Notifications, User */}

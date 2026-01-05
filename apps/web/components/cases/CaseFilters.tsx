@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 
 interface CaseFiltersProps {
     dcas: { id: string; name: string }[];
+    userRole?: string; // For hiding DCA filter for DCA users
 }
 
 interface Region {
@@ -38,7 +39,7 @@ const PRIORITY_OPTIONS = [
     { value: 'LOW', label: 'Low' },
 ];
 
-export function CaseFilters({ dcas }: CaseFiltersProps) {
+export function CaseFilters({ dcas, userRole }: CaseFiltersProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
@@ -122,6 +123,9 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
         });
     };
 
+    // Check if user is a DCA role (they shouldn't see DCA filter - they only see their own DCA)
+    const isDCAUser = userRole && ['DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT'].includes(userRole);
+
     const hasFilters = search || status || priority || dcaId || region;
 
     return (
@@ -137,19 +141,21 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
                     />
                 </div>
 
-                {/* Region Filter - NEW */}
-                <select
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                    <option value="">All Regions</option>
-                    {regions.map((r) => (
-                        <option key={r.id} value={r.region_code || r.id}>
-                            {r.name}
-                        </option>
-                    ))}
-                </select>
+                {/* Region Filter - HIDDEN for DCA roles (they work in fixed region) */}
+                {!isDCAUser && (
+                    <select
+                        value={region}
+                        onChange={(e) => setRegion(e.target.value)}
+                        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                        <option value="">All Regions</option>
+                        {regions.map((r) => (
+                            <option key={r.id} value={r.region_code || r.id}>
+                                {r.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
 
                 {/* Status */}
                 <select
@@ -177,19 +183,21 @@ export function CaseFilters({ dcas }: CaseFiltersProps) {
                     ))}
                 </select>
 
-                {/* DCA */}
-                <select
-                    value={dcaId}
-                    onChange={(e) => setDcaId(e.target.value)}
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                    <option value="">All DCAs</option>
-                    {dcas.map((dca) => (
-                        <option key={dca.id} value={dca.id}>
-                            {dca.name}
-                        </option>
-                    ))}
-                </select>
+                {/* DCA - hide for DCA users (they only see their own DCA) */}
+                {!isDCAUser && (
+                    <select
+                        value={dcaId}
+                        onChange={(e) => setDcaId(e.target.value)}
+                        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                        <option value="">All DCAs</option>
+                        {dcas.map((dca) => (
+                            <option key={dca.id} value={dca.id}>
+                                {dca.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             {/* Action Buttons */}

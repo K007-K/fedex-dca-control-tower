@@ -7,10 +7,11 @@ export type UserRole =
     | 'FEDEX_ADMIN'
     | 'FEDEX_MANAGER'
     | 'FEDEX_ANALYST'
+    | 'FEDEX_AUDITOR'
     | 'DCA_ADMIN'
     | 'DCA_MANAGER'
     | 'DCA_AGENT'
-    | 'AUDITOR'
+    | 'AUDITOR'   // Legacy - maps to FEDEX_AUDITOR
     | 'READONLY';
 
 export interface User {

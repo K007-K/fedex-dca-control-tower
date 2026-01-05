@@ -24,9 +24,11 @@ interface RoleDefinition {
 }
 
 const ALL_ROLES: RoleDefinition[] = [
+    // READONLY: Uses personal email for login (external users)
     { value: 'READONLY', label: 'Read Only', org: 'any', level: 10, fedexCanCreate: true, dcaAdminCanCreate: false },
     { value: 'DCA_AGENT', label: 'DCA Agent', org: 'dca', level: 20, fedexCanCreate: false, dcaAdminCanCreate: true },
-    { value: 'AUDITOR', label: 'Auditor', org: 'any', level: 30, fedexCanCreate: true, dcaAdminCanCreate: false },
+    // FEDEX_AUDITOR: Uses @fedex.com (internal FedEx auditors)
+    { value: 'FEDEX_AUDITOR', label: 'FedEx Auditor', org: 'fedex', level: 30, fedexCanCreate: true, dcaAdminCanCreate: false },
     { value: 'DCA_MANAGER', label: 'DCA Manager', org: 'dca', level: 40, fedexCanCreate: false, dcaAdminCanCreate: true },
     { value: 'FEDEX_ANALYST', label: 'FedEx Analyst', org: 'fedex', level: 50, fedexCanCreate: true, dcaAdminCanCreate: false },
     { value: 'DCA_ADMIN', label: 'DCA Admin', org: 'dca', level: 60, fedexCanCreate: true, dcaAdminCanCreate: false },
@@ -41,8 +43,8 @@ const ROLE_HIERARCHY: Record<string, number> = {
     'FEDEX_ANALYST': 50,
     'DCA_ADMIN': 60,
     'DCA_MANAGER': 40,
+    'FEDEX_AUDITOR': 30,
     'DCA_AGENT': 20,
-    'AUDITOR': 30,
     'READONLY': 10,
 };
 
@@ -213,6 +215,7 @@ export default function CreateUserPage() {
     const selectedRoleInfo = ALL_ROLES.find(r => r.value === formData.role);
     const isDCARole = selectedRoleInfo?.org === 'dca';
     const isFedExRole = selectedRoleInfo?.org === 'fedex';
+    const isReadOnlyRole = formData.role === 'READONLY'; // Uses personal email for login
     // GOVERNANCE: No region selectors - region derived from dca_id
     const showDCASelector = isFedExUser && formData.role === 'DCA_ADMIN';
 
@@ -268,12 +271,18 @@ export default function CreateUserPage() {
     }, [regions, formData.role, formData.dcaId, dcaOperatingRegions]);
 
     // Generate work email for FEDEX roles ONLY (uses @fedex.com)
+    // READONLY uses personal email for login
     const generatedFedExEmail = formData.firstName && formData.lastName && isFedExRole
         ? `${formData.firstName.toLowerCase().replace(/\s+/g, '')}.${formData.lastName.toLowerCase().replace(/\s+/g, '')}@fedex.com`
         : '';
 
-    // Determine which email to use based on role
-    const emailToSubmit = isDCARole ? formData.corporateEmail : generatedFedExEmail;
+    // Determine which email to use based on role:
+    // - FedEx roles: auto-generated @fedex.com
+    // - DCA roles: manual corporate email entry
+    // - READONLY: personal email (for external users)
+    const emailToSubmit = isReadOnlyRole
+        ? formData.personalEmail
+        : (isDCARole ? formData.corporateEmail : generatedFedExEmail);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -466,18 +475,33 @@ export default function CreateUserPage() {
                         </div>
                     )}
 
-                    {/* Personal Email (for sending credentials) */}
+                    {/* READONLY role: Uses personal email for login (external users) */}
+                    {isReadOnlyRole && (
+                        <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
+                            <p className="text-sm text-blue-700 dark:text-blue-400 mb-2">
+                                ℹ️ Read Only users use their personal email for login (external access).
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Personal Email - REQUIRED for credential delivery */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Personal Email <span className="text-gray-400">(optional)</span>
+                            {isReadOnlyRole ? 'Login Email' : 'Personal Email'} <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="email"
+                            required
                             value={formData.personalEmail}
                             onChange={(e) => setFormData({ ...formData, personalEmail: e.target.value })}
-                            placeholder="personal@gmail.com"
+                            placeholder={isReadOnlyRole ? 'user@email.com' : 'personal@gmail.com'}
                             className="w-full px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
                         />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {isReadOnlyRole
+                                ? 'This email will be used for login. Credentials will be sent here.'
+                                : 'Credentials will be sent to this email.'}
+                        </p>
                     </div>
 
                     {/* Role */}
@@ -525,8 +549,8 @@ export default function CreateUserPage() {
                     )}
 
                     {/* ENTERPRISE MODEL: Explicit Region Selection */}
-                    {/* All users need explicit region assignment */}
-                    {availableRegions.length > 0 && (
+                    {/* Hide for DCA Admin creating DCA roles - they inherit region from DCA */}
+                    {availableRegions.length > 0 && !(isDCAUser && isDCARole) && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Regions <span className="text-red-500">*</span>

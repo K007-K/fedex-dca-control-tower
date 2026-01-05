@@ -5,6 +5,7 @@ import { CaseFilters, CaseTableWithSelection } from '@/components/cases';
 import { Pagination } from '@/components/ui/pagination';
 import { secureQuery, type SecureUser } from '@/lib/auth/secure-query';
 import { getCurrentUser } from '@/lib/auth';
+import { guardPage } from '@/lib/auth/page-guard';
 import { regionRBAC } from '@/lib/region';
 import { REGION_COOKIE_NAME } from '@/lib/context/RegionContext';
 import { CasesDemoMessage } from '@/components/demo/CaseDemoMessages';
@@ -115,7 +116,7 @@ async function CasesContent({ searchParams }: { searchParams: PageProps['searchP
 
     return (
         <>
-            <CaseFilters dcas={dcas ?? []} />
+            <CaseFilters dcas={dcas ?? []} userRole={authUser.role} />
             <CaseTableWithSelection cases={cases ?? []} dcas={dcas ?? []} userRole={authUser.role} />
             <Pagination
                 currentPage={page}
@@ -153,6 +154,9 @@ function CasesLoading() {
 }
 
 export default async function CasesPage({ searchParams }: PageProps) {
+    // GOVERNANCE: Redirect DCA_AGENT to /agent/cases
+    await guardPage('/cases');
+
     const authUser = await getCurrentUser();
     const isFedexAdmin = authUser?.role === 'FEDEX_ADMIN';
 

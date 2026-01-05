@@ -2,19 +2,41 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DemoModeToggle } from '@/components/demo/DemoModeComponents';
+import { AgentDemoModeToggle } from '@/components/demo/AgentDemoComponents';
+import type { UserRole } from '@/lib/auth/rbac';
 
-const navigation = [
-    { name: 'Overview', href: '/overview', icon: OverviewIcon },
-    { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
-    { name: 'Cases', href: '/cases', icon: CasesIcon },
-    { name: 'DCAs', href: '/dcas', icon: DCAsIcon },
-    { name: 'SLA', href: '/sla', icon: SLAIcon },
-    { name: 'Analytics', href: '/analytics', icon: AnalyticsIcon },
-    { name: 'Reports', href: '/reports', icon: ReportsIcon },
-    { name: 'Notifications', href: '/notifications', icon: NotificationsIcon },
-    { name: 'Settings', href: '/settings', icon: SettingsIcon },
+// Standard navigation items for non-agent roles
+const standardNavigationConfig = [
+    { name: 'Overview', href: '/overview', icon: OverviewIcon, roles: 'all' },
+    { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon, roles: 'all' },
+    { name: 'Cases', href: '/cases', icon: CasesIcon, roles: 'all' },
+    { name: 'DCAs', href: '/dcas', icon: DCAsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'] },
+    { name: 'SLA', href: '/sla', icon: SLAIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'] },
+    { name: 'Analytics', href: '/analytics', icon: AnalyticsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'DCA_ADMIN', 'DCA_MANAGER'] },
+    { name: 'Reports', href: '/reports', icon: ReportsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST'] },
+    { name: 'Notifications', href: '/notifications', icon: NotificationsIcon, roles: 'all' },
+    { name: 'Settings', href: '/settings', icon: SettingsIcon, roles: 'all' },
+] as const;
+
+// DCA_AGENT specific navigation - task-focused workbench
+// Per MASTER UI SPEC v1.0: My Dashboard, My Cases, Notifications, Profile/Security
+// Extended with Case History and My Stats for performance tracking
+const agentNavigationConfig = [
+    { name: 'Overview', href: '/agent/overview', icon: OverviewIcon },
+    { name: 'My Dashboard', href: '/agent/dashboard', icon: DashboardIcon },
+    { name: 'My Cases', href: '/agent/cases', icon: CasesIcon },
+    { name: 'Case History', href: '/agent/history', icon: HistoryIcon },
+    { name: 'My Stats', href: '/agent/stats', icon: StatsIcon },
+    { name: 'Notifications', href: '/agent/notifications', icon: NotificationsIcon },
+];
+
+// Per spec: Only Profile and Security
+const agentSettingsConfig = [
+    { name: 'Profile', href: '/settings/profile', icon: ProfileIcon },
+    { name: 'Preferences', href: '/settings/notifications', icon: PreferencesIcon },
+    { name: 'Security', href: '/settings/security', icon: SecurityIcon },
 ];
 
 interface SidebarProps {
@@ -22,9 +44,22 @@ interface SidebarProps {
     userRole?: string;
 }
 
-export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
+export function Sidebar({ userEmail, userRole = 'READONLY' }: SidebarProps) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
+
+    const isAgent = userRole === 'DCA_AGENT';
+
+    // Filter navigation based on user role
+    const navigation = useMemo(() => {
+        if (isAgent) {
+            return agentNavigationConfig;
+        }
+        return standardNavigationConfig.filter(item => {
+            if (item.roles === 'all') return true;
+            return (item.roles as readonly string[]).includes(userRole);
+        });
+    }, [userRole, isAgent]);
 
     return (
         <aside
@@ -79,11 +114,46 @@ export function Sidebar({ userEmail, userRole = 'Admin' }: SidebarProps) {
                         );
                     })}
                 </ul>
+
+                {/* Agent Settings Section - Only for DCA_AGENT */}
+                {isAgent && (
+                    <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        {!collapsed && (
+                            <p className="px-3 mb-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                Settings
+                            </p>
+                        )}
+                        <ul className="space-y-1">
+                            {agentSettingsConfig.map((item) => {
+                                const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                                return (
+                                    <li key={item.name}>
+                                        <Link
+                                            href={item.href}
+                                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group ${isActive
+                                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
+                                                }`}
+                                        >
+                                            <item.icon
+                                                className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'
+                                                    }`}
+                                            />
+                                            {!collapsed && (
+                                                <span className="animate-fade-in truncate">{item.name}</span>
+                                            )}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
             </nav>
 
-            {/* Demo Mode Toggle */}
+            {/* Demo Mode Toggle - role-specific */}
             <div className={`px-4 pb-2 ${collapsed ? 'px-2' : ''}`}>
-                {!collapsed && <DemoModeToggle variant="sidebar" />}
+                {!collapsed && (isAgent ? <AgentDemoModeToggle /> : <DemoModeToggle variant="sidebar" />)}
             </div>
 
             {/* User Info */}
@@ -186,6 +256,55 @@ function ChevronIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+    );
+}
+
+function CalendarIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+    );
+}
+
+function HistoryIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+}
+
+function StatsIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+    );
+}
+
+// Agent-specific settings icons
+function ProfileIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+    );
+}
+
+function PreferencesIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+    );
+}
+
+function SecurityIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
     );
 }

@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { guardPage } from '@/lib/auth/page-guard';
 
 type SLATemplate = {
     id: string;
@@ -60,9 +61,13 @@ const SLA_TYPE_LABELS: Record<string, { label: string; description: string }> = 
 };
 
 export default async function SLAPage() {
+    // GOVERNANCE: Block DCA_AGENT from accessing this page
+    await guardPage('/sla');
+
     const supabase = await createClient();
     const user = await getCurrentUser();
-    const canManageSLA = user && ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(user.role);
+    // GOVERNANCE: Only SUPER_ADMIN has sla:create permission (per ROLE_PERMISSIONS)
+    const canManageSLA = user && user.role === 'SUPER_ADMIN';
 
     // Fetch SLA templates
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

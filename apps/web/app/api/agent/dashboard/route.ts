@@ -1,0 +1,177 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+
+/**
+ * Agent Dashboard API
+ * 
+ * SCOPE: Only data for the current agent (assigned_agent_id = current_user.id)
+ * ACCESS: DCA_AGENT role only
+ */
+
+export async function GET() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Only DCA_AGENT can access this endpoint
+    if (user.role !== 'DCA_AGENT') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const supabase = await createClient();
+    const agentId = user.id;
+
+    try {
+        // 1. Get workload counts
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: allCases, error: casesError } = await (supabase as any)
+            .from('cases')
+            .select('id, status, outstanding_amount, currency')
+            .eq('assigned_agent_id', agentId)
+            .not('status', 'in', '(CLOSED,FULL_RECOVERY)');
+
+        if (casesError) {
+            console.error('Cases fetch error:', casesError);
+        }
+
+        const assignedCases = allCases?.length ?? 0;
+
+        // 2. Get SLA data for agent's cases
+        const caseIds = allCases?.map((c: { id: string }) => c.id) || [];
+
+        let slaDueSoon: Array<{
+            id: string;
+            case_number: string;
+            customer_name: string;
+            outstanding_amount: number;
+            currency: string;
+            hours_remaining: number;
+            is_breached: boolean;
+            sla_due_at: string;
+        }> = [];
+
+        let slaBreached: typeof slaDueSoon = [];
+        let dueToday = 0;
+        let overdueCases = 0;
+
+        if (caseIds.length > 0) {
+            // Get active SLA logs for agent's cases
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: slaLogs } = await (supabase as any)
+                .from('sla_logs')
+                .select(`
+                    id,
+                    case_id,
+                    status,
+                    due_at,
+                    cases!inner(id, case_number, customer_name, outstanding_amount, currency)
+                `)
+                .in('case_id', caseIds)
+                .in('status', ['PENDING', 'BREACHED']);
+
+            const now = new Date();
+            const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const endOfDay = new Date(now);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            slaLogs?.forEach((log: any) => {
+                const dueAt = new Date(log.due_at);
+                const hoursRemaining = (dueAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+                const slaCase = {
+                    id: log.cases.id,
+                    case_number: log.cases.case_number,
+                    customer_name: log.cases.customer_name,
+                    outstanding_amount: log.cases.outstanding_amount,
+                    currency: log.cases.currency || 'INR',
+                    hours_remaining: hoursRemaining,
+                    is_breached: log.status === 'BREACHED' || hoursRemaining < 0,
+                    sla_due_at: log.due_at,
+                };
+
+                if (log.status === 'BREACHED' || hoursRemaining < 0) {
+                    slaBreached.push(slaCase);
+                    overdueCases++;
+                } else if (dueAt <= in24Hours) {
+                    slaDueSoon.push(slaCase);
+                    if (dueAt <= endOfDay) {
+                        dueToday++;
+                    }
+                }
+            });
+
+            // Sort by urgency
+            slaDueSoon.sort((a, b) => a.hours_remaining - b.hours_remaining);
+            slaBreached.sort((a, b) => a.hours_remaining - b.hours_remaining);
+        }
+
+        // 3. Generate action reminders based on case state
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: casesNeedingAction } = await (supabase as any)
+            .from('cases')
+            .select('id, case_number, status, updated_at')
+            .eq('assigned_agent_id', agentId)
+            .not('status', 'in', '(CLOSED,FULL_RECOVERY)')
+            .order('updated_at', { ascending: true })
+            .limit(10);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const actionReminders = (casesNeedingAction || []).map((c: any) => {
+            let action_type: 'contact' | 'update' | 'followup' | 'payment' = 'update';
+            let description = 'Update case status';
+
+            switch (c.status) {
+                case 'ALLOCATED':
+                    action_type = 'contact';
+                    description = 'Contact customer';
+                    break;
+                case 'CUSTOMER_CONTACTED':
+                    action_type = 'followup';
+                    description = 'Follow up on contact';
+                    break;
+                case 'PAYMENT_PROMISED':
+                    action_type = 'payment';
+                    description = 'Record payment received';
+                    break;
+                case 'DISPUTED':
+                    action_type = 'update';
+                    description = 'Resolve dispute';
+                    break;
+                default:
+                    action_type = 'update';
+                    description = 'Update case progress';
+            }
+
+            return {
+                id: `reminder-${c.id}`,
+                case_id: c.id,
+                case_number: c.case_number,
+                action_type,
+                description,
+            };
+        });
+
+        // Determine currency from first case or default to INR
+        const currency = allCases?.[0]?.currency || 'INR';
+
+        return NextResponse.json({
+            workload: {
+                assignedCases,
+                dueToday,
+                overdueCases,
+            },
+            slaDueSoon,
+            slaBreached,
+            actionReminders,
+            currency,
+        });
+
+    } catch (error) {
+        console.error('Agent dashboard API error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}

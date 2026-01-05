@@ -5,6 +5,7 @@ import { SkeletonCard } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { guardPage } from '@/lib/auth/page-guard';
 import { DCAsPageHeader } from '@/components/dcas/DCAsPageHeader';
 
 const statusColors: Record<string, { bg: string; text: string }> = {
@@ -244,10 +245,14 @@ interface PageProps {
 }
 
 export default async function DCAsPage({ searchParams }: PageProps) {
+    // GOVERNANCE: Block DCA_AGENT from accessing this page
+    await guardPage('/dcas');
+
     const params = await searchParams;
     const region = params.region;
     const user = await getCurrentUser();
-    const canManageDCAs = user && ['SUPER_ADMIN', 'FEDEX_ADMIN'].includes(user.role);
+    // GOVERNANCE: Only SUPER_ADMIN has dcas:create permission (per ROLE_PERMISSIONS)
+    const canManageDCAs = user && user.role === 'SUPER_ADMIN';
 
     return (
         <div className="space-y-6">

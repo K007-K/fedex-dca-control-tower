@@ -269,13 +269,15 @@ export function getAssignableRoles(role: UserRole): UserRole[] {
 }
 
 /**
- * Check if a role is a FedEx internal role
+ * Check if a role is a FedEx internal role (requires @fedex.com email)
+ * NOTE: READONLY is NOT a FedEx role - it's an external role that uses personal email
  */
 export function isFedExRole(role: UserRole): boolean {
     return [
         'SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST',
         'FEDEX_AUDITOR', 'FEDEX_VIEWER',
-        'AUDITOR', 'READONLY', // Legacy mappings
+        'AUDITOR', // Legacy - maps to FEDEX_AUDITOR
+        // READONLY is NOT here - it's an external role using personal email
     ].includes(role);
 }
 

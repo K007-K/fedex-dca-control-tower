@@ -4,6 +4,7 @@ import { ReportCard } from '@/components/reports/ReportCard';
 import { ReportsPageHeader } from '@/components/reports/ReportsPageHeader';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { guardPage } from '@/lib/auth/page-guard';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {
@@ -48,6 +49,9 @@ interface PageProps {
 }
 
 export default async function ReportsPage({ searchParams }: PageProps) {
+    // GOVERNANCE: Page-level access guard - FedEx internal roles only
+    await guardPage('/reports');
+
     const params = await searchParams;
     const region = params.region;
     const supabase = await createClient();
