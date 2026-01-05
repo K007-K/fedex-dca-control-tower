@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useConfirm } from '@/components/ui';
 
-const roles = [
-    'SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST',
-    'DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT', 'AUDITOR', 'READONLY'
-];
+// Lock icon for immutable fields
+const LockIcon = () => (
+    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+);
 
 interface User {
     id: string;
@@ -18,6 +20,7 @@ interface User {
     is_active: boolean;
     phone: string | null;
     dca_id: string | null;
+    dca?: { name: string } | null;
 }
 
 export default function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
@@ -59,15 +62,16 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
         setSuccess('');
 
         try {
+            // GOVERNANCE: Only send ALLOWED fields
+            // NEVER send: role, email, dca_id (immutable)
             const res = await fetch(`/api/users/${userId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     full_name: user.full_name,
-                    role: user.role,
                     is_active: user.is_active,
                     phone: user.phone,
-                    dca_id: user.dca_id,
+                    // DO NOT INCLUDE: role, email, dca_id
                 }),
             });
 
@@ -150,7 +154,20 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
                     <span className="text-gray-900 dark:text-white">Edit User</span>
                 </nav>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit User</h1>
-                <p className="text-gray-500 dark:text-gray-400">Update user details, role, or deactivate the account</p>
+                <p className="text-gray-500 dark:text-gray-400">Update user details or deactivate the account</p>
+            </div>
+
+            {/* Governance Notice */}
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                    <LockIcon />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                        Governance Protected
+                    </span>
+                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                    Email, role, and DCA assignment are immutable after user creation.
+                </p>
             </div>
 
             {/* Error/Success Messages */}
@@ -179,8 +196,58 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
                     </div>
                 </div>
 
-                {/* Form Fields */}
+                {/* IMMUTABLE Fields Section */}
                 <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <LockIcon /> Immutable Fields
+                    </h3>
+
+                    {/* Email - READ ONLY */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Email
+                        </label>
+                        <div className="px-4 py-2 bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                            <span>{user.email}</span>
+                            <LockIcon />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Email cannot be changed after user creation</p>
+                    </div>
+
+                    {/* Role - READ ONLY */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Role
+                        </label>
+                        <div className="px-4 py-2 bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                            <span>{user.role.replace(/_/g, ' ')}</span>
+                            <LockIcon />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Role cannot be changed after user creation</p>
+                    </div>
+
+                    {/* DCA - READ ONLY (if applicable) */}
+                    {user.dca_id && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                DCA Assignment
+                            </label>
+                            <div className="px-4 py-2 bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                                <span>{user.dca?.name || user.dca_id}</span>
+                                <LockIcon />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">DCA assignment is immutable</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* EDITABLE Fields Section */}
+                <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-[#222]">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Editable Fields
+                    </h3>
+
+                    {/* Full Name */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Full Name
@@ -193,21 +260,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Role
-                        </label>
-                        <select
-                            value={user.role}
-                            onChange={(e) => setUser({ ...user, role: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                        >
-                            {roles.map(role => (
-                                <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
-                            ))}
-                        </select>
-                    </div>
-
+                    {/* Phone */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Phone (optional)

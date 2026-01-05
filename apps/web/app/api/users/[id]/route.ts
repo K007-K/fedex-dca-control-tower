@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
@@ -12,6 +12,55 @@ function getAdminClient() {
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         { auth: { autoRefreshToken: false, persistSession: false } }
     );
+}
+
+/**
+ * ALLOWED fields for user update
+ * CRITICAL: role, email, dca_id are IMMUTABLE and must NEVER be updated
+ */
+const ALLOWED_UPDATE_FIELDS = [
+    'full_name',
+    'phone',
+    'is_active',
+    'notification_preferences',
+    'ui_preferences',
+    'avatar_url',
+    'timezone',
+    'locale',
+];
+
+/**
+ * Log user update audit entry
+ */
+async function logUserUpdateAudit(
+    adminClient: ReturnType<typeof getAdminClient>,
+    actorId: string,
+    actorEmail: string,
+    actorRole: string,
+    targetUserId: string,
+    changedFields: string[],
+    oldValues: Record<string, unknown>,
+    newValues: Record<string, unknown>
+) {
+    try {
+        await adminClient.from('audit_logs').insert({
+            action: 'USER_UPDATE',
+            entity_type: 'USER',
+            entity_id: targetUserId,
+            actor_id: actorId,
+            actor_email: actorEmail,
+            actor_role: actorRole,
+            details: {
+                changed_fields: changedFields,
+                old_values: oldValues,
+                new_values: newValues,
+            },
+            severity: 'INFO',
+        });
+    } catch (error) {
+        console.error('Failed to log user update audit:', error);
+        throw new Error('AUDIT_LOG_REQUIRED: Failed to log update');
+    }
 }
 
 /**
@@ -41,8 +90,16 @@ const handleGetUser: ApiHandler = async (request, { params, user }) => {
 };
 
 /**
- * PATCH /api/users/[id] - Update a user (deactivate, change role, etc.)
+ * PATCH /api/users/[id] - Update a user
  * Permission: users:update
+ * 
+ * GOVERNANCE RULES:
+ * - email: IMMUTABLE - cannot be changed
+ * - role: IMMUTABLE - cannot be changed
+ * - dca_id: IMMUTABLE - cannot be changed
+ * 
+ * These fields are STRIPPED from the payload even if sent.
+ * DB trigger also enforces this as a second layer.
  */
 const handleUpdateUser: ApiHandler = async (request, { params, user: currentUser }) => {
     try {
@@ -50,29 +107,108 @@ const handleUpdateUser: ApiHandler = async (request, { params, user: currentUser
         const body = await request.json();
         const adminClient = getAdminClient();
 
-        // Update user profile
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (adminClient as any)
+        // =====================================================
+        // GOVERNANCE: Strip forbidden fields
+        // =====================================================
+        // NEVER allow these to be updated
+        const forbiddenFields = ['email', 'role', 'dca_id', 'id', 'created_at'];
+        const attemptedForbidden = forbiddenFields.filter(f => f in body);
+
+        if (attemptedForbidden.length > 0) {
+            console.warn(`[GOVERNANCE] Attempt to modify immutable fields: ${attemptedForbidden.join(', ')} by user ${currentUser.email}`);
+        }
+
+        // Build sanitized update payload
+        const sanitizedPayload: Record<string, unknown> = {};
+        const changedFields: string[] = [];
+
+        for (const field of ALLOWED_UPDATE_FIELDS) {
+            if (field in body && body[field] !== undefined) {
+                sanitizedPayload[field] = body[field];
+                changedFields.push(field);
+            }
+        }
+
+        if (changedFields.length === 0) {
+            return NextResponse.json(
+                { error: 'No valid fields to update' },
+                { status: 400 }
+            );
+        }
+
+        // =====================================================
+        // Fetch current user data for audit comparison
+        // =====================================================
+        const { data: existingUser, error: fetchError } = await adminClient
             .from('users')
-            .update({
-                full_name: body.full_name,
-                role: body.role,
-                is_active: body.is_active,
-                phone: body.phone,
-                dca_id: body.dca_id,
-            })
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !existingUser) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // Build old values for audit
+        const oldValues: Record<string, unknown> = {};
+        for (const field of changedFields) {
+            oldValues[field] = existingUser[field];
+        }
+
+        // =====================================================
+        // Update user
+        // =====================================================
+        sanitizedPayload.updated_at = new Date().toISOString();
+
+        const { data, error } = await adminClient
+            .from('users')
+            .update(sanitizedPayload)
             .eq('id', id)
             .select()
             .single();
 
         if (error) {
             console.error('Update user error:', error);
-            return NextResponse.json({ error: 'Failed to update user', details: error.message }, { status: 500 });
+            // Check if it's immutability trigger
+            if (error.message?.includes('USER_IDENTITY_IMMUTABLE')) {
+                return NextResponse.json(
+                    { error: 'Cannot modify immutable fields (email, role, DCA)' },
+                    { status: 403 }
+                );
+            }
+            return NextResponse.json(
+                { error: 'Failed to update user', details: error.message },
+                { status: 500 }
+            );
         }
 
-        return NextResponse.json({ data, message: 'User updated successfully' });
+        // =====================================================
+        // AUDIT LOG (MANDATORY)
+        // =====================================================
+        await logUserUpdateAudit(
+            adminClient,
+            currentUser.id,
+            currentUser.email,
+            currentUser.role,
+            id,
+            changedFields,
+            oldValues,
+            sanitizedPayload
+        );
+
+        return NextResponse.json({
+            data,
+            message: 'User updated successfully',
+            changed_fields: changedFields,
+        });
     } catch (error) {
         console.error('Update user error:', error);
+        if (error instanceof Error && error.message.includes('AUDIT_LOG_REQUIRED')) {
+            return NextResponse.json(
+                { error: 'Failed to audit log the update - operation aborted' },
+                { status: 500 }
+            );
+        }
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 };
@@ -93,8 +229,7 @@ const handleDeleteUser: ApiHandler = async (request, { params, user: currentUser
         const adminClient = getAdminClient();
 
         // Handle all foreign key constraints by setting them to null
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const admin = adminClient as any;
+        const admin = adminClient;
 
         // 1. Delete notifications
         await admin.from('notifications').delete().eq('recipient_id', id);
@@ -115,12 +250,10 @@ const handleDeleteUser: ApiHandler = async (request, { params, user: currentUser
         await admin.from('escalations').update({ escalated_from: null }).eq('escalated_from', id);
         await admin.from('escalations').update({ resolved_by: null }).eq('resolved_by', id);
 
-        // 6. Delete audit logs for this user (they have immutable rules but adminClient bypasses)
-        // Note: audit logs have rules preventing normal deletes, but we'll try anyway
+        // 6. Delete audit logs for this user
         try {
             await admin.from('audit_logs').delete().eq('user_id', id);
         } catch {
-            // Audit log delete may fail due to immutable rules - that's OK
             console.log('audit_logs deletion skipped (may have immutable rules)');
         }
 
