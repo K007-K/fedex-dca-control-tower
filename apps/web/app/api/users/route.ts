@@ -32,18 +32,18 @@ function generateTempPassword(): string {
 }
 
 // =====================================================
-// BUSINESS RULES - CREATOR PERMISSION MATRIX
+// BUSINESS RULES - CREATOR PERMISSION MATRIX (GOVERNANCE MODEL A)
 // =====================================================
-// FedEx users can create: FEDEX roles + DCA_ADMIN only
-// DCA_ADMIN can create: DCA_MANAGER, DCA_AGENT only
-const FEDEX_CAN_CREATE: UserRole[] = [
-    'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST',
-    'DCA_ADMIN', 'AUDITOR', 'READONLY'
-];
+// SUPER_ADMIN: Can create FEDEX_ADMIN only
+// FEDEX_ADMIN: Can create FEDEX_MANAGER, FEDEX_ANALYST, READONLY, AUDITOR, DCA_ADMIN
+// DCA_ADMIN: Can create DCA_MANAGER, DCA_AGENT (within own DCA only)
+// All others: CANNOT create users
 
+const SUPER_ADMIN_CAN_CREATE: UserRole[] = ['FEDEX_ADMIN', 'AUDITOR'];
+const FEDEX_ADMIN_CAN_CREATE: UserRole[] = ['FEDEX_MANAGER', 'FEDEX_ANALYST', 'READONLY', 'AUDITOR', 'DCA_ADMIN'];
 const DCA_ADMIN_CAN_CREATE: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 
-// Roles that are DCA internal (FedEx cannot create)
+// Roles that are DCA internal (only DCA_ADMIN can create)
 const DCA_INTERNAL_ROLES: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 
 // =====================================================
@@ -122,33 +122,40 @@ function validateEmailDomain(
 
 /**
  * Validate creator can create the target role
+ * GOVERNANCE MODEL A - Strict hierarchy
  */
 function validateCreatorPermission(
     creatorRole: UserRole,
     targetRole: UserRole
 ): { allowed: boolean; error?: string } {
-    // SUPER_ADMIN can create anyone except another SUPER_ADMIN
+    // SUPER_ADMIN: Can ONLY create FEDEX_ADMIN and AUDITOR
     if (creatorRole === 'SUPER_ADMIN') {
-        if (targetRole === 'SUPER_ADMIN') {
-            return { allowed: false, error: 'Cannot create another SUPER_ADMIN' };
+        if (!SUPER_ADMIN_CAN_CREATE.includes(targetRole)) {
+            return {
+                allowed: false,
+                error: `SUPER_ADMIN can only create FEDEX_ADMIN or AUDITOR, not ${targetRole}`
+            };
         }
         return { allowed: true };
     }
 
-    // FedEx users (FEDEX_ADMIN, FEDEX_MANAGER) cannot create DCA internal users
-    if (isFedExRole(creatorRole)) {
-        if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+    // FEDEX_ADMIN: Can create FEDEX_MANAGER, FEDEX_ANALYST, READONLY, AUDITOR, DCA_ADMIN
+    if (creatorRole === 'FEDEX_ADMIN') {
+        if (!FEDEX_ADMIN_CAN_CREATE.includes(targetRole)) {
             return {
                 allowed: false,
-                error: 'FedEx users cannot create DCA internal users (DCA_MANAGER, DCA_AGENT). Only DCA_ADMIN can create these roles.'
+                error: `FEDEX_ADMIN can only create: FEDEX_MANAGER, FEDEX_ANALYST, READONLY, AUDITOR, DCA_ADMIN`
             };
         }
-        if (!FEDEX_CAN_CREATE.includes(targetRole)) {
-            return { allowed: false, error: `FedEx users cannot create role: ${targetRole}` };
-        }
+        return { allowed: true };
     }
 
-    // DCA_ADMIN can only create DCA_MANAGER and DCA_AGENT
+    // FEDEX_MANAGER: Cannot create users (removed from creator pool)
+    if (creatorRole === 'FEDEX_MANAGER') {
+        return { allowed: false, error: 'FEDEX_MANAGER cannot create users' };
+    }
+
+    // DCA_ADMIN: Can ONLY create DCA_MANAGER and DCA_AGENT
     if (creatorRole === 'DCA_ADMIN') {
         if (!DCA_ADMIN_CAN_CREATE.includes(targetRole)) {
             return {
@@ -156,19 +163,11 @@ function validateCreatorPermission(
                 error: `DCA Admin can only create DCA Manager or DCA Agent, not ${targetRole}`
             };
         }
+        return { allowed: true };
     }
 
-    // DCA_MANAGER and DCA_AGENT cannot create users
-    if (['DCA_MANAGER', 'DCA_AGENT'].includes(creatorRole)) {
-        return { allowed: false, error: 'Your role cannot create users' };
-    }
-
-    // Final check: role hierarchy
-    if (!canManageRole(creatorRole, targetRole)) {
-        return { allowed: false, error: 'Cannot create users with a role higher than your own' };
-    }
-
-    return { allowed: true };
+    // All other roles: CANNOT create users
+    return { allowed: false, error: 'Your role cannot create users' };
 }
 
 /**
@@ -550,6 +549,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         }
 
         // Create user profile
+        // GOVERNANCE: Users NEVER store region_id - region access derived from dca_id
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (adminClient as any)
             .from('users')
@@ -560,7 +560,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                 role: body.role,
                 organization_id: body.organization_id ?? null,
                 dca_id: dcaId,
-                primary_region_id: regionId,
+                // NO primary_region_id - region derived from dca_id → region_dca_assignments
                 phone: body.phone ?? null,
                 timezone: body.timezone ?? 'America/New_York',
                 locale: body.locale ?? 'en-US',

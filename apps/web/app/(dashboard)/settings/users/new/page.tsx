@@ -239,6 +239,7 @@ export default function CreateUserPage() {
             const fullName = `${formData.firstName} ${formData.lastName}`;
 
 
+
             const response = await fetch('/api/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -248,20 +249,12 @@ export default function CreateUserPage() {
                     role: formData.role,
                     phone: formData.phone || null,
                     personal_email: formData.personalEmail || null,
-                    // ROLE-EXCLUSIVE FIELDS - never mix
-                    // FedEx roles: region_id/region_ids (NO dca_id)
-                    // DCA roles: dca_id (NO region - inherited from DCA)
-                    ...(isFedExRole ? {
-                        // FedEx gets region selection
-                        region_id: showMultiRegionSelector ? undefined : formData.regionId || undefined,
-                        region_ids: showMultiRegionSelector ? formData.regionIds : undefined,
-                        dca_id: null, // Explicitly null - FedEx has no DCA
-                    } : {}),
-                    ...(isDCARole ? {
-                        // DCA gets DCA selection, region inherited
-                        dca_id: showDCASelector ? formData.dcaId : undefined, // Server uses context for DCA_ADMIN
-                        // NO region fields - inherited from DCA
-                    } : {}),
+                    // GOVERNANCE MODEL: Users NEVER store region
+                    // Region access is derived from: dca_id → region_dca_assignments
+                    // DCA roles: dca_id required
+                    // FedEx roles: dca_id = null (global access via user_region_access)
+                    dca_id: isDCARole ? (showDCASelector ? formData.dcaId : undefined) : null,
+                    // NO region_id or region_ids - forbidden in governance model
                 }),
             });
 
