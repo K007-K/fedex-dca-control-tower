@@ -111,8 +111,13 @@ const handleGetDCAs: ApiHandler = async (request, { user }) => {
 
 /**
  * POST /api/dcas
- * Create a new DCA
+ * Create a new DCA with region assignments
  * Permission: dcas:create
+ * 
+ * GOVERNANCE:
+ * - Region assignments REQUIRED
+ * - Per-region capacity configured
+ * - Audit logging includes region info
  */
 const handleCreateDCA: ApiHandler = async (request, { user }) => {
     try {
@@ -131,7 +136,41 @@ const handleCreateDCA: ApiHandler = async (request, { user }) => {
 
         const validatedData = validation.data;
 
-        const { data, error } = await (supabase as any)
+        // ============================================================
+        // GOVERNANCE: Validate region_assignments
+        // ============================================================
+        const regionAssignments = body.region_assignments as Array<{
+            region_id: string;
+            capacity: number;
+            priority: number;
+            is_active: boolean;
+        }> | undefined;
+
+        if (!regionAssignments || regionAssignments.length === 0) {
+            return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: 'At least one region must be selected' } },
+                { status: 400 }
+            );
+        }
+
+        // Validate that all region_ids exist
+        const regionIds = regionAssignments.map(ra => ra.region_id);
+        const { data: validRegions, error: regionError } = await (supabase as any)
+            .from('regions')
+            .select('id')
+            .in('id', regionIds);
+
+        if (regionError || !validRegions || validRegions.length !== regionIds.length) {
+            return NextResponse.json(
+                { error: { code: 'VALIDATION_ERROR', message: 'One or more invalid region IDs' } },
+                { status: 400 }
+            );
+        }
+
+        // ============================================================
+        // Create DCA record
+        // ============================================================
+        const { data: dcaData, error: dcaError } = await (supabase as any)
             .from('dcas')
             .insert({
                 name: validatedData.name,
@@ -139,7 +178,7 @@ const handleCreateDCA: ApiHandler = async (request, { user }) => {
                 legal_name: validatedData.legal_name || null,
                 registration_number: validatedData.registration_number || null,
                 status: validatedData.status || 'PENDING_APPROVAL',
-                capacity_limit: validatedData.capacity_limit || 100,
+                capacity_limit: 0, // Capacity is now per-region
                 capacity_used: 0,
                 max_case_value: validatedData.max_case_value || null,
                 min_case_value: validatedData.min_case_value || null,
@@ -156,29 +195,70 @@ const handleCreateDCA: ApiHandler = async (request, { user }) => {
             .select()
             .single();
 
-        if (error) {
-            console.error('DCA creation error:', error);
+        if (dcaError) {
+            console.error('DCA creation error:', dcaError);
             return NextResponse.json(
-                { error: { code: 'DATABASE_ERROR', message: error.message } },
+                { error: { code: 'DATABASE_ERROR', message: dcaError.message } },
                 { status: 500 }
             );
         }
 
-        // Audit log the DCA creation
+        // ============================================================
+        // GOVERNANCE: Create region_dca_assignments
+        // ============================================================
+        const assignmentsToInsert = regionAssignments.map(ra => ({
+            dca_id: dcaData.id,
+            region_id: ra.region_id,
+            // Capacity = absolute per-region case capacity
+            capacity_allocation_pct: 100, // Using 100% means full capacity number
+            allocation_priority: ra.priority || 1, // Tie-breaker only
+            is_active: ra.is_active !== false,
+            is_primary: ra.priority === 1,
+            region_cases_handled: 0,
+            region_amount_recovered: 0,
+            region_recovery_rate: 0,
+            region_sla_compliance: 100,
+            created_by: user.id,
+        }));
+
+        const { error: assignmentError } = await (supabase as any)
+            .from('region_dca_assignments')
+            .insert(assignmentsToInsert);
+
+        if (assignmentError) {
+            console.error('Region assignment error:', assignmentError);
+            // Attempt to rollback DCA creation
+            await (supabase as any).from('dcas').delete().eq('id', dcaData.id);
+            return NextResponse.json(
+                { error: { code: 'DATABASE_ERROR', message: 'Failed to assign regions: ' + assignmentError.message } },
+                { status: 500 }
+            );
+        }
+
+        // ============================================================
+        // AUDIT: Log DCA creation with region info
+        // ============================================================
         logUserAction(
             'DCA_CREATED',
             user.id,
             user.email,
             'dca',
-            data.id,
+            dcaData.id,
             {
-                name: data.name,
-                code: data.code,
-                status: data.status,
+                name: dcaData.name,
+                code: dcaData.code,
+                status: dcaData.status,
+                region_count: regionAssignments.length,
+                region_ids: regionIds,
             }
         ).catch(err => console.error('Audit log error:', err));
 
-        return NextResponse.json({ data }, { status: 201 });
+        return NextResponse.json({
+            data: {
+                ...dcaData,
+                region_assignments: regionAssignments,
+            }
+        }, { status: 201 });
     } catch (error) {
         console.error('DCAs API error:', error);
         return NextResponse.json(
