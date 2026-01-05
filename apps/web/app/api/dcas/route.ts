@@ -13,7 +13,7 @@ import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { isDCARole } from '@/lib/auth';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { dcaCreateSchema, validateFormData } from '@/lib/validations';
-import { logUserAction } from '@/lib/audit';
+import { logHumanAction } from '@/lib/audit';
 import { secureQuery } from '@/lib/auth/secure-query';
 
 /**
@@ -238,12 +238,12 @@ const handleCreateDCA: ApiHandler = async (request, { user }) => {
         // ============================================================
         // AUDIT: Log DCA creation with region info
         // ============================================================
-        logUserAction(
+        logHumanAction(
+            { id: user.id, email: user.email, role: user.role },
             'DCA_CREATED',
-            user.id,
-            user.email,
             'dca',
             dcaData.id,
+            regionIds[0] || 'GLOBAL', // Primary region ID
             {
                 name: dcaData.name,
                 code: dcaData.code,
