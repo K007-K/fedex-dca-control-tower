@@ -32,15 +32,19 @@ function generateTempPassword(): string {
 }
 
 // =====================================================
-// BUSINESS RULES - CREATOR PERMISSION MATRIX (GOVERNANCE MODEL A)
+// BUSINESS RULES - CREATOR PERMISSION MATRIX (ENTERPRISE MODEL)
 // =====================================================
-// SUPER_ADMIN: Can create FEDEX_ADMIN only
-// FEDEX_ADMIN: Can create FEDEX_MANAGER, FEDEX_ANALYST, READONLY, AUDITOR, DCA_ADMIN
+// SUPER_ADMIN: Can create all FEDEX roles + DCA_ADMIN
+// FEDEX_ADMIN: Can create FEDEX_MANAGER, FEDEX_ANALYST, READONLY, AUDITOR + DCA_ADMIN
 // DCA_ADMIN: Can create DCA_MANAGER, DCA_AGENT (within own DCA only)
 // All others: CANNOT create users
 
-const SUPER_ADMIN_CAN_CREATE: UserRole[] = ['FEDEX_ADMIN', 'AUDITOR'];
-const FEDEX_ADMIN_CAN_CREATE: UserRole[] = ['FEDEX_MANAGER', 'FEDEX_ANALYST', 'READONLY', 'AUDITOR', 'DCA_ADMIN'];
+const SUPER_ADMIN_CAN_CREATE: UserRole[] = [
+    'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'AUDITOR', 'READONLY', 'DCA_ADMIN'
+];
+const FEDEX_ADMIN_CAN_CREATE: UserRole[] = [
+    'FEDEX_MANAGER', 'FEDEX_ANALYST', 'READONLY', 'AUDITOR', 'DCA_ADMIN'
+];
 const DCA_ADMIN_CAN_CREATE: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 
 // Roles that are DCA internal (only DCA_ADMIN can create)
@@ -601,38 +605,56 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         });
 
         // =====================================================
-        // CREATE USER_REGION_ACCESS ENTRIES (for FEDEX_ADMIN multi-region)
+        // CREATE REGION ACCESS ENTRIES
+        // FedEx roles → user_region_access
+        // DCA roles → dca_user_region_access
         // =====================================================
         if (regionIds.length > 0) {
+            const targetTable = isDCARole(targetRole) ? 'dca_user_region_access' : 'user_region_access';
+
             const regionAccessEntries = regionIds.map(rId => ({
                 user_id: data.id,
                 region_id: rId,
-                access_type: 'ASSIGNED',
                 granted_by: user.id,
             }));
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error: accessError } = await (adminClient as any)
-                .from('user_region_access')
+                .from(targetTable)
                 .upsert(regionAccessEntries, { onConflict: 'user_id,region_id' });
 
             if (accessError) {
-                console.error('Failed to create region access entries:', accessError);
+                console.error(`Failed to create region access entries in ${targetTable}:`, accessError);
                 // Non-fatal - user is created, but log the error
             } else {
                 await logUserCreationAudit(adminClient, 'REGION_ASSIGNED', 'INFO', user.id, user.email, {
                     target_user_id: data.id,
                     region_ids: regionIds,
-                    assignment_type: 'explicit_multi_region',
+                    assignment_type: isDCARole(targetRole) ? 'dca_explicit' : 'fedex_explicit',
+                    table_used: targetTable,
                 });
             }
         } else if (regionId) {
-            // Also log single region assignment if applicable
-            await logUserCreationAudit(adminClient, 'REGION_ASSIGNED', 'INFO', user.id, user.email, {
-                target_user_id: data.id,
-                region_id: regionId,
-                assignment_type: isDCARole(targetRole) ? 'inherited_from_dca' : 'explicit',
-            });
+            // Single region assignment (legacy fallback)
+            const targetTable = isDCARole(targetRole) ? 'dca_user_region_access' : 'user_region_access';
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error: accessError } = await (adminClient as any)
+                .from(targetTable)
+                .upsert({
+                    user_id: data.id,
+                    region_id: regionId,
+                    granted_by: user.id,
+                }, { onConflict: 'user_id,region_id' });
+
+            if (!accessError) {
+                await logUserCreationAudit(adminClient, 'REGION_ASSIGNED', 'INFO', user.id, user.email, {
+                    target_user_id: data.id,
+                    region_id: regionId,
+                    assignment_type: isDCARole(targetRole) ? 'dca_single' : 'fedex_single',
+                    table_used: targetTable,
+                });
+            }
         }
 
         // =====================================================

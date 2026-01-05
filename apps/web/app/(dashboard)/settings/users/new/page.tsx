@@ -239,6 +239,7 @@ export default function CreateUserPage() {
 
 
 
+
             const response = await fetch('/api/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -248,12 +249,11 @@ export default function CreateUserPage() {
                     role: formData.role,
                     phone: formData.phone || null,
                     personal_email: formData.personalEmail || null,
-                    // GOVERNANCE MODEL: Users NEVER store region
-                    // Region access is derived from: dca_id → region_dca_assignments
+                    // ENTERPRISE MODEL: Explicit region assignment
+                    // All users get explicit region_ids (except SUPER_ADMIN who has all)
+                    region_ids: formData.regionIds.length > 0 ? formData.regionIds : undefined,
                     // DCA roles: dca_id required
-                    // FedEx roles: dca_id = null (global access via user_region_access)
                     dca_id: isDCARole ? (showDCASelector ? formData.dcaId : undefined) : null,
-                    // NO region_id or region_ids - forbidden in governance model
                 }),
             });
 
@@ -479,8 +479,42 @@ export default function CreateUserPage() {
                         </div>
                     )}
 
-                    {/* GOVERNANCE: No region selectors - region access derived from dca_id */}
-                    {/* Region UI components removed per governance model */}
+                    {/* ENTERPRISE MODEL: Explicit Region Selection */}
+                    {/* All users need explicit region assignment */}
+                    {regions.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Regions <span className="text-red-500">*</span>
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                Select one or more regions this user will have access to.
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-[#333] rounded-lg p-3">
+                                {regions.map(region => (
+                                    <label key={region.id} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.regionIds.includes(region.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setFormData({ ...formData, regionIds: [...formData.regionIds, region.id] });
+                                                } else {
+                                                    setFormData({ ...formData, regionIds: formData.regionIds.filter(id => id !== region.id) });
+                                                }
+                                            }}
+                                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">{region.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {formData.regionIds.length > 0 && (
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                                    ✓ {formData.regionIds.length} region(s) selected
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* DCA Info for DCA users (read-only) */}
                     {isDCAUser && isDCARole && (
