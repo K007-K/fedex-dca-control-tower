@@ -238,6 +238,7 @@ export default function CreateUserPage() {
         try {
             const fullName = `${formData.firstName} ${formData.lastName}`;
 
+
             const response = await fetch('/api/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -245,11 +246,22 @@ export default function CreateUserPage() {
                     email: emailToSubmit,
                     full_name: fullName,
                     role: formData.role,
-                    dca_id: showDCASelector ? formData.dcaId : (isDCAUser ? undefined : null), // Server will use context for DCA users
-                    region_id: showMultiRegionSelector ? undefined : (showRegionSelector ? formData.regionId : undefined), // Auto-inherited for DCA
-                    region_ids: showMultiRegionSelector ? formData.regionIds : undefined, // FEDEX_ADMIN multi-region
                     phone: formData.phone || null,
                     personal_email: formData.personalEmail || null,
+                    // ROLE-EXCLUSIVE FIELDS - never mix
+                    // FedEx roles: region_id/region_ids (NO dca_id)
+                    // DCA roles: dca_id (NO region - inherited from DCA)
+                    ...(isFedExRole ? {
+                        // FedEx gets region selection
+                        region_id: showMultiRegionSelector ? undefined : formData.regionId || undefined,
+                        region_ids: showMultiRegionSelector ? formData.regionIds : undefined,
+                        dca_id: null, // Explicitly null - FedEx has no DCA
+                    } : {}),
+                    ...(isDCARole ? {
+                        // DCA gets DCA selection, region inherited
+                        dca_id: showDCASelector ? formData.dcaId : undefined, // Server uses context for DCA_ADMIN
+                        // NO region fields - inherited from DCA
+                    } : {}),
                 }),
             });
 
