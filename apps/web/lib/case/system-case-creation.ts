@@ -452,7 +452,12 @@ export async function createSystemCase(
                 created_source: 'SYSTEM',
                 created_by: actor.actor_id,
 
-                // Source tracking
+                // GOVERNANCE: Ingestion tracking (IMMUTABLE columns)
+                external_case_id: payload.source_reference_id,
+                source_system: payload.source_system,
+                ingestion_timestamp: now,
+
+                // Source tracking (legacy JSONB for backwards compatibility)
                 metadata: {
                     source_system: payload.source_system,
                     source_reference_id: payload.source_reference_id,

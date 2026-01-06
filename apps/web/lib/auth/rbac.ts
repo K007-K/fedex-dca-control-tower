@@ -175,7 +175,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     DCA_MANAGER: [
         'cases:read', 'cases:update', 'cases:workflow',
         'dcas:read', 'dcas:performance',
-        'users:read',
+        'users:read', 'users:create',  // Delegated agent creation (state-scoped, backend enforced)
         'sla:read',
         'analytics:read',
     ],

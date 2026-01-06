@@ -306,12 +306,13 @@ function OverviewContent() {
     );
 }
 
-// GOVERNANCE: Block DCA_AGENT from overview page - they should use /agent/dashboard
+// GOVERNANCE: Block DCA_AGENT and DCA_MANAGER from this overview page
+// DCA_AGENT should use /agent/overview, DCA_MANAGER should use /manager/overview
 export default function OverviewPage() {
     return (
         <AccessGuard
-            allowedRoles={['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY']}
-            fallbackUrl="/agent/dashboard"
+            allowedRoles={['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'AUDITOR', 'READONLY']}
+            fallbackUrl="/dashboard"
         >
             <OverviewContent />
         </AccessGuard>

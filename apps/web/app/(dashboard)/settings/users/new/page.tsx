@@ -21,19 +21,20 @@ interface RoleDefinition {
     level: number;
     fedexCanCreate: boolean;
     dcaAdminCanCreate: boolean;
+    dcaManagerCanCreate: boolean;
 }
 
 const ALL_ROLES: RoleDefinition[] = [
     // READONLY: Uses personal email for login (external users)
-    { value: 'READONLY', label: 'Read Only', org: 'any', level: 10, fedexCanCreate: true, dcaAdminCanCreate: false },
-    { value: 'DCA_AGENT', label: 'DCA Agent', org: 'dca', level: 20, fedexCanCreate: false, dcaAdminCanCreate: true },
+    { value: 'READONLY', label: 'Read Only', org: 'any', level: 10, fedexCanCreate: true, dcaAdminCanCreate: false, dcaManagerCanCreate: false },
+    { value: 'DCA_AGENT', label: 'DCA Agent', org: 'dca', level: 20, fedexCanCreate: false, dcaAdminCanCreate: true, dcaManagerCanCreate: true },
     // FEDEX_AUDITOR: Uses @fedex.com (internal FedEx auditors)
-    { value: 'FEDEX_AUDITOR', label: 'FedEx Auditor', org: 'fedex', level: 30, fedexCanCreate: true, dcaAdminCanCreate: false },
-    { value: 'DCA_MANAGER', label: 'DCA Manager', org: 'dca', level: 40, fedexCanCreate: false, dcaAdminCanCreate: true },
-    { value: 'FEDEX_ANALYST', label: 'FedEx Analyst', org: 'fedex', level: 50, fedexCanCreate: true, dcaAdminCanCreate: false },
-    { value: 'DCA_ADMIN', label: 'DCA Admin', org: 'dca', level: 60, fedexCanCreate: true, dcaAdminCanCreate: false },
-    { value: 'FEDEX_MANAGER', label: 'FedEx Manager', org: 'fedex', level: 70, fedexCanCreate: true, dcaAdminCanCreate: false },
-    { value: 'FEDEX_ADMIN', label: 'FedEx Admin', org: 'fedex', level: 90, fedexCanCreate: true, dcaAdminCanCreate: false },
+    { value: 'FEDEX_AUDITOR', label: 'FedEx Auditor', org: 'fedex', level: 30, fedexCanCreate: true, dcaAdminCanCreate: false, dcaManagerCanCreate: false },
+    { value: 'DCA_MANAGER', label: 'DCA Manager', org: 'dca', level: 40, fedexCanCreate: false, dcaAdminCanCreate: true, dcaManagerCanCreate: false },
+    { value: 'FEDEX_ANALYST', label: 'FedEx Analyst', org: 'fedex', level: 50, fedexCanCreate: true, dcaAdminCanCreate: false, dcaManagerCanCreate: false },
+    { value: 'DCA_ADMIN', label: 'DCA Admin', org: 'dca', level: 60, fedexCanCreate: true, dcaAdminCanCreate: false, dcaManagerCanCreate: false },
+    { value: 'FEDEX_MANAGER', label: 'FedEx Manager', org: 'fedex', level: 70, fedexCanCreate: true, dcaAdminCanCreate: false, dcaManagerCanCreate: false },
+    { value: 'FEDEX_ADMIN', label: 'FedEx Admin', org: 'fedex', level: 90, fedexCanCreate: true, dcaAdminCanCreate: false, dcaManagerCanCreate: false },
 ];
 
 const ROLE_HIERARCHY: Record<string, number> = {
@@ -92,6 +93,7 @@ export default function CreateUserPage() {
         dcaId: '',
         regionId: '',
         regionIds: [] as string[], // For FEDEX_ADMIN multi-region
+        stateCode: '',  // For DCA_MANAGER state assignment
         phone: '',
     });
 
@@ -201,9 +203,11 @@ export default function CreateUserPage() {
             // Must be lower level
             if (role.level >= currentLevel) return false;
 
-            // Apply FedEx/DCA creation rules
+            // Apply FedEx/DCA/Manager creation rules
             if (currentUser.role === 'DCA_ADMIN') {
                 return role.dcaAdminCanCreate;
+            } else if (currentUser.role === 'DCA_MANAGER') {
+                return role.dcaManagerCanCreate;
             } else if (isFedExUser) {
                 return role.fedexCanCreate;
             }
@@ -216,8 +220,11 @@ export default function CreateUserPage() {
     const isDCARole = selectedRoleInfo?.org === 'dca';
     const isFedExRole = selectedRoleInfo?.org === 'fedex';
     const isReadOnlyRole = formData.role === 'READONLY'; // Uses personal email for login
+    const isManager = currentUser?.role === 'DCA_MANAGER';
     // GOVERNANCE: No region selectors - region derived from dca_id
     const showDCASelector = isFedExUser && formData.role === 'DCA_ADMIN';
+    // Show state selector for DCA_ADMIN creating DCA_MANAGER
+    const showStateSelector = currentUser?.role === 'DCA_ADMIN' && formData.role === 'DCA_MANAGER';
 
 
     // Set default role when available roles are loaded
@@ -303,6 +310,8 @@ export default function CreateUserPage() {
                     role: formData.role,
                     phone: formData.phone || null,
                     personal_email: formData.personalEmail || null,
+                    // State assignment for DCA_MANAGER
+                    state_code: formData.stateCode || undefined,
                     // ENTERPRISE MODEL: Explicit region assignment
                     // All users get explicit region_ids (except SUPER_ADMIN who has all)
                     region_ids: formData.regionIds.length > 0 ? formData.regionIds : undefined,
@@ -544,6 +553,45 @@ export default function CreateUserPage() {
                             </select>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 The user&apos;s region will be inherited from the DCA.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* State Selector for DCA_ADMIN creating DCA_MANAGER */}
+                    {showStateSelector && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Assign State <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                required
+                                value={formData.stateCode}
+                                onChange={(e) => setFormData({ ...formData, stateCode: e.target.value })}
+                                className="w-full px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
+                            >
+                                <option value="">Select a state...</option>
+                                <option value="MH">Maharashtra (MH)</option>
+                                <option value="KA">Karnataka (KA)</option>
+                                <option value="TN">Tamil Nadu (TN)</option>
+                                <option value="DL">Delhi (DL)</option>
+                                <option value="UP">Uttar Pradesh (UP)</option>
+                                <option value="GJ">Gujarat (GJ)</option>
+                                <option value="RJ">Rajasthan (RJ)</option>
+                                <option value="WB">West Bengal (WB)</option>
+                                <option value="AP">Andhra Pradesh (AP)</option>
+                                <option value="TS">Telangana (TS)</option>
+                            </select>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                This manager will supervise agents in the selected state only.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* DCA_MANAGER Info - read-only state inheritance */}
+                    {isManager && (
+                        <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
+                            <p className="text-sm text-blue-700 dark:text-blue-400">
+                                ℹ️ The new agent will be assigned to your DCA and inherit your state.
                             </p>
                         </div>
                     )}

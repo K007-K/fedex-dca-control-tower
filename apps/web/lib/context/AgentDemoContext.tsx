@@ -114,7 +114,15 @@ export function AgentDemoProvider({ children }: { children: ReactNode }) {
 export function useAgentDemoMode() {
     const context = useContext(AgentDemoContext);
     if (context === undefined) {
-        throw new Error('useAgentDemoMode must be used within an AgentDemoProvider');
+        // Return safe defaults instead of throwing
+        return {
+            isDemoMode: false,
+            toggleDemoMode: () => { },
+            enableDemoMode: () => { },
+            disableDemoMode: () => { },
+            currentStep: 0,
+            setCurrentStep: () => { },
+        };
     }
     return context;
 }

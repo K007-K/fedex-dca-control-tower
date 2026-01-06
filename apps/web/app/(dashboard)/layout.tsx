@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { ReactNode } from 'react';
 
 import { DashboardLayout } from '@/components/layout';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 // Role to display label mapping
 const ROLE_LABELS: Record<string, string> = {
@@ -31,11 +31,15 @@ export default async function DashboardGroupLayout({
         redirect('/login?redirect=/dashboard');
     }
 
+    // Use admin client to bypass RLS for role lookup
+    // This is required because auth.uid() doesn't match seed user IDs
+    const adminSupabase = createAdminClient();
+
     // Fetch user's role from database
     let rawRole = 'READONLY';
     let userRoleLabel = 'User';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dbUser } = await (supabase as any)
+    const { data: dbUser } = await (adminSupabase as any)
         .from('users')
         .select('role')
         .eq('email', user.email)

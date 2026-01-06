@@ -46,7 +46,17 @@ export function AccessGuard({
                     setIsAuthorized(true);
                 } else {
                     console.warn(`[ACCESS DENIED] Role ${userRole} not in allowed roles: ${allowedRoles.join(', ')}`);
-                    router.replace(fallbackUrl);
+                    // Determine role-specific redirect
+                    let redirectUrl = fallbackUrl;
+                    if (userRole === 'DCA_MANAGER') {
+                        // Redirect managers to their workbench
+                        redirectUrl = '/manager/dashboard?error=access_denied';
+                    } else if (userRole === 'DCA_AGENT') {
+                        // Redirect agents to their workbench
+                        redirectUrl = '/agent/dashboard?error=access_denied';
+                    }
+
+                    router.replace(redirectUrl);
                 }
             } catch (error) {
                 console.error('Access check failed:', error);

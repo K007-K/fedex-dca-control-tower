@@ -315,7 +315,11 @@ export function withRateLimitedPermission(
             const regionIds = accessibleRegions.map(r => r.region_id);
             const userIsGlobalAdmin = isGlobalRole(user.role);
 
-            if (!userIsGlobalAdmin && regionIds.length === 0) {
+            // DCA roles derive region from their DCA assignment, not user_region_access
+            // Skip region check for DCA roles - they get region from dca_id
+            const isDCA = ['DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT'].includes(user.role);
+
+            if (!userIsGlobalAdmin && !isDCA && regionIds.length === 0) {
                 return NextResponse.json(
                     { error: { code: 'REGION_ACCESS_DENIED', message: 'No region access configured' } },
                     { status: 403, headers: getRateLimitHeaders(rateLimitResult) }

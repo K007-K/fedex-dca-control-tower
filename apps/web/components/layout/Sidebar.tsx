@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { DemoModeToggle } from '@/components/demo/DemoModeComponents';
 import { AgentDemoModeToggle } from '@/components/demo/AgentDemoComponents';
+import { ManagerDemoModeToggle } from '@/components/demo/ManagerDemoComponents';
 import type { UserRole } from '@/lib/auth/rbac';
 
 // Standard navigation items for non-agent roles
@@ -12,9 +13,9 @@ const standardNavigationConfig = [
     { name: 'Overview', href: '/overview', icon: OverviewIcon, roles: 'all' },
     { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon, roles: 'all' },
     { name: 'Cases', href: '/cases', icon: CasesIcon, roles: 'all' },
-    { name: 'DCAs', href: '/dcas', icon: DCAsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'] },
-    { name: 'SLA', href: '/sla', icon: SLAIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'] },
-    { name: 'Analytics', href: '/analytics', icon: AnalyticsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'DCA_ADMIN', 'DCA_MANAGER'] },
+    { name: 'DCAs', href: '/dcas', icon: DCAsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'AUDITOR', 'READONLY'] },
+    { name: 'SLA', href: '/sla', icon: SLAIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'AUDITOR', 'READONLY'] },
+    { name: 'Analytics', href: '/analytics', icon: AnalyticsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'DCA_ADMIN'] },
     { name: 'Reports', href: '/reports', icon: ReportsIcon, roles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST'] },
     { name: 'Notifications', href: '/notifications', icon: NotificationsIcon, roles: 'all' },
     { name: 'Settings', href: '/settings', icon: SettingsIcon, roles: 'all' },
@@ -32,9 +33,45 @@ const agentNavigationConfig = [
     { name: 'Notifications', href: '/agent/notifications', icon: NotificationsIcon },
 ];
 
-// Per spec: Only Profile and Security
+// DCA_MANAGER specific navigation - supervisory workbench
+// Per MASTER UI SPEC v1.0: Dashboard, Cases, Team, Notifications, Profile/Security
+const managerNavigationConfig = [
+    { name: 'Overview', href: '/manager/overview', icon: OverviewIcon },
+    { name: 'Dashboard', href: '/manager/dashboard', icon: DashboardIcon },
+    { name: 'Team Cases', href: '/manager/cases', icon: CasesIcon },
+    { name: 'My Team', href: '/manager/team', icon: TeamIcon },
+    { name: 'Notifications', href: '/manager/notifications', icon: NotificationsIcon },
+];
+
+// Per spec: Only Profile and Security for agents
 const agentSettingsConfig = [
     { name: 'Profile', href: '/settings/profile', icon: ProfileIcon },
+    { name: 'Preferences', href: '/settings/notifications', icon: PreferencesIcon },
+    { name: 'Security', href: '/settings/security', icon: SecurityIcon },
+];
+
+// Manager settings - includes Deletion Requests after Security
+const managerSettingsConfig = [
+    { name: 'Profile', href: '/settings/profile', icon: ProfileIcon },
+    { name: 'Preferences', href: '/settings/notifications', icon: PreferencesIcon },
+    { name: 'Security', href: '/settings/security', icon: SecurityIcon },
+    { name: 'Deletion Requests', href: '/manager/deletion-requests', icon: SecurityIcon },
+];
+
+// DCA_ADMIN specific navigation - vendor owner workbench
+// Per MASTER UI SPEC: Overview, Dashboard, Cases, Team, Notifications, Settings
+const adminNavigationConfig = [
+    { name: 'Overview', href: '/admin/overview', icon: OverviewIcon },
+    { name: 'Dashboard', href: '/admin/dashboard', icon: DashboardIcon },
+    { name: 'Cases', href: '/admin/cases', icon: CasesIcon },
+    { name: 'Team', href: '/admin/team', icon: TeamIcon },
+    { name: 'Notifications', href: '/admin/notifications', icon: NotificationsIcon },
+];
+
+// DCA_ADMIN settings - includes Users management
+const adminSettingsConfig = [
+    { name: 'Profile', href: '/settings/profile', icon: ProfileIcon },
+    { name: 'Users', href: '/settings/users', icon: TeamIcon },  // Uses existing users page with AccessGuard
     { name: 'Preferences', href: '/settings/notifications', icon: PreferencesIcon },
     { name: 'Security', href: '/settings/security', icon: SecurityIcon },
 ];
@@ -42,24 +79,49 @@ const agentSettingsConfig = [
 interface SidebarProps {
     userEmail?: string;
     userRole?: string;
+    collapsed?: boolean;
+    onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-export function Sidebar({ userEmail, userRole = 'READONLY' }: SidebarProps) {
+export function Sidebar({
+    userEmail,
+    userRole = 'READONLY',
+    collapsed: controlledCollapsed,
+    onCollapsedChange
+}: SidebarProps) {
     const pathname = usePathname();
-    const [collapsed, setCollapsed] = useState(false);
+    const [internalCollapsed, setInternalCollapsed] = useState(false);
+
+    // Use controlled or internal state
+    const collapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+    const setCollapsed = (value: boolean) => {
+        if (onCollapsedChange) {
+            onCollapsedChange(value);
+        } else {
+            setInternalCollapsed(value);
+        }
+    };
 
     const isAgent = userRole === 'DCA_AGENT';
+    const isManager = userRole === 'DCA_MANAGER';
+    const isAdmin = userRole === 'DCA_ADMIN';
 
     // Filter navigation based on user role
     const navigation = useMemo(() => {
         if (isAgent) {
             return agentNavigationConfig;
         }
+        if (isManager) {
+            return managerNavigationConfig;
+        }
+        if (isAdmin) {
+            return adminNavigationConfig;
+        }
         return standardNavigationConfig.filter(item => {
             if (item.roles === 'all') return true;
             return (item.roles as readonly string[]).includes(userRole);
         });
-    }, [userRole, isAgent]);
+    }, [userRole, isAgent, isManager, isAdmin]);
 
     return (
         <aside
@@ -89,7 +151,7 @@ export function Sidebar({ userEmail, userRole = 'READONLY' }: SidebarProps) {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto p-4">
+            <nav className={`flex-1 overflow-y-auto ${collapsed ? 'p-2' : 'p-4'}`}>
                 <ul className="space-y-1">
                     {navigation.map((item) => {
                         const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
@@ -97,10 +159,14 @@ export function Sidebar({ userEmail, userRole = 'READONLY' }: SidebarProps) {
                             <li key={item.name}>
                                 <Link
                                     href={item.href}
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group ${isActive
-                                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
+                                    className={`flex items-center rounded-lg font-medium transition-all duration-200 group ${collapsed
+                                        ? 'justify-center p-2.5'
+                                        : 'gap-3 px-3 py-2.5'
+                                        } ${isActive
+                                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
                                         }`}
+                                    title={collapsed ? item.name : undefined}
                                 >
                                     <item.icon
                                         className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'
@@ -130,10 +196,92 @@ export function Sidebar({ userEmail, userRole = 'READONLY' }: SidebarProps) {
                                     <li key={item.name}>
                                         <Link
                                             href={item.href}
-                                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 group ${isActive
-                                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
+                                            className={`flex items-center rounded-lg font-medium transition-all duration-200 group ${collapsed
+                                                ? 'justify-center p-2.5'
+                                                : 'gap-3 px-3 py-2.5'
+                                                } ${isActive
+                                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
                                                 }`}
+                                            title={collapsed ? item.name : undefined}
+                                        >
+                                            <item.icon
+                                                className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'
+                                                    }`}
+                                            />
+                                            {!collapsed && (
+                                                <span className="animate-fade-in truncate">{item.name}</span>
+                                            )}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Manager Settings Section - Only for DCA_MANAGER */}
+                {isManager && (
+                    <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        {!collapsed && (
+                            <p className="px-3 mb-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                Settings
+                            </p>
+                        )}
+                        <ul className="space-y-1">
+                            {managerSettingsConfig.map((item) => {
+                                const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                                return (
+                                    <li key={item.name}>
+                                        <Link
+                                            href={item.href}
+                                            className={`flex items-center rounded-lg font-medium transition-all duration-200 group ${collapsed
+                                                ? 'justify-center p-2.5'
+                                                : 'gap-3 px-3 py-2.5'
+                                                } ${isActive
+                                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
+                                                }`}
+                                            title={collapsed ? item.name : undefined}
+                                        >
+                                            <item.icon
+                                                className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'
+                                                    }`}
+                                            />
+                                            {!collapsed && (
+                                                <span className="animate-fade-in truncate">{item.name}</span>
+                                            )}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+
+                {/* DCA_ADMIN Settings Section - Only for DCA_ADMIN */}
+                {isAdmin && (
+                    <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        {!collapsed && (
+                            <p className="px-3 mb-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                Settings
+                            </p>
+                        )}
+                        <ul className="space-y-1">
+                            {adminSettingsConfig.map((item) => {
+                                const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                                return (
+                                    <li key={item.name}>
+                                        <Link
+                                            href={item.href}
+                                            className={`flex items-center rounded-lg font-medium transition-all duration-200 group ${collapsed
+                                                ? 'justify-center p-2.5'
+                                                : 'gap-3 px-3 py-2.5'
+                                                } ${isActive
+                                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
+                                                }`}
+                                            title={collapsed ? item.name : undefined}
                                         >
                                             <item.icon
                                                 className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'
@@ -153,7 +301,11 @@ export function Sidebar({ userEmail, userRole = 'READONLY' }: SidebarProps) {
 
             {/* Demo Mode Toggle - role-specific */}
             <div className={`px-4 pb-2 ${collapsed ? 'px-2' : ''}`}>
-                {!collapsed && (isAgent ? <AgentDemoModeToggle /> : <DemoModeToggle variant="sidebar" />)}
+                {!collapsed && (
+                    isAgent ? <AgentDemoModeToggle />
+                        : isManager ? <ManagerDemoModeToggle />
+                            : <DemoModeToggle variant="sidebar" />
+                )}
             </div>
 
             {/* User Info */}
@@ -280,6 +432,14 @@ function StatsIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+    );
+}
+
+function TeamIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
     );
 }

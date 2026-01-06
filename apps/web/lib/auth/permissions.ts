@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 import { hasPermission, type Permission, type UserRole, ROLE_PERMISSIONS, isFedExRole, isDCARole } from './rbac';
 
@@ -16,7 +16,7 @@ export interface AuthUser {
 
 /**
  * Get the current authenticated user with role info from database
- * IMPORTANT: Looks up by email (stable) since auth.uid() may differ from users.id
+ * IMPORTANT: Uses admin client to bypass RLS since auth.uid() doesn't match seed user IDs
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
     const supabase = await createClient();
@@ -28,16 +28,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         return null;
     }
 
+    // Use admin client to bypass RLS - necessary because auth.uid() doesn't match seed user IDs
+    const adminSupabase = createAdminClient();
+
     // Fetch user profile from database BY EMAIL (not by ID!)
-    // This is critical because seed data has different IDs than Supabase Auth
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profile, error: profileError } = await (supabase as any)
+    const { data: profile, error: profileError } = await (adminSupabase as any)
         .from('users')
         .select('id, role, organization_id, dca_id')
         .eq('email', user.email)
         .single();
 
     if (profileError || !profile) {
+        console.error('Failed to get user profile:', profileError);
         // User exists in auth but not in users table - return with auth ID
         return {
             id: user.id,  // Fallback to auth ID

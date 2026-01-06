@@ -232,7 +232,7 @@ function UsersContent() {
 // GOVERNANCE: Wrap with AccessGuard - only roles that can manage users
 export default function UsersSettingsPage() {
     return (
-        <AccessGuard allowedRoles={['SUPER_ADMIN', 'FEDEX_ADMIN', 'DCA_ADMIN']}>
+        <AccessGuard allowedRoles={['SUPER_ADMIN', 'FEDEX_ADMIN', 'DCA_ADMIN', 'DCA_MANAGER']}>
             <UsersContent />
         </AccessGuard>
     );

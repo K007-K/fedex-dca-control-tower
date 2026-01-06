@@ -31,12 +31,12 @@ function generateTempPassword(): string {
     return password;
 }
 
-// =====================================================
 // BUSINESS RULES - CREATOR PERMISSION MATRIX (ENTERPRISE MODEL)
 // =====================================================
 // SUPER_ADMIN: Can create all FEDEX roles + DCA_ADMIN
 // FEDEX_ADMIN: Can create FEDEX_MANAGER, FEDEX_ANALYST, READONLY, AUDITOR + DCA_ADMIN
-// DCA_ADMIN: Can create DCA_MANAGER, DCA_AGENT (within own DCA only)
+// DCA_ADMIN: Can create DCA_MANAGER, DCA_AGENT (within own DCA only, assigns state to managers)
+// DCA_MANAGER: Can create DCA_AGENT ONLY (within own DCA, same state, if can_create_agents=true)
 // All others: CANNOT create users
 
 const SUPER_ADMIN_CAN_CREATE: UserRole[] = [
@@ -46,8 +46,9 @@ const FEDEX_ADMIN_CAN_CREATE: UserRole[] = [
     'FEDEX_MANAGER', 'FEDEX_ANALYST', 'READONLY', 'FEDEX_AUDITOR', 'DCA_ADMIN'
 ];
 const DCA_ADMIN_CAN_CREATE: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
+const DCA_MANAGER_CAN_CREATE: UserRole[] = ['DCA_AGENT'];  // Delegated creation
 
-// Roles that are DCA internal (only DCA_ADMIN can create)
+// Roles that are DCA internal (only DCA_ADMIN/DCA_MANAGER can create)
 const DCA_INTERNAL_ROLES: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 
 // =====================================================
@@ -166,6 +167,18 @@ function validateCreatorPermission(
             return {
                 allowed: false,
                 error: `DCA Admin can only create DCA Manager or DCA Agent, not ${targetRole}`
+            };
+        }
+        return { allowed: true };
+    }
+
+    // DCA_MANAGER: Can ONLY create DCA_AGENT (delegated creation)
+    // Additional checks (can_create_agents flag, state inheritance) done in main handler
+    if (creatorRole === 'DCA_MANAGER') {
+        if (!DCA_MANAGER_CAN_CREATE.includes(targetRole)) {
+            return {
+                allowed: false,
+                error: `DCA Manager can only create DCA Agent, not ${targetRole}`
             };
         }
         return { allowed: true };
@@ -385,9 +398,15 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         // =====================================================
         // VALIDATION 3: DCA boundary enforcement
         // DCA ID must come from creator context, not request body
+        // State handling:
+        // - DCA_ADMIN creating DCA_MANAGER: assigns state from body.state_code
+        // - DCA_ADMIN creating DCA_AGENT: optional state_code
+        // - DCA_MANAGER creating DCA_AGENT: inherits state from creator
         // =====================================================
         let dcaId: string | null = null;
         let regionId: string | null = null;
+        let stateCode: string | null = null;
+        let canCreateAgents: boolean = false;
 
         if (isDCARole(targetRole)) {
             if (user.role === 'DCA_ADMIN') {
@@ -416,6 +435,27 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                 if (dcaData?.primary_region_id) {
                     regionId = dcaData.primary_region_id;
                 }
+
+                // STATE ASSIGNMENT for DCA_MANAGER (required)
+                if (targetRole === 'DCA_MANAGER') {
+                    if (!body.state_code) {
+                        await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                            reason: 'State code required when creating DCA_MANAGER',
+                            creator_role: user.role,
+                            target_role: targetRole,
+                        });
+                        return NextResponse.json(
+                            { error: 'State code is required when creating a DCA Manager. Assign a state for this manager to supervise.' },
+                            { status: 400 }
+                        );
+                    }
+                    stateCode = body.state_code;
+                    // New managers get creation rights by default
+                    canCreateAgents = body.can_create_agents !== false;
+                } else if (targetRole === 'DCA_AGENT') {
+                    // DCA_ADMIN creating agent: optional state
+                    stateCode = body.state_code || null;
+                }
             } else if (isFedExRole(user.role) && targetRole === 'DCA_ADMIN') {
                 // FedEx creating DCA_ADMIN: DCA must be provided
                 if (!body.dca_id) {
@@ -442,6 +482,56 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                 if (dcaData?.primary_region_id) {
                     regionId = dcaData.primary_region_id;
                 }
+            } else if (user.role === 'DCA_MANAGER') {
+                // DCA_MANAGER: Delegated agent creation with state inheritance
+                // Check can_create_agents flag
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: creatorData } = await (supabase as any)
+                    .from('users')
+                    .select('dca_id, state_code, can_create_agents')
+                    .eq('id', user.id)
+                    .single();
+
+                if (!creatorData?.can_create_agents) {
+                    await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                        reason: 'DCA Manager creation rights have been revoked',
+                        creator_role: user.role,
+                        target_role: targetRole,
+                    });
+                    return NextResponse.json(
+                        { error: 'Your user creation rights have been revoked by your DCA Admin.' },
+                        { status: 403 }
+                    );
+                }
+
+                if (!creatorData?.dca_id) {
+                    await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'ERROR', user.id, user.email, {
+                        reason: 'DCA Manager has no DCA assigned',
+                        creator_role: user.role,
+                        target_role: targetRole,
+                    });
+                    return NextResponse.json(
+                        { error: 'Your account has no DCA assigned. Contact administrator.' },
+                        { status: 403 }
+                    );
+                }
+
+                dcaId = creatorData.dca_id;
+
+                // Get region from DCA
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: dcaData } = await (supabase as any)
+                    .from('dcas')
+                    .select('region, primary_region_id')
+                    .eq('id', dcaId)
+                    .single();
+
+                if (dcaData?.primary_region_id) {
+                    regionId = dcaData.primary_region_id;
+                }
+
+                // Inherit state from creator (cannot be overridden)
+                stateCode = creatorData.state_code || null;
             }
         }
 
@@ -566,6 +656,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
         // Create user profile
         // GOVERNANCE: Users NEVER store region_id - region access derived from dca_id
+        // State-scoped creation: DCA_MANAGER has state, DCA_AGENT inherits from creator
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (adminClient as any)
             .from('users')
@@ -576,6 +667,9 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                 role: body.role,
                 organization_id: body.organization_id ?? null,
                 dca_id: dcaId,
+                state_code: stateCode,  // State assignment/inheritance
+                can_create_agents: body.role === 'DCA_MANAGER' ? canCreateAgents : false,
+                created_by_user_id: user.id,  // Audit trail
                 // NO primary_region_id - region derived from dca_id → region_dca_assignments
                 phone: body.phone ?? null,
                 timezone: body.timezone ?? 'America/New_York',
@@ -605,15 +699,23 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         // =====================================================
         // AUDIT LOG: Success
         // =====================================================
+        const creationMethod = user.role === 'DCA_MANAGER'
+            ? 'dca_manager_delegated'
+            : user.role === 'DCA_ADMIN'
+                ? 'dca_admin_self_service'
+                : 'fedex_admin';
+
         await logUserCreationAudit(adminClient, 'USER_CREATED', 'INFO', user.id, user.email, {
             target_user_id: data.id,
             target_email: body.email,
             target_role: body.role,
             dca_id: dcaId,
+            state_code: stateCode,
             region_id: regionId,
             region_ids: regionIds.length > 0 ? regionIds : undefined,
+            can_create_agents: body.role === 'DCA_MANAGER' ? canCreateAgents : undefined,
             creator_role: user.role,
-            method: user.role === 'DCA_ADMIN' ? 'dca_self_service' : 'fedex_admin',
+            method: creationMethod,
         });
 
         // =====================================================

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 
 /**
@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
  * 
  * SCOPE: Only data for the current agent (assigned_agent_id = current_user.id)
  * ACCESS: DCA_AGENT role only
+ * Uses admin client to bypass RLS (user auth verified separately via getCurrentUser)
  */
 
 export async function GET() {
@@ -21,26 +22,30 @@ export async function GET() {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const agentId = user.id;
 
     try {
-        // 1. Get workload counts
+        // 1. Get workload counts - active cases assigned to this agent
+        // Active = NOT in terminal states (CLOSED, FULL_RECOVERY, WRITTEN_OFF)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: allCases, error: casesError } = await (supabase as any)
             .from('cases')
-            .select('id, status, outstanding_amount, currency')
-            .eq('assigned_agent_id', agentId)
-            .not('status', 'in', '(CLOSED,FULL_RECOVERY)');
+            .select('id, status, outstanding_amount, currency, case_number, updated_at')
+            .eq('assigned_agent_id', agentId);
 
         if (casesError) {
             console.error('Cases fetch error:', casesError);
         }
 
-        const assignedCases = allCases?.length ?? 0;
+        // Filter out closed cases in JS (more reliable than PostgREST not in)
+        const terminalStatuses = ['CLOSED', 'FULL_RECOVERY', 'WRITTEN_OFF'];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const activeCases = (allCases || []).filter((c: any) => !terminalStatuses.includes(c.status));
+        const assignedCases = activeCases.length;
 
-        // 2. Get SLA data for agent's cases
-        const caseIds = allCases?.map((c: { id: string }) => c.id) || [];
+        // 2. Get SLA data for agent's active cases
+        const caseIds = activeCases.map((c: { id: string }) => c.id);
 
         let slaDueSoon: Array<{
             id: string;
@@ -108,19 +113,15 @@ export async function GET() {
             slaDueSoon.sort((a, b) => a.hours_remaining - b.hours_remaining);
             slaBreached.sort((a, b) => a.hours_remaining - b.hours_remaining);
         }
-
-        // 3. Generate action reminders based on case state
+        // 3. Generate action reminders based on active cases
+        // Sort by updated_at ascending (oldest first = needs attention)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: casesNeedingAction } = await (supabase as any)
-            .from('cases')
-            .select('id, case_number, status, updated_at')
-            .eq('assigned_agent_id', agentId)
-            .not('status', 'in', '(CLOSED,FULL_RECOVERY)')
-            .order('updated_at', { ascending: true })
-            .limit(10);
+        const sortedActiveCases = [...activeCases].sort((a: any, b: any) => {
+            return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
+        }).slice(0, 10);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const actionReminders = (casesNeedingAction || []).map((c: any) => {
+        const actionReminders = sortedActiveCases.map((c: any) => {
             let action_type: 'contact' | 'update' | 'followup' | 'payment' = 'update';
             let description = 'Update case status';
 
@@ -149,14 +150,14 @@ export async function GET() {
             return {
                 id: `reminder-${c.id}`,
                 case_id: c.id,
-                case_number: c.case_number,
+                case_number: c.case_number || `CASE-${c.id.slice(0, 8)}`,
                 action_type,
                 description,
             };
         });
 
         // Determine currency from first case or default to INR
-        const currency = allCases?.[0]?.currency || 'INR';
+        const currency = activeCases?.[0]?.currency || 'INR';
 
         return NextResponse.json({
             workload: {

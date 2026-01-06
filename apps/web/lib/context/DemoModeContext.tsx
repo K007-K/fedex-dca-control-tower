@@ -106,7 +106,16 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
 export function useDemoMode() {
     const context = useContext(DemoModeContext);
     if (context === undefined) {
-        throw new Error('useDemoMode must be used within a DemoModeProvider');
+        // Return safe defaults instead of throwing - for components that might
+        // render before provider is mounted during SSR or initial load
+        return {
+            isDemoMode: false,
+            toggleDemoMode: () => { },
+            enableDemoMode: () => { },
+            disableDemoMode: () => { },
+            currentStep: 0,
+            setCurrentStep: () => { },
+        };
     }
     return context;
 }

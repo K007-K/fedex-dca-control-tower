@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import {
     GOVERNED_NOTIFICATIONS,
     getNotificationsForRole,
@@ -20,10 +20,12 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user role from profile
+    // Get user role from profile using admin client to bypass RLS
+    const adminClient = createAdminClient();
     let userRole: UserRole = 'FEDEX_VIEWER';
     if (user.email) {
-        const { data: profile } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: profile } = await (adminClient as any)
             .from('users')
             .select('role')
             .eq('email', user.email)

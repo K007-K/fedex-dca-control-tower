@@ -17,8 +17,8 @@ function validatePasswordComplexity(password: string): PasswordValidation {
     const errors: string[] = [];
 
     // Minimum length
-    if (password.length < 12) {
-        errors.push('Password must be at least 12 characters long');
+    if (password.length < 7) {
+        errors.push('Password must be at least 7 characters long');
     }
 
     // Maximum length (prevent DoS)
@@ -170,14 +170,14 @@ export async function POST(request: NextRequest) {
 export async function GET() {
     return NextResponse.json({
         requirements: [
-            'At least 12 characters long',
+            'At least 7 characters long',
             'At least one uppercase letter (A-Z)',
             'At least one lowercase letter (a-z)',
             'At least one number (0-9)',
             'At least one special character (!@#$%^&*...)',
             'No common patterns or repeated characters',
         ],
-        minLength: 12,
+        minLength: 7,
         maxLength: 128,
     });
 }

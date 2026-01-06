@@ -33,32 +33,31 @@ export interface PageAccessConfig {
  * Pre-defined page access configurations
  */
 export const PAGE_ACCESS_CONFIG: Record<string, PageAccessConfig> = {
-    // Standard Dashboard - DCA_AGENT should use /agent/dashboard instead
+    // Standard Dashboard - DCA_AGENT and DCA_MANAGER should use their own dashboards
     '/dashboard': {
-        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'],
-        redirectTo: '/agent/dashboard',
-        denyReason: 'DCA Agent should use My Dashboard',
+        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'AUDITOR', 'READONLY'],
+        // Redirect handled specially in guardPage for manager vs agent
+        denyReason: 'DCA Agent/Manager should use their own Dashboard',
     },
 
-    // Standard Cases - DCA_AGENT should use /agent/cases instead
+    // Standard Cases - DCA_AGENT and DCA_MANAGER should use their own case views
     '/cases': {
-        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'],
-        redirectTo: '/agent/cases',
-        denyReason: 'DCA Agent should use My Cases',
+        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'AUDITOR', 'READONLY'],
+        // Redirect handled specially in guardPage for manager vs agent
+        denyReason: 'DCA Agent/Manager should use their own Cases',
     },
 
-    // Overview - DCA_AGENT should use /agent/dashboard instead
+    // Overview - DCA_AGENT and DCA_MANAGER should use their own overviews
     '/overview': {
-        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'],
-        redirectTo: '/agent/dashboard',
-        denyReason: 'DCA Agent should use My Dashboard',
+        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'AUDITOR', 'READONLY'],
+        // Redirect handled specially in guardPage for manager vs agent
+        denyReason: 'DCA Agent/Manager should use their own Overview',
     },
 
-    // Analytics - requires analytics:read permission
+    // Analytics - FedEx roles only (DCA_ADMIN blocked per master spec)
     '/analytics': {
-        requiredPermission: 'analytics:read',
-        // DCA_AGENT has no analytics:read permission in ROLE_PERMISSIONS
-        denyReason: 'User does not have analytics access',
+        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR'],
+        denyReason: 'Analytics is restricted to FedEx roles only',
     },
 
     // Reports - FedEx internal roles only
@@ -67,16 +66,16 @@ export const PAGE_ACCESS_CONFIG: Record<string, PageAccessConfig> = {
         denyReason: 'Reports are restricted to FedEx internal roles',
     },
 
-    // DCAs - DCA_AGENT should NOT access (they only work on assigned cases)
+    // DCAs - FedEx roles only (DCA_ADMIN blocked per master spec - can only see own DCA)
     '/dcas': {
-        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'],
-        denyReason: 'DCA Agent cannot access DCA management page',
+        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'AUDITOR', 'READONLY'],
+        denyReason: 'DCA users cannot access cross-DCA management page',
     },
 
-    // SLA Management - DCA_AGENT should NOT access (they only see SLA on their cases)
+    // SLA Management - FedEx roles only (DCA_ADMIN blocked per master spec)
     '/sla': {
-        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN', 'DCA_MANAGER', 'AUDITOR', 'READONLY'],
-        denyReason: 'DCA Agent cannot access SLA management page',
+        allowedRoles: ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'AUDITOR', 'READONLY'],
+        denyReason: 'SLA templates are FedEx-managed, DCA users cannot modify',
     },
 
     // Settings/Users - requires users:read permission
@@ -170,8 +169,27 @@ export async function guardPage(
         // Log access denial for audit
         console.warn(`[ACCESS DENIED] User ${user.email} (${userRole}) attempted to access ${pagePath}: ${config.denyReason}`);
 
-        // Redirect to dashboard with error
-        const redirectTo = options?.redirectTo || config.redirectTo || '/dashboard';
+        // Determine role-specific redirect for DCA roles
+        let redirectTo = options?.redirectTo || config.redirectTo || '/dashboard';
+
+        // Handle DCA_AGENT and DCA_MANAGER role-specific redirects
+        if (userRole === 'DCA_MANAGER') {
+            if (pagePath === '/overview') redirectTo = '/manager/overview';
+            else if (pagePath === '/dashboard') redirectTo = '/manager/dashboard';
+            else if (pagePath === '/cases') redirectTo = '/manager/cases';
+            else redirectTo = '/manager/dashboard';
+        } else if (userRole === 'DCA_AGENT') {
+            if (pagePath === '/overview') redirectTo = '/agent/overview';
+            else if (pagePath === '/dashboard') redirectTo = '/agent/dashboard';
+            else if (pagePath === '/cases') redirectTo = '/agent/cases';
+            else redirectTo = '/agent/dashboard';
+        } else if (userRole === 'DCA_ADMIN') {
+            if (pagePath === '/overview') redirectTo = '/admin/overview';
+            else if (pagePath === '/dashboard') redirectTo = '/admin/dashboard';
+            else if (pagePath === '/cases') redirectTo = '/admin/cases';
+            else redirectTo = '/admin/dashboard';
+        }
+
         redirect(redirectTo + '?error=access_denied');
     }
 

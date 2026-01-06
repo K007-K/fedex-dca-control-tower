@@ -63,6 +63,46 @@ jobs:
         run: flake8 --max-line-length=120 --ignore=E402,W503 .
         continue-on-error: true
 
+  # GOVERNANCE TESTS - Critical path testing
+  test-web:
+    name: Test Web App (Governance)
+    runs-on: ubuntu-latest
+    needs: lint-web
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Run Governance Tests
+        run: pnpm --filter web test --coverage
+        env:
+          NODE_ENV: test
+          NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key'
+          SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key'
+          SERVICE_SECRET: 'test-service-secret-minimum-32-characters-long'
+          
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: apps/web/coverage
+          retention-days: 7
+
+
   # Build the web application
   build-web:
     name: Build Web App
