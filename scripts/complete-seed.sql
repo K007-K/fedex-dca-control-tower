@@ -1,7 +1,8 @@
 -- ===========================================
--- COMPLETE SEED DATA FOR FEDEX DCA CONTROL TOWER
+-- SEED: DCAs WITH FORM FIELDS ONLY
 -- ===========================================
--- Run this ENTIRE script in Supabase SQL Editor
+-- Run this in Supabase SQL Editor
+-- Only populates fields from DCA creation form
 -- ===========================================
 
 -- Step 1: Create INDIA Region (if not exists)
@@ -9,12 +10,10 @@ INSERT INTO regions (region_code, name, country_codes, state_codes, default_curr
 VALUES ('INDIA', 'India', ARRAY['IN'], ARRAY['MH', 'KA', 'TN', 'DL', 'UP', 'GJ', 'RJ', 'WB', 'AP', 'TS'], 'INR', 'Asia/Kolkata', 'ACTIVE')
 ON CONFLICT (region_code) DO NOTHING;
 
--- Step 2: Get the India region ID
+-- Step 2: Create DCAs with FORM FIELDS ONLY
 DO $$
 DECLARE
     v_india_region_id UUID;
-    v_tata_org_id UUID;
-    v_infosol_org_id UUID;
     v_tata_dca_id UUID;
     v_infosol_dca_id UUID;
 BEGIN
@@ -25,46 +24,52 @@ BEGIN
         RAISE EXCEPTION 'INDIA region not found!';
     END IF;
     
-    RAISE NOTICE 'Using INDIA region: %', v_india_region_id;
+    RAISE NOTICE '✅ Using INDIA region: %', v_india_region_id;
 
-    -- Step 3: Create Organizations (if needed)
-    INSERT INTO organizations (name, type, status, primary_region_id)
-    VALUES ('Tata Recovery Services', 'DCA', 'ACTIVE', v_india_region_id)
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO v_tata_org_id;
+    -- ===========================================
+    -- DCA 1: TATA RECOVERY SERVICES
+    -- ===========================================
     
-    IF v_tata_org_id IS NULL THEN
-        SELECT id INTO v_tata_org_id FROM organizations WHERE name = 'Tata Recovery Services' LIMIT 1;
-    END IF;
-    
-    INSERT INTO organizations (name, type, status, primary_region_id)
-    VALUES ('InfoSol Collections', 'DCA', 'ACTIVE', v_india_region_id)
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO v_infosol_org_id;
-    
-    IF v_infosol_org_id IS NULL THEN
-        SELECT id INTO v_infosol_org_id FROM organizations WHERE name = 'InfoSol Collections' LIMIT 1;
-    END IF;
-    
-    RAISE NOTICE 'Organizations: Tata=%, InfoSol=%', v_tata_org_id, v_infosol_org_id;
-
-    -- Step 4: Create DCAs
     INSERT INTO dcas (
-        name, legal_name, status,
+        -- Basic Information
+        name,
+        legal_name,
+        registration_number,
+        status,
         region_id,
-        organization_id,
-        primary_contact_email, primary_contact_phone, primary_contact_name,
-        capacity_limit,
+        
+        -- Contract Terms
         commission_rate,
-        geographic_coverage
+        min_case_value,
+        max_case_value,
+        
+        -- License & Compliance
+        license_expiry,
+        contract_start_date,
+        contract_end_date,
+        
+        -- Primary Contact
+        primary_contact_name,
+        primary_contact_email,
+        primary_contact_phone
     ) VALUES (
-        'Tata Recovery Services', 'Tata Recovery Services Pvt Ltd', 'ACTIVE',
+        'Tata Recovery Services',
+        'Tata Recovery Services Private Limited',
+        'U74999MH2015PTC123456',
+        'ACTIVE',
         v_india_region_id,
-        v_tata_org_id,
-        'admin@tatarecovery.in', '+91-22-12345678', 'Rajesh Sharma',
-        500,
-        15.00,
-        '{"states": ["MH", "KA", "TN"], "city": "Mumbai", "country": "India"}'::JSONB
+        
+        15.00,              -- commission_rate
+        10000.00,           -- min_case_value (₹10K)
+        5000000.00,         -- max_case_value (₹50 Lakh)
+        
+        '2027-12-31'::DATE, -- license_expiry
+        '2025-01-01'::DATE, -- contract_start_date
+        '2027-12-31'::DATE, -- contract_end_date
+        
+        'Rajesh Sharma',
+        'rajesh.sharma@tatarecovery.in',
+        '+91-22-12345678'
     )
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_tata_dca_id;
@@ -73,22 +78,48 @@ BEGIN
         SELECT id INTO v_tata_dca_id FROM dcas WHERE name = 'Tata Recovery Services' LIMIT 1;
     END IF;
     
+    RAISE NOTICE '✅ Tata DCA: %', v_tata_dca_id;
+
+    -- ===========================================
+    -- DCA 2: INFOSOL COLLECTIONS
+    -- ===========================================
+    
     INSERT INTO dcas (
-        name, legal_name, status,
+        name,
+        legal_name,
+        registration_number,
+        status,
         region_id,
-        organization_id,
-        primary_contact_email, primary_contact_phone, primary_contact_name,
-        capacity_limit,
+        
         commission_rate,
-        geographic_coverage
+        min_case_value,
+        max_case_value,
+        
+        license_expiry,
+        contract_start_date,
+        contract_end_date,
+        
+        primary_contact_name,
+        primary_contact_email,
+        primary_contact_phone
     ) VALUES (
-        'InfoSol Collections', 'InfoSol Collections India Pvt Ltd', 'ACTIVE',
+        'InfoSol Collections',
+        'InfoSol Collections India Private Limited',
+        'U74999DL2018PTC987654',
+        'ACTIVE',
         v_india_region_id,
-        v_infosol_org_id,
-        'admin@infosolcollections.in', '+91-11-98765432', 'Admin User',
-        300,
-        12.00,
-        '{"states": ["DL", "UP"], "city": "New Delhi", "country": "India"}'::JSONB
+        
+        12.00,              -- commission_rate
+        5000.00,            -- min_case_value (₹5K)
+        2500000.00,         -- max_case_value (₹25 Lakh)
+        
+        '2027-06-30'::DATE, -- license_expiry
+        '2025-01-01'::DATE, -- contract_start_date
+        '2027-06-30'::DATE, -- contract_end_date
+        
+        'Priya Gupta',
+        'admin@infosolcollections.in',
+        '+91-11-98765432'
     )
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_infosol_dca_id;
@@ -97,45 +128,126 @@ BEGIN
         SELECT id INTO v_infosol_dca_id FROM dcas WHERE name = 'InfoSol Collections' LIMIT 1;
     END IF;
     
-    RAISE NOTICE 'DCAs created: Tata=%, InfoSol=%', v_tata_dca_id, v_infosol_dca_id;
+    RAISE NOTICE '✅ InfoSol DCA: %', v_infosol_dca_id;
 
-    -- Step 5: Create region-DCA assignments
-    INSERT INTO region_dca_assignments (region_id, dca_id, is_primary, allocation_priority, is_active)
-    VALUES 
-        (v_india_region_id, v_tata_dca_id, true, 1, true),
-        (v_india_region_id, v_infosol_dca_id, false, 2, true)
+    -- ===========================================
+    -- REGION-DCA ASSIGNMENTS (Per-Region Capacity)
+    -- ===========================================
+    
+    -- Tata: capacity=500, priority=1, is_active=true
+    INSERT INTO region_dca_assignments (region_id, dca_id, is_primary, allocation_priority, is_active, capacity_limit)
+    VALUES (v_india_region_id, v_tata_dca_id, true, 1, true, 500)
+    ON CONFLICT DO NOTHING;
+    
+    -- InfoSol: capacity=300, priority=2, is_active=true
+    INSERT INTO region_dca_assignments (region_id, dca_id, is_primary, allocation_priority, is_active, capacity_limit)
+    VALUES (v_india_region_id, v_infosol_dca_id, false, 2, true, 300)
     ON CONFLICT DO NOTHING;
     
     RAISE NOTICE '✅ Region-DCA assignments created';
+
+    -- ===========================================
+    -- LINK EXISTING USERS TO DCAs
+    -- ===========================================
     
-    -- Step 6: Link users to DCAs
-    -- Update agent1@tatarecovery.in to link to Tata DCA
+    -- FedEx users (no DCA, just region)
+    UPDATE users SET 
+        primary_region_id = v_india_region_id,
+        role = 'SUPER_ADMIN'::user_role,
+        is_active = true
+    WHERE email = 'system.admin@fedex.com';
+    
+    UPDATE users SET 
+        primary_region_id = v_india_region_id,
+        role = 'FEDEX_ADMIN'::user_role,
+        is_active = true
+    WHERE email = 'india.admin@fedex.com';
+    
+    UPDATE users SET 
+        primary_region_id = v_india_region_id,
+        role = 'FEDEX_MANAGER'::user_role,
+        is_active = true
+    WHERE email = 'mumbai.manager@fedex.com';
+    
+    -- Tata users
     UPDATE users SET 
         dca_id = v_tata_dca_id,
-        organization_id = v_tata_org_id,
         primary_region_id = v_india_region_id,
-        role = 'DCA_AGENT'
-    WHERE email = 'agent1@tatarecovery.in';
+        role = 'DCA_ADMIN'::user_role,
+        is_active = true
+    WHERE email = 'rajesh.sharma@tatarecovery.in';
     
-    RAISE NOTICE '✅ User agent1@tatarecovery.in linked to Tata DCA';
+    UPDATE users SET 
+        dca_id = v_tata_dca_id,
+        primary_region_id = v_india_region_id,
+        role = 'DCA_MANAGER'::user_role,
+        is_active = true
+    WHERE email = 'manager@tatarecovery.in';
     
+    UPDATE users SET 
+        dca_id = v_tata_dca_id,
+        primary_region_id = v_india_region_id,
+        role = 'DCA_AGENT'::user_role,
+        is_active = true
+    WHERE email IN ('agent1@tatarecovery.in', 'agent2@tatarecovery.in');
+    
+    -- InfoSol users
+    UPDATE users SET 
+        dca_id = v_infosol_dca_id,
+        primary_region_id = v_india_region_id,
+        role = 'DCA_ADMIN'::user_role,
+        is_active = true
+    WHERE email = 'admin@infosolcollections.in';
+    
+    UPDATE users SET 
+        dca_id = v_infosol_dca_id,
+        primary_region_id = v_india_region_id,
+        role = 'DCA_MANAGER'::user_role,
+        is_active = true
+    WHERE email = 'manager@infosolcollections.in';
+    
+    UPDATE users SET 
+        dca_id = v_infosol_dca_id,
+        primary_region_id = v_india_region_id,
+        role = 'DCA_AGENT'::user_role,
+        is_active = true
+    WHERE email IN ('agent1@infosolcollections.in', 'agent2@infosolcollections.in');
+    
+    RAISE NOTICE '✅ All users linked';
+
 END $$;
 
--- Final verification
-SELECT '=== SEED DATA VERIFICATION ===' AS status;
+-- ===========================================
+-- VERIFICATION
+-- ===========================================
 
-SELECT 'Regions' AS entity, COUNT(*) AS count FROM regions
-UNION ALL
-SELECT 'DCAs' AS entity, COUNT(*) AS count FROM dcas
-UNION ALL
-SELECT 'Organizations' AS entity, COUNT(*) AS count FROM organizations
-UNION ALL
-SELECT 'Users' AS entity, COUNT(*) AS count FROM users
-UNION ALL
-SELECT 'Region-DCA Assignments' AS entity, COUNT(*) AS count FROM region_dca_assignments;
+SELECT '=== SEED COMPLETE ===' AS status;
 
 -- Show DCAs
-SELECT id, name, status, region_id FROM dcas;
+SELECT 
+    name,
+    status::text,
+    commission_rate,
+    min_case_value,
+    max_case_value,
+    license_expiry,
+    primary_contact_name,
+    primary_contact_email
+FROM dcas;
 
--- Show users with roles
-SELECT id, email, role, dca_id, organization_id FROM users;
+-- Show Users with roles
+SELECT 
+    email,
+    role::text,
+    dca_id IS NOT NULL AS has_dca
+FROM users
+ORDER BY role, email;
+
+-- Counts
+SELECT 'Regions' AS entity, COUNT(*) AS count FROM regions
+UNION ALL
+SELECT 'DCAs', COUNT(*) FROM dcas
+UNION ALL
+SELECT 'Users', COUNT(*) FROM users
+UNION ALL
+SELECT 'Region-DCA Links', COUNT(*) FROM region_dca_assignments;
