@@ -66,13 +66,22 @@ async function logUserUpdateAudit(
 /**
  * GET /api/users/[id] - Get a specific user
  * Permission: users:read
+ * 
+ * GOVERNANCE (STRICT):
+ * - SUPER_ADMIN: Can view all FedEx roles + DCA_ADMIN only (not DCA_MANAGER, DCA_AGENT)
+ * - FEDEX_ADMIN: Can view FedEx roles (below) + DCA_ADMIN only (not SUPER_ADMIN, not DCA internal)
+ * - FEDEX_MANAGER/ANALYST/AUDITOR/VIEWER: Read-only access to users they can see
+ * - DCA_ADMIN: Can view DCA_MANAGER + DCA_AGENT in their own DCA only
+ * - DCA_MANAGER: Can view DCA_AGENT in their own DCA only
+ * - DCA_AGENT: No user access
  */
 const handleGetUser: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        const adminClient = getAdminClient();
 
-        const { data, error } = await supabase
+        // Use admin client to bypass RLS
+        const { data, error } = await adminClient
             .from('users')
             .select('*, organization:organizations(name), dca:dcas(name)')
             .eq('id', id)
@@ -80,6 +89,58 @@ const handleGetUser: ApiHandler = async (request, { params, user }) => {
 
         if (error || !data) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        const targetRole = data.role;
+        const targetDcaId = data.dca_id;
+        const currentRole = user.role;
+        const currentDcaId = user.dcaId;
+
+        // Helper: Define role categories
+        const FEDEX_INTERNAL_ROLES = ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'];
+        const DCA_INTERNAL_ROLES = ['DCA_MANAGER', 'DCA_AGENT'];
+
+        // =====================================================
+        // GOVERNANCE: Role-based visibility rules
+        // =====================================================
+
+        if (currentRole === 'SUPER_ADMIN') {
+            // SUPER_ADMIN: Can see FedEx roles + DCA_ADMIN; NOT DCA internal users
+            if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+        } else if (currentRole === 'FEDEX_ADMIN') {
+            // FEDEX_ADMIN: Cannot see SUPER_ADMIN or DCA internal users
+            if (targetRole === 'SUPER_ADMIN') {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+            if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+        } else if (['FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'].includes(currentRole)) {
+            // Other FedEx roles: Can only see FedEx users + DCA_ADMIN (not DCA internal)
+            if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+        } else if (currentRole === 'DCA_ADMIN') {
+            // DCA_ADMIN: Can only see DCA_MANAGER + DCA_AGENT in their own DCA
+            if (!DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+            if (targetDcaId !== currentDcaId) {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+        } else if (currentRole === 'DCA_MANAGER') {
+            // DCA_MANAGER: Can only see DCA_AGENT in their own DCA
+            if (targetRole !== 'DCA_AGENT') {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+            if (targetDcaId !== currentDcaId) {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+        } else if (currentRole === 'DCA_AGENT') {
+            // DCA_AGENT: No user access
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
         return NextResponse.json({ data });
@@ -149,6 +210,54 @@ const handleUpdateUser: ApiHandler = async (request, { params, user: currentUser
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
+        const targetRole = existingUser.role;
+        const targetDcaId = existingUser.dca_id;
+        const userRole = currentUser.role;
+        const userDcaId = currentUser.dcaId;
+
+        // Helper: Define role categories
+        const DCA_INTERNAL_ROLES = ['DCA_MANAGER', 'DCA_AGENT'];
+
+        // =====================================================
+        // GOVERNANCE: Role-based update restrictions (STRICT)
+        // =====================================================
+        if (userRole === 'SUPER_ADMIN') {
+            // SUPER_ADMIN: Can update FedEx roles + DCA_ADMIN; NOT DCA internal
+            if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'Cannot manage internal DCA users' }, { status: 403 });
+            }
+        } else if (userRole === 'FEDEX_ADMIN') {
+            // FEDEX_ADMIN: Cannot update SUPER_ADMIN or DCA internal users
+            if (targetRole === 'SUPER_ADMIN') {
+                return NextResponse.json({ error: 'Cannot manage Super Admin' }, { status: 403 });
+            }
+            if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'Cannot manage internal DCA users' }, { status: 403 });
+            }
+        } else if (['FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'].includes(userRole)) {
+            // Other FedEx roles: No user update permission
+            return NextResponse.json({ error: 'You do not have permission to update users' }, { status: 403 });
+        } else if (userRole === 'DCA_ADMIN') {
+            // DCA_ADMIN: Can only update DCA_MANAGER + DCA_AGENT in their own DCA
+            if (!DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'Cannot manage non-DCA users' }, { status: 403 });
+            }
+            if (targetDcaId !== userDcaId) {
+                return NextResponse.json({ error: 'Cannot update users outside your DCA' }, { status: 403 });
+            }
+        } else if (userRole === 'DCA_MANAGER') {
+            // DCA_MANAGER: Can only update DCA_AGENT in their own DCA
+            if (targetRole !== 'DCA_AGENT') {
+                return NextResponse.json({ error: 'You can only update DCA Agent users' }, { status: 403 });
+            }
+            if (targetDcaId !== userDcaId) {
+                return NextResponse.json({ error: 'Cannot update users outside your DCA' }, { status: 403 });
+            }
+        } else if (userRole === 'DCA_AGENT') {
+            // DCA_AGENT: No user management
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
         // Build old values for audit
         const oldValues: Record<string, unknown> = {};
         for (const field of changedFields) {
@@ -216,6 +325,14 @@ const handleUpdateUser: ApiHandler = async (request, { params, user: currentUser
 /**
  * DELETE /api/users/[id] - Delete a user
  * Permission: users:delete
+ * 
+ * GOVERNANCE (STRICT):
+ * - SUPER_ADMIN: Can delete FedEx roles + DCA_ADMIN; NOT DCA internal
+ * - FEDEX_ADMIN: Can delete FedEx (below) + DCA_ADMIN; NOT SUPER_ADMIN or DCA internal
+ * - FEDEX_MANAGER/ANALYST/AUDITOR/VIEWER: No delete permission
+ * - DCA_ADMIN: Can delete DCA_MANAGER + DCA_AGENT in their own DCA
+ * - DCA_MANAGER: Can delete DCA_AGENT in their own DCA
+ * - DCA_AGENT: No delete permission
  */
 const handleDeleteUser: ApiHandler = async (request, { params, user: currentUser }) => {
     try {
@@ -227,6 +344,65 @@ const handleDeleteUser: ApiHandler = async (request, { params, user: currentUser
         }
 
         const adminClient = getAdminClient();
+
+        // Fetch the user to be deleted for governance checks
+        const { data: targetUser, error: fetchError } = await adminClient
+            .from('users')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !targetUser) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        const targetRole = targetUser.role;
+        const targetDcaId = targetUser.dca_id;
+        const userRole = currentUser.role;
+        const userDcaId = currentUser.dcaId;
+
+        // Helper: Define role categories
+        const DCA_INTERNAL_ROLES = ['DCA_MANAGER', 'DCA_AGENT'];
+
+        // =====================================================
+        // GOVERNANCE: Role-based delete restrictions (STRICT)
+        // =====================================================
+        if (userRole === 'SUPER_ADMIN') {
+            // SUPER_ADMIN: Can delete FedEx roles + DCA_ADMIN; NOT DCA internal
+            if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'Cannot manage internal DCA users' }, { status: 403 });
+            }
+        } else if (userRole === 'FEDEX_ADMIN') {
+            // FEDEX_ADMIN: Cannot delete SUPER_ADMIN or DCA internal users
+            if (targetRole === 'SUPER_ADMIN') {
+                return NextResponse.json({ error: 'Cannot manage Super Admin' }, { status: 403 });
+            }
+            if (DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'Cannot manage internal DCA users' }, { status: 403 });
+            }
+        } else if (['FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'].includes(userRole)) {
+            // Other FedEx roles: No delete permission
+            return NextResponse.json({ error: 'You do not have permission to delete users' }, { status: 403 });
+        } else if (userRole === 'DCA_ADMIN') {
+            // DCA_ADMIN: Can only delete DCA_MANAGER + DCA_AGENT in their own DCA
+            if (!DCA_INTERNAL_ROLES.includes(targetRole)) {
+                return NextResponse.json({ error: 'Cannot manage non-DCA users' }, { status: 403 });
+            }
+            if (targetDcaId !== userDcaId) {
+                return NextResponse.json({ error: 'Cannot delete users outside your DCA' }, { status: 403 });
+            }
+        } else if (userRole === 'DCA_MANAGER') {
+            // DCA_MANAGER: Can only delete DCA_AGENT in their own DCA
+            if (targetRole !== 'DCA_AGENT') {
+                return NextResponse.json({ error: 'You can only delete DCA Agent users' }, { status: 403 });
+            }
+            if (targetDcaId !== userDcaId) {
+                return NextResponse.json({ error: 'Cannot delete users outside your DCA' }, { status: 403 });
+            }
+        } else if (userRole === 'DCA_AGENT') {
+            // DCA_AGENT: No delete permission
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
 
         // Handle all foreign key constraints by setting them to null
         const admin = adminClient;
@@ -261,7 +437,18 @@ const handleDeleteUser: ApiHandler = async (request, { params, user: currentUser
         await admin.from('dcas').update({ created_by: null }).eq('created_by', id);
         await admin.from('dcas').update({ updated_by: null }).eq('updated_by', id);
 
-        // Now delete from users table
+        // Delete from Supabase Auth FIRST (most critical step)
+        // If this fails, user can still login, so we must ensure it succeeds
+        const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(id);
+        if (authDeleteError) {
+            console.error('Delete auth user error:', authDeleteError);
+            return NextResponse.json({
+                error: 'Failed to delete user from authentication system',
+                details: authDeleteError.message
+            }, { status: 500 });
+        }
+
+        // Now delete from users table (after auth is deleted, user can't login)
         const { error: profileError } = await admin
             .from('users')
             .delete()
@@ -269,17 +456,9 @@ const handleDeleteUser: ApiHandler = async (request, { params, user: currentUser
 
         if (profileError) {
             console.error('Delete user profile error:', profileError);
-            return NextResponse.json({
-                error: 'Failed to delete user profile',
-                details: profileError.message
-            }, { status: 500 });
-        }
-
-        // Delete from Supabase Auth
-        try {
-            await adminClient.auth.admin.deleteUser(id);
-        } catch (authErr) {
-            console.error('Delete auth user error (non-fatal):', authErr);
+            // Auth user is already deleted, so this is a partial failure
+            // Log but don't fail completely - the user can't login anymore
+            console.warn('Profile deletion failed after auth deletion - orphaned auth delete');
         }
 
         return NextResponse.json({ message: 'User deleted successfully' });

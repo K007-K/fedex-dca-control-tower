@@ -223,8 +223,10 @@ export default function CreateUserPage() {
     const isManager = currentUser?.role === 'DCA_MANAGER';
     // GOVERNANCE: No region selectors - region derived from dca_id
     const showDCASelector = isFedExUser && formData.role === 'DCA_ADMIN';
-    // Show state selector for DCA_ADMIN creating DCA_MANAGER
-    const showStateSelector = currentUser?.role === 'DCA_ADMIN' && formData.role === 'DCA_MANAGER';
+    // Show state selector for DCA users creating agents/managers (if DCA has multiple states)
+    const showStateSelector = isDCAUser && isDCARole && dcaOperatingRegions.length > 1;
+    // Show auto-assign message if DCA has single state
+    const showAutoAssignMessage = isDCAUser && isDCARole && dcaOperatingRegions.length === 1;
 
 
     // Set default role when available roles are loaded
@@ -234,27 +236,44 @@ export default function CreateUserPage() {
         }
     }, [getAvailableRoles, formData.role]);
 
-    // Fetch DCA operating regions when DCA is selected (for DCA_ADMIN creation)
+    // Fetch DCA operating regions for DCA users creating agents OR FedEx creating DCA_ADMIN
     useEffect(() => {
         async function fetchDcaOperatingRegions() {
-            if (!formData.dcaId || formData.role !== 'DCA_ADMIN') {
+            // For DCA users: use their own dca_id
+            // For FedEx creating DCA_ADMIN: use selected dca_id
+            const dcaIdToUse = currentUser?.dcaId || formData.dcaId;
+
+            // Only fetch if we have a DCA and the role being created is a DCA role
+            const shouldFetch = (isDCAUser && isDCARole) ||
+                (isFedExUser && formData.role === 'DCA_ADMIN' && formData.dcaId);
+
+            if (!shouldFetch || !dcaIdToUse) {
                 setDcaOperatingRegions([]);
                 return;
             }
 
             try {
                 // Fetch region_dca_assignments for this DCA
-                const response = await fetch(`/api/dcas/${formData.dcaId}/regions`);
+                const response = await fetch(`/api/dcas/${dcaIdToUse}/regions`);
                 if (response.ok) {
                     const data = await response.json();
                     // Extract region IDs from assignments
                     const regionIds = data.regions?.map((r: { region_id: string }) => r.region_id) || [];
                     setDcaOperatingRegions(regionIds);
-                    // Auto-clear selected regions that are not in DCA's operating regions
-                    setFormData(prev => ({
-                        ...prev,
-                        regionIds: prev.regionIds.filter(id => regionIds.includes(id))
-                    }));
+
+                    // Auto-select if single region (hybrid approach)
+                    if (regionIds.length === 1 && isDCAUser && isDCARole) {
+                        setFormData(prev => ({
+                            ...prev,
+                            regionIds: regionIds // Auto-assign single region
+                        }));
+                    } else {
+                        // Auto-clear selected regions that are not in DCA's operating regions
+                        setFormData(prev => ({
+                            ...prev,
+                            regionIds: prev.regionIds.filter((id: string) => regionIds.includes(id))
+                        }));
+                    }
                 } else {
                     console.error('Failed to fetch DCA regions');
                     setDcaOperatingRegions([]);
@@ -265,7 +284,7 @@ export default function CreateUserPage() {
             }
         }
         fetchDcaOperatingRegions();
-    }, [formData.dcaId, formData.role]);
+    }, [currentUser?.dcaId, formData.dcaId, formData.role, isDCAUser, isFedExUser, isDCARole]);
 
     // Get filtered regions based on context
     const availableRegions = useMemo(() => {
@@ -557,37 +576,52 @@ export default function CreateUserPage() {
                         </div>
                     )}
 
-                    {/* State Selector for DCA_ADMIN creating DCA_MANAGER */}
+                    {/* State Selector for DCA users creating DCA roles - dynamic based on DCA regions */}
                     {showStateSelector && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Assign State <span className="text-red-500">*</span>
+                                Assign State(s) <span className="text-red-500">*</span>
                             </label>
-                            <select
-                                required
-                                value={formData.stateCode}
-                                onChange={(e) => setFormData({ ...formData, stateCode: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white"
-                            >
-                                <option value="">Select a state...</option>
-                                <option value="MH">Maharashtra (MH)</option>
-                                <option value="KA">Karnataka (KA)</option>
-                                <option value="TN">Tamil Nadu (TN)</option>
-                                <option value="DL">Delhi (DL)</option>
-                                <option value="UP">Uttar Pradesh (UP)</option>
-                                <option value="GJ">Gujarat (GJ)</option>
-                                <option value="RJ">Rajasthan (RJ)</option>
-                                <option value="WB">West Bengal (WB)</option>
-                                <option value="AP">Andhra Pradesh (AP)</option>
-                                <option value="TS">Telangana (TS)</option>
-                            </select>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                This manager will supervise agents in the selected state only.
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                Select which state(s) this {formData.role === 'DCA_MANAGER' ? 'manager' : 'agent'} will handle.
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-[#333] rounded-lg p-3">
+                                {regions.filter(r => dcaOperatingRegions.includes(r.id)).map(region => (
+                                    <label key={region.id} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.regionIds.includes(region.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setFormData({ ...formData, regionIds: [...formData.regionIds, region.id] });
+                                                } else {
+                                                    setFormData({ ...formData, regionIds: formData.regionIds.filter(id => id !== region.id) });
+                                                }
+                                            }}
+                                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">{region.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {formData.regionIds.length > 0 && (
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                                    ✓ {formData.regionIds.length} state(s) selected
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Auto-assign message when DCA has single state */}
+                    {showAutoAssignMessage && (
+                        <div className="bg-green-50 dark:bg-green-500/10 rounded-lg p-4 border border-green-200 dark:border-green-500/30">
+                            <p className="text-sm text-green-700 dark:text-green-400">
+                                ✓ This {formData.role === 'DCA_MANAGER' ? 'manager' : 'agent'} will be automatically assigned to <strong>{regions.find(r => r.id === dcaOperatingRegions[0])?.name || 'your DCA state'}</strong>.
                             </p>
                         </div>
                     )}
 
-                    {/* DCA_MANAGER Info - read-only state inheritance */}
+                    {/* DCA_MANAGER creating agent - inherits manager's state */}
                     {isManager && (
                         <div className="bg-blue-50 dark:bg-blue-500/10 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
                             <p className="text-sm text-blue-700 dark:text-blue-400">
@@ -597,7 +631,7 @@ export default function CreateUserPage() {
                     )}
 
                     {/* ENTERPRISE MODEL: Explicit Region Selection */}
-                    {/* Hide for DCA Admin creating DCA roles - they inherit region from DCA */}
+                    {/* Hide for DCA Admin creating DCA roles - they use the state selector above */}
                     {availableRegions.length > 0 && !(isDCAUser && isDCARole) && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -633,8 +667,8 @@ export default function CreateUserPage() {
                         </div>
                     )}
 
-                    {/* DCA Info for DCA users (read-only) */}
-                    {isDCAUser && isDCARole && (
+                    {/* DCA Info for DCA users - show DCA assignment */}
+                    {isDCAUser && isDCARole && !showStateSelector && !showAutoAssignMessage && !isManager && (
                         <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#333]">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 DCA Assignment

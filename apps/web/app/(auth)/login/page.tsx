@@ -44,21 +44,36 @@ function LoginForm() {
                 return;
             }
 
-            // Fetch user role to determine redirect
+            // Fetch user role and active status to determine redirect
             let targetRedirect = redirectTo;
 
-            if (authData?.user?.id) {
+            if (authData?.user?.email) {
                 try {
-                    const { data: userData } = await supabase
-                        .from('users')
-                        .select('role')
-                        .eq('id', authData.user.id)
-                        .single();
+                    // Use API endpoint to bypass RLS and check is_active status
+                    const checkResponse = await fetch('/api/auth/check-active', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: authData.user.email })
+                    });
+
+                    const checkData = await checkResponse.json();
+
+                    // SECURITY: Block inactive users from logging in
+                    if (checkData.is_active === false) {
+                        // Sign out the user immediately
+                        await supabase.auth.signOut();
+                        setError('Your account has been deactivated. Please contact your administrator.');
+                        return;
+                    }
 
                     // DCA_AGENT should go to their workbench
-                    const userRole = (userData as { role?: string } | null)?.role;
+                    const userRole = checkData.role;
                     if (userRole === 'DCA_AGENT') {
                         targetRedirect = '/agent/dashboard';
+                    } else if (userRole === 'DCA_MANAGER') {
+                        targetRedirect = '/manager/dashboard';
+                    } else if (userRole === 'DCA_ADMIN') {
+                        targetRedirect = '/admin/dashboard';
                     }
                 } catch {
                     // If role fetch fails, use default redirect

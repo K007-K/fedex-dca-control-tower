@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logUserAction } from '@/lib/audit';
 import {
     validateProfileUpdate,
@@ -22,10 +22,13 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Use admin client to bypass RLS for role lookup
+    const adminSupabase = createAdminClient();
+
     // Try to fetch user profile from users table
     // First try by auth_user_id, then by email
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let { data: profile } = await (supabase as any)
+    let { data: profile } = await (adminSupabase as any)
         .from('users')
         .select('*')
         .eq('auth_user_id', user.id)
@@ -34,7 +37,7 @@ export async function GET() {
     // Fallback: try by email if auth_user_id didn't match
     if (!profile && user.email) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profileByEmail } = await (supabase as any)
+        const { data: profileByEmail } = await (adminSupabase as any)
             .from('users')
             .select('*')
             .eq('email', user.email)
@@ -44,7 +47,7 @@ export async function GET() {
         // If found by email, update the auth_user_id for future queries
         if (profile && !profile.auth_user_id) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any)
+            await (adminSupabase as any)
                 .from('users')
                 .update({ auth_user_id: user.id })
                 .eq('id', profile.id);

@@ -50,9 +50,10 @@ const agentSettingsConfig = [
     { name: 'Security', href: '/settings/security', icon: SecurityIcon },
 ];
 
-// Manager settings - includes Deletion Requests after Security
+// Manager settings - includes Users and Deletion Requests
 const managerSettingsConfig = [
     { name: 'Profile', href: '/settings/profile', icon: ProfileIcon },
+    { name: 'Users', href: '/settings/users', icon: TeamIcon },
     { name: 'Preferences', href: '/settings/notifications', icon: PreferencesIcon },
     { name: 'Security', href: '/settings/security', icon: SecurityIcon },
     { name: 'Deletion Requests', href: '/manager/deletion-requests', icon: SecurityIcon },

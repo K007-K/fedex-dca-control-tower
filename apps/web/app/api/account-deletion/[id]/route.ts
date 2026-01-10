@@ -121,33 +121,59 @@ export async function PUT(
             );
         }
 
-        // If approved, mark user as inactive (soft delete)
+        // If approved, FULLY DELETE the user (not just deactivate)
         if (action === 'approve') {
-            // Update user status to inactive
-            await (adminClient as any)
+            const userId = deletionRequest.user_id;
+
+            // Step 1: Delete from Supabase Auth FIRST (critical for preventing login)
+            try {
+                await adminClient.auth.admin.deleteUser(userId);
+            } catch (authErr) {
+                console.error('Failed to delete auth user:', authErr);
+                // If auth deletion fails, we should not continue
+                return NextResponse.json(
+                    { error: 'Failed to delete user from authentication system' },
+                    { status: 500 }
+                );
+            }
+
+            // Step 2: Clean up foreign key references
+            try {
+                await (adminClient as any).from('notifications').delete().eq('recipient_id', userId);
+                await (adminClient as any).from('audit_logs').delete().eq('user_id', userId);
+            } catch (cleanupErr) {
+                console.warn('Some cleanup operations failed:', cleanupErr);
+                // Non-fatal - user already can't login
+            }
+
+            // Step 3: Delete user profile
+            const { error: deleteError } = await (adminClient as any)
                 .from('users')
-                .update({
-                    is_active: false,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', deletionRequest.user_id);
+                .delete()
+                .eq('id', userId);
+
+            if (deleteError) {
+                console.error('Failed to delete user profile:', deleteError);
+                // Auth is already deleted, so user can't login - log but don't fail
+                console.warn('User auth deleted but profile deletion failed');
+            }
         }
 
         // Log the action
         try {
             const { logUserAction } = await import('@/lib/audit');
-            await logUserAction(
-                action === 'approve' ? 'ACCOUNT_DELETION_APPROVED' : 'ACCOUNT_DELETION_REJECTED',
-                user.id,
-                user.email,
-                'account_deletion_requests',
-                requestId,
-                {
+            await logUserAction({
+                action: (action === 'approve' ? 'ACCOUNT_DELETION_APPROVED' : 'ACCOUNT_DELETION_REJECTED') as any,
+                userId: user.id,
+                userEmail: user.email,
+                resourceType: 'account_deletion_requests',
+                resourceId: requestId,
+                details: {
                     requester_id: deletionRequest.user_id,
                     requester_email: deletionRequest.requester_email,
                     notes,
-                }
-            );
+                },
+            });
         } catch { }
 
         return NextResponse.json({

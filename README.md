@@ -257,6 +257,65 @@ fedex-dca-control-tower/
 
 ---
 
+## 🧪 Test Users & Demo Access
+
+> **Password for ALL test users:** `Password123!`
+
+### ✅ Completed UI Workbenches
+
+| Role | Email | Status | Description |
+|------|-------|--------|-------------|
+| **DCA_AGENT** | `agent1@tatarecovery.in` | ✅ V1 Complete | Agent case workbench with case management, activities, and performance tracking |
+| **DCA_MANAGER** | `manager@tatarecovery.in` | ✅ V1 Complete | Manager dashboard with team oversight, agent management, and case allocation |
+
+### 🚧 UI In Development
+
+| Role | Email | Status | Description |
+|------|-------|--------|-------------|
+| SUPER_ADMIN | `system.admin@fedex.com` | 🚧 In Progress | Full platform governance access |
+| FEDEX_ADMIN | `india.admin@fedex.com` | 🚧 In Progress | Regional admin controls |
+| FEDEX_MANAGER | `mumbai.manager@fedex.com` | 🚧 In Progress | Regional operations management |
+| DCA_ADMIN | `rajesh.sharma@tatarecovery.in` | 🚧 In Progress | DCA-level administration |
+
+### 🔑 Quick Login (Recommended Test Accounts)
+
+```bash
+# DCA Agent Workbench (V1 Complete ✅)
+Email: agent1@tatarecovery.in
+Password: Password123!
+
+# DCA Manager Dashboard (V1 Complete ✅)
+Email: manager@tatarecovery.in
+Password: Password123!
+```
+
+### 📋 All Available Test Users
+
+**FedEx Users:**
+| Email | Role | Region |
+|-------|------|--------|
+| `system.admin@fedex.com` | SUPER_ADMIN | Global |
+| `india.admin@fedex.com` | FEDEX_ADMIN | INDIA |
+| `mumbai.manager@fedex.com` | FEDEX_MANAGER | INDIA |
+
+**Tata Recovery Services (DCA):**
+| Email | Role | State |
+|-------|------|-------|
+| `rajesh.sharma@tatarecovery.in` | DCA_ADMIN | All |
+| `manager@tatarecovery.in` | DCA_MANAGER | MH |
+| `agent1@tatarecovery.in` | DCA_AGENT | MH |
+| `agent2@tatarecovery.in` | DCA_AGENT | MH |
+
+**InfoSol Collections (DCA):**
+| Email | Role | State |
+|-------|------|-------|
+| `admin@infosolcollections.in` | DCA_ADMIN | All |
+| `manager@infosolcollections.in` | DCA_MANAGER | DL |
+| `agent1@infosolcollections.in` | DCA_AGENT | DL |
+| `agent2@infosolcollections.in` | DCA_AGENT | DL |
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -401,5 +460,5 @@ This project is proprietary software developed for FedEx internal use.
 ---
 
 **Maintained by:** Me  
-**Last Updated:** 2026-01-07  
+**Last Updated:** 2026-01-11  
 **Version:** 1.0.0

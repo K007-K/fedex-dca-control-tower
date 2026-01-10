@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { UserPlus } from 'lucide-react';
 
 interface TeamMember {
     id: string;
@@ -31,25 +32,42 @@ export default function ManagerTeamPage() {
     const [data, setData] = useState<TeamData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [canCreateAgents, setCanCreateAgents] = useState(false);
+
+    const fetchTeam = useCallback(async () => {
+        try {
+            const res = await fetch('/api/manager/team');
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to load team');
+            }
+            const json = await res.json();
+            setData(json);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchTeam = async () => {
+        // Fetch team data
+        fetchTeam();
+
+        // Fetch manager permissions
+        const fetchPermissions = async () => {
             try {
-                const res = await fetch('/api/manager/team');
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || 'Failed to load team');
+                const res = await fetch('/api/settings/profile');
+                if (res.ok) {
+                    const profile = await res.json();
+                    setCanCreateAgents(profile.can_create_agents === true);
                 }
-                const json = await res.json();
-                setData(json);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load');
-            } finally {
-                setLoading(false);
+            } catch {
+                // Ignore - default to false
             }
         };
-        fetchTeam();
-    }, []);
+        fetchPermissions();
+    }, [fetchTeam]);
 
     if (loading) {
         return (
@@ -75,13 +93,24 @@ export default function ManagerTeamPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    My Team
-                </h1>
-                <p className="text-gray-500 dark:text-gray-400">
-                    {data?.dcaName} — Agents and operational metrics
-                </p>
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        My Team
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400">
+                        {data?.dcaName} — Agents and operational metrics
+                    </p>
+                </div>
+                {canCreateAgents && (
+                    <Link
+                        href="/settings/users/new"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Add Agent
+                    </Link>
+                )}
             </div>
 
             {/* Notice about metrics */}

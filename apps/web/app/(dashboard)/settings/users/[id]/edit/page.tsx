@@ -12,6 +12,9 @@ const LockIcon = () => (
     </svg>
 );
 
+// Roles that have users:delete permission
+const ROLES_WITH_DELETE = ['SUPER_ADMIN', 'FEDEX_ADMIN', 'DCA_ADMIN', 'DCA_MANAGER'];
+
 interface User {
     id: string;
     email: string;
@@ -32,19 +35,31 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [userId, setUserId] = useState<string>('');
+    const [canDelete, setCanDelete] = useState(false);
     const confirm = useConfirm();
 
     useEffect(() => {
-        async function loadUser() {
+        async function loadData() {
             const { id } = await params;
             setUserId(id);
             try {
-                const res = await fetch(`/api/users/${id}`);
-                const data = await res.json();
-                if (res.ok && data.data) {
-                    setUser(data.data);
+                // Fetch current user's info for permission check
+                const [userRes, meRes] = await Promise.all([
+                    fetch(`/api/users/${id}`),
+                    fetch('/api/me')
+                ]);
+
+                const userData = await userRes.json();
+                if (userRes.ok && userData.data) {
+                    setUser(userData.data);
                 } else {
                     setError('User not found');
+                }
+
+                // Check if current user can delete
+                if (meRes.ok) {
+                    const meData = await meRes.json();
+                    setCanDelete(ROLES_WITH_DELETE.includes(meData.data?.role));
                 }
             } catch {
                 setError('Failed to load user');
@@ -52,7 +67,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
                 setLoading(false);
             }
         }
-        loadUser();
+        loadData();
     }, [params]);
 
     const handleSave = async () => {
@@ -80,7 +95,11 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
                 setSuccess('User updated successfully!');
                 setTimeout(() => router.push('/settings/users'), 1500);
             } else {
-                setError(data.error || 'Failed to update user');
+                // Handle error object with {code, message, ...} structure
+                const errorMsg = typeof data.error === 'string'
+                    ? data.error
+                    : data.error?.message || 'Failed to update user';
+                setError(errorMsg);
             }
         } catch {
             setError('Failed to update user');
@@ -110,7 +129,11 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
             if (res.ok) {
                 router.push('/settings/users');
             } else {
-                setError(data.error || 'Failed to delete user');
+                // Handle error object with {code, message, ...} structure
+                const errorMsg = typeof data.error === 'string'
+                    ? data.error
+                    : data.error?.message || 'Failed to delete user';
+                setError(errorMsg);
             }
         } catch (err) {
             console.error('Delete error:', err);
@@ -296,14 +319,20 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-[#222]">
-                    <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={deleting}
-                        className="px-4 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50"
-                    >
-                        {deleting ? 'Deleting...' : '🗑️ Delete User'}
-                    </button>
+                    {canDelete ? (
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="px-4 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50"
+                        >
+                            {deleting ? 'Deleting...' : '🗑️ Delete User'}
+                        </button>
+                    ) : (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                            💡 Use the status toggle above to deactivate users
+                        </div>
+                    )}
                     <div className="flex gap-3">
                         <Link
                             href="/settings/users"

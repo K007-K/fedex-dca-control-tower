@@ -167,7 +167,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     DCA_ADMIN: [
         'cases:read', 'cases:update',
         'dcas:read', 'dcas:performance',
-        'users:read', 'users:create', 'users:update',
+        'users:read', 'users:create', 'users:update', 'users:delete',  // Can delete DCA users (backend enforces DCA boundary)
         'sla:read',
         'analytics:read',
     ],
@@ -175,7 +175,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     DCA_MANAGER: [
         'cases:read', 'cases:update', 'cases:workflow',
         'dcas:read', 'dcas:performance',
-        'users:read', 'users:create',  // Delegated agent creation (state-scoped, backend enforced)
+        'users:read', 'users:create', 'users:update', 'users:delete',  // Can delete DCA_AGENT only (backend enforces)
         'sla:read',
         'analytics:read',
     ],

@@ -92,8 +92,12 @@ export function withPermission(permission: Permission, handler: ApiHandler) {
             const regionIds = accessibleRegions.map(r => r.region_id);
             const userIsGlobalAdmin = isGlobalRole(user.role);
 
-            // FAIL-CLOSED: Non-global users MUST have accessible regions
-            if (!userIsGlobalAdmin && regionIds.length === 0) {
+            // DCA roles derive region from their DCA assignment, not user_region_access
+            // Skip region check for DCA roles - they get region from dca_id
+            const isDCA = ['DCA_ADMIN', 'DCA_MANAGER', 'DCA_AGENT'].includes(user.role);
+
+            // FAIL-CLOSED: Non-global users MUST have accessible regions (except DCA roles)
+            if (!userIsGlobalAdmin && !isDCA && regionIds.length === 0) {
                 await logSecurityEvent('PERMISSION_DENIED', user.id, {
                     type: 'NO_REGION_ACCESS',
                     user_role: user.role,

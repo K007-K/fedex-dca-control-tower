@@ -221,7 +221,9 @@ async function logUserCreationAudit(
  */
 const handleGetUsers: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
+        // Use admin client for DCA roles to bypass RLS (since RLS is blocking DCA user queries)
+        // FedEx roles can use regular client as they typically have broader access
+        const adminClient = getAdminClient();
         const { searchParams } = new URL(request.url);
 
         // Parse query parameters
@@ -235,25 +237,44 @@ const handleGetUsers: ApiHandler = async (request, { user }) => {
 
         const offset = (page - 1) * limit;
 
-        // Build query
+        // Build query using admin client to bypass RLS
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let query = (supabase as any)
+        let query = (adminClient as any)
             .from('users')
             .select('*', { count: 'exact' });
 
-        // DCA users can only see users in their DCA
-        if (isDCARole(user.role) && user.dcaId) {
-            query = query.eq('dca_id', user.dcaId);
-        }
+        // =====================================================
+        // GOVERNANCE: Role-based user visibility (STRICT)
+        // FedEx: Can only see FedEx roles + DCA_ADMIN
+        // DCA: Can only see internal DCA users in their own DCA
+        // =====================================================
+        const DCA_INTERNAL_ROLES = ['DCA_MANAGER', 'DCA_AGENT'];
+        const FEDEX_ROLES = ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'];
 
-        // FEDEX_ADMIN: Filter users by their accessible regions
-        // SUPER_ADMIN sees all users (isGlobalAdmin bypasses)
-        if (!user.isGlobalAdmin && !isDCARole(user.role)) {
-            if (user.accessibleRegions && user.accessibleRegions.length > 0) {
-                // Filter users by primary_region_id within FEDEX_ADMIN's accessible regions
-                query = query.in('primary_region_id', user.accessibleRegions);
+        if (user.role === 'SUPER_ADMIN') {
+            // SUPER_ADMIN: Can see all FedEx roles + DCA_ADMIN; NOT DCA internal
+            query = query.in('role', [...FEDEX_ROLES, 'DCA_ADMIN']);
+        } else if (user.role === 'FEDEX_ADMIN') {
+            // FEDEX_ADMIN: Cannot see SUPER_ADMIN or DCA internal users
+            query = query.in('role', ['FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN']);
+        } else if (['FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'].includes(user.role)) {
+            // Other FedEx roles: Can only see FedEx users + DCA_ADMIN (not DCA internal)
+            query = query.in('role', [...FEDEX_ROLES, 'DCA_ADMIN']);
+        } else if (user.role === 'DCA_ADMIN') {
+            // DCA_ADMIN: Can only see DCA_MANAGER + DCA_AGENT in their own DCA
+            if (!user.dcaId) {
+                return NextResponse.json({ error: 'No DCA assigned' }, { status: 403 });
             }
-            // Note: Users without primary_region_id (global users) may need special handling
+            query = query.eq('dca_id', user.dcaId).in('role', DCA_INTERNAL_ROLES);
+        } else if (user.role === 'DCA_MANAGER') {
+            // DCA_MANAGER: Can only see DCA_AGENT in their own DCA
+            if (!user.dcaId) {
+                return NextResponse.json({ error: 'No DCA assigned' }, { status: 403 });
+            }
+            query = query.eq('dca_id', user.dcaId).eq('role', 'DCA_AGENT');
+        } else if (user.role === 'DCA_AGENT') {
+            // DCA_AGENT: No user access
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
         // Apply filters
@@ -407,6 +428,7 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
         let regionId: string | null = null;
         let stateCode: string | null = null;
         let canCreateAgents: boolean = false;
+        let regionIds: string[] = []; // For multi-region assignment (DCA agents or FedEx admins)
 
         if (isDCARole(targetRole)) {
             if (user.role === 'DCA_ADMIN') {
@@ -453,8 +475,55 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                     // New managers get creation rights by default
                     canCreateAgents = body.can_create_agents !== false;
                 } else if (targetRole === 'DCA_AGENT') {
-                    // DCA_ADMIN creating agent: optional state
+                    // DCA_ADMIN creating agent: handle region assignment
                     stateCode = body.state_code || null;
+
+                    // Handle region_ids assignment for agents
+                    if (body.region_ids && Array.isArray(body.region_ids) && body.region_ids.length > 0) {
+                        // Validate that all region_ids are within DCA's operating regions
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const { data: dcaRegions } = await (adminClient as any)
+                            .from('region_dca_assignments')
+                            .select('region_id')
+                            .eq('dca_id', dcaId)
+                            .eq('is_active', true);
+
+                        const allowedRegionIds = dcaRegions?.map((r: { region_id: string }) => r.region_id) || [];
+
+                        // Check that all requested regions are allowed for this DCA
+                        const invalidRegions = body.region_ids.filter((rid: string) => !allowedRegionIds.includes(rid));
+                        if (invalidRegions.length > 0) {
+                            await logUserCreationAudit(adminClient, 'USER_CREATION_DENIED', 'WARNING', user.id, user.email, {
+                                reason: 'Agent region outside DCA scope',
+                                creator_role: user.role,
+                                target_role: targetRole,
+                                requested_regions: body.region_ids,
+                                allowed_regions: allowedRegionIds,
+                                invalid_regions: invalidRegions,
+                            });
+                            return NextResponse.json(
+                                { error: 'Cannot assign agent to regions outside DCA operating scope' },
+                                { status: 403 }
+                            );
+                        }
+
+                        // Valid - use provided region_ids
+                        regionIds = body.region_ids;
+                        regionId = body.region_ids[0]; // Primary region
+                    } else {
+                        // Auto-derive from DCA's operating regions
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const { data: dcaRegions } = await (adminClient as any)
+                            .from('region_dca_assignments')
+                            .select('region_id')
+                            .eq('dca_id', dcaId)
+                            .eq('is_active', true);
+
+                        if (dcaRegions && dcaRegions.length > 0) {
+                            regionIds = dcaRegions.map((r: { region_id: string }) => r.region_id);
+                            regionId = regionIds[0]; // Primary region
+                        }
+                    }
                 }
             } else if (isFedExRole(user.role) && targetRole === 'DCA_ADMIN') {
                 // FedEx creating DCA_ADMIN: DCA must be provided
@@ -484,9 +553,9 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                 }
             } else if (user.role === 'DCA_MANAGER') {
                 // DCA_MANAGER: Delegated agent creation with state inheritance
-                // Check can_create_agents flag
+                // Check can_create_agents flag - use adminClient to bypass RLS
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const { data: creatorData } = await (supabase as any)
+                const { data: creatorData } = await (adminClient as any)
                     .from('users')
                     .select('dca_id, state_code, can_create_agents')
                     .eq('id', user.id)
@@ -532,13 +601,29 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
 
                 // Inherit state from creator (cannot be overridden)
                 stateCode = creatorData.state_code || null;
+
+                // Inherit region access from the manager who created this agent
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: managerRegions } = await (adminClient as any)
+                    .from('dca_user_region_access')
+                    .select('region_id')
+                    .eq('user_id', user.id)
+                    .is('revoked_at', null);
+
+                if (managerRegions && managerRegions.length > 0) {
+                    regionIds = managerRegions.map((r: { region_id: string }) => r.region_id);
+                    regionId = regionIds[0]; // Primary region
+                } else if (dcaData?.primary_region_id) {
+                    // Fallback to DCA primary region
+                    regionIds = [dcaData.primary_region_id];
+                }
             }
         }
 
         // =====================================================
         // VALIDATION 4: Region enforcement for FedEx users
         // =====================================================
-        let regionIds: string[] = []; // For FEDEX_ADMIN multi-region
+        // regionIds is already declared earlier in the function
 
         if (isFedExRole(targetRole)) {
             // FEDEX_ADMIN can have multiple regions via region_ids
@@ -614,6 +699,53 @@ const handleCreateUser: ApiHandler = async (request, { user }) => {
                 { error: 'User with this email already exists' },
                 { status: 409 }
             );
+        }
+
+        // Check for orphaned auth user (exists in auth but not in users table)
+        // This can happen if a delete operation failed partially
+        // Use getUserById by searching with email - more reliable than listUsers
+        try {
+            // Check if email exists in auth by attempting to list with email filter
+            const { data: authUsersData } = await adminClient.auth.admin.listUsers({
+                page: 1,
+                perPage: 1,
+            });
+
+            // Search through users for matching email
+            const { data: allAuthUsers } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+            const orphanedAuthUser = allAuthUsers?.users?.find(
+                (u: { email?: string }) => u.email?.toLowerCase() === body.email.toLowerCase()
+            );
+
+            if (orphanedAuthUser) {
+                console.log(`Found orphaned auth user for ${body.email} (ID: ${orphanedAuthUser.id}), cleaning up...`);
+                await logUserCreationAudit(adminClient, 'ORPHANED_AUTH_CLEANUP', 'WARNING', user.id, user.email, {
+                    orphaned_user_id: orphanedAuthUser.id,
+                    target_email: body.email,
+                });
+                // Delete the orphaned auth user - force it
+                try {
+                    await adminClient.auth.admin.deleteUser(orphanedAuthUser.id);
+                    console.log(`Cleaned up orphaned auth user for ${body.email}`);
+                } catch (deleteErr) {
+                    console.error('Failed to cleanup orphaned auth user:', deleteErr);
+                    // Try alternative approach - ban first then delete
+                    try {
+                        await adminClient.auth.admin.updateUserById(orphanedAuthUser.id, { ban_duration: '876600h' });
+                        await adminClient.auth.admin.deleteUser(orphanedAuthUser.id);
+                        console.log(`Cleaned up orphaned auth user (with ban) for ${body.email}`);
+                    } catch (banErr) {
+                        console.error('Failed to cleanup with ban approach:', banErr);
+                        return NextResponse.json(
+                            { error: 'Email exists in auth system. Delete it manually from Supabase Authentication → Users.' },
+                            { status: 409 }
+                        );
+                    }
+                }
+            }
+        } catch (authCheckErr) {
+            console.error('Error checking for orphaned auth users:', authCheckErr);
+            // Continue anyway - createUser will fail if email exists
         }
 
         // =====================================================

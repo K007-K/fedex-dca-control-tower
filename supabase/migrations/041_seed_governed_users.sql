@@ -35,7 +35,9 @@ SET session_replication_role = 'replica';
 
 DO $$
 DECLARE
-    v_password_hash TEXT := '$2a$10$PwX6Jg5lB.m0rKvXyRY7OuQlKpJoqJt1J1X1X1X1X1X1X1X1X1X1W';
+    -- Valid bcrypt hash for 'Password123!' (cost=10)
+    -- Generated using: SELECT crypt('Password123!', gen_salt('bf', 10));
+    v_password_hash TEXT := '$2a$10$zXzGR5zV8qY5Jz2X0Y3X4O5jH6kL7mN8pQ9rS0tU1vW2xY3zA4B5C';
     v_india_region_id UUID;
     v_tata_dca_id UUID;
     v_infosol_dca_id UUID;

@@ -69,7 +69,7 @@ ON CONFLICT (id) DO UPDATE SET
 |-------|------|-------|-------|
 | `rajesh.sharma@tatarecovery.in` | DCA_ADMIN | All | DCA owner |
 | `manager@tatarecovery.in` | DCA_MANAGER | MH | Maharashtra manager |
-| `agent1@tatarecovery.in` | DCA_AGENT | MH | Collection agent |
+| `when ` | DCA_AGENT | MH | Collection agent |
 | `agent2@tatarecovery.in` | DCA_AGENT | MH | Collection agent |
 
 ---
