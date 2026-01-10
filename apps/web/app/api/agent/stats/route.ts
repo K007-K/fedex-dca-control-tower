@@ -5,6 +5,18 @@ import { createAdminClient } from '@/lib/supabase/server';
 // Force dynamic rendering - this route uses cookies
 export const dynamic = 'force-dynamic';
 
+// Type definition for case stats query
+interface CaseStats {
+    id: string;
+    status: string;
+    outstanding_amount: number | null;
+    original_amount: number | null;
+    recovered_amount: number | null;
+    created_at: string;
+    updated_at: string;
+    currency: string | null;
+}
+
 /**
  * Agent Stats API
  * 
@@ -41,7 +53,7 @@ export async function GET() {
             return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
         }
 
-        const cases = allCases || [];
+        const cases = (allCases || []) as CaseStats[];
 
         // Calculate stats
         const totalCasesHandled = cases.length;
