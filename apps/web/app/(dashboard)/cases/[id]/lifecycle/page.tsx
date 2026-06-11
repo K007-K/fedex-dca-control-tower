@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { createClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth';
 import { CaseLifecycleDemoMessage } from '@/components/demo/CaseDemoMessages';
+import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -11,7 +11,7 @@ interface PageProps {
 
 export default async function CaseLifecyclePage({ params }: PageProps) {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const currentUser = await getCurrentUser();
 
     // Fetch case with all related data

@@ -1,12 +1,11 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 
+import { DCAsPageHeader } from '@/components/dcas/DCAsPageHeader';
 import { SkeletonCard } from '@/components/ui';
-import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { guardPage } from '@/lib/auth/page-guard';
-import { DCAsPageHeader } from '@/components/dcas/DCAsPageHeader';
+import { createAdminClient } from '@/lib/supabase/server';
 
 const statusColors: Record<string, { bg: string; text: string }> = {
     ACTIVE: { bg: 'bg-green-500/20 border border-green-500/30', text: 'text-green-400' },
@@ -38,7 +37,7 @@ function DCAsLoading() {
 }
 
 async function DCAsContent({ region }: { region?: string }) {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Fetch DCAs with optional region filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -265,5 +264,3 @@ export default async function DCAsPage({ searchParams }: PageProps) {
         </div>
     );
 }
-
-

@@ -4,14 +4,14 @@ import { notFound } from 'next/navigation';
 import { CaseActions } from '@/components/cases/CaseActions';
 import { CaseDeleteButton } from '@/components/cases/CaseDeleteButton';
 import { EscalationList } from '@/components/cases/EscalationList';
+import { CaseDetailDemoMessage } from '@/components/demo/CaseDemoMessages';
 import { CasePredictionPanel } from '@/components/ml';
 import { Button } from '@/components/ui/button';
-import { RoleCapabilityCard } from '@/components/ui/RoleCapabilityCard';
 import { GovernanceModeIndicator } from '@/components/ui/GovernanceModeIndicator';
-import { CaseDetailDemoMessage } from '@/components/demo/CaseDemoMessages';
-import { createClient } from '@/lib/supabase/server';
+import { RoleCapabilityCard } from '@/components/ui/RoleCapabilityCard';
 import { getCurrentUser } from '@/lib/auth';
 import { isGovernanceRole, type UserRole } from '@/lib/auth/rbac';
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -39,7 +39,7 @@ const priorityConfig: Record<string, { bg: string; text: string }> = {
 
 export default async function CaseDetailPage({ params }: PageProps) {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Fetch case details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

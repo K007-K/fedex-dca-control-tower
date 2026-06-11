@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button';
 interface DCADeleteButtonProps {
     dcaId: string;
     dcaName: string;
+    activeCaseCount?: number;
 }
 
-export function DCADeleteButton({ dcaId, dcaName }: DCADeleteButtonProps) {
+export function DCADeleteButton({ dcaId, dcaName, activeCaseCount = 0 }: DCADeleteButtonProps) {
     const router = useRouter();
     const { confirm } = useConfirm();
     const toast = useToast();
@@ -26,7 +27,9 @@ export function DCADeleteButton({ dcaId, dcaName }: DCADeleteButtonProps) {
     const handleDelete = async () => {
         const confirmed = await confirm({
             title: 'Terminate DCA',
-            message: `Are you sure you want to terminate ${dcaName}? This will mark the DCA as terminated. DCAs with active cases cannot be terminated.`,
+            message: activeCaseCount > 0
+                ? `${dcaName} has ${activeCaseCount} active assigned case${activeCaseCount === 1 ? '' : 's'}. Termination will be blocked until those cases are closed or reassigned by the governed workflow.`
+                : `Are you sure you want to terminate ${dcaName}? This will mark the DCA as terminated.`,
             confirmText: 'Terminate DCA',
             cancelText: 'Cancel',
             variant: 'danger',
@@ -67,4 +70,3 @@ export function DCADeleteButton({ dcaId, dcaName }: DCADeleteButtonProps) {
         </Button>
     );
 }
-

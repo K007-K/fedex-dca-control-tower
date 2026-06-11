@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/dcas/[id]/regions - Get regions where this DCA operates
@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 const handleGetDcaRegions: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const url = new URL(request.url);
         const pathParts = url.pathname.split('/');
         const dcaId = pathParts[pathParts.length - 2]; // /api/dcas/[id]/regions -> id is second to last

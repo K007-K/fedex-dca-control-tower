@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { DCAEditForm } from '@/components/dcas/DCAEditForm';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -10,7 +10,7 @@ interface PageProps {
 
 export default async function DCAEditPage({ params }: PageProps) {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: dca, error } = await (supabase as any)

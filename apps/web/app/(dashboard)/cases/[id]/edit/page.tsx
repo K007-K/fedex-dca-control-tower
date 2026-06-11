@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { CaseEditForm } from '@/components/cases/CaseEditForm';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -10,7 +10,7 @@ interface PageProps {
 
 export default async function CaseEditPage({ params }: PageProps) {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Fetch case details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

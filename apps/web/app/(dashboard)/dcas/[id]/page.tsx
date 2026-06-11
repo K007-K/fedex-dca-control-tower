@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation';
 
 import { DCADeleteButton } from '@/components/dcas/DCADeleteButton';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { isGovernanceRole, type UserRole } from '@/lib/auth/rbac';
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -18,7 +20,10 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 
 export default async function DCADetailPage({ params }: PageProps) {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
+    const currentUser = await getCurrentUser();
+    const userRole = (currentUser?.role || 'FEDEX_VIEWER') as UserRole;
+    const isGovernance = isGovernanceRole(userRole);
 
     // Fetch DCA details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,7 +37,8 @@ export default async function DCADetailPage({ params }: PageProps) {
         notFound();
     }
 
-    // Fetch assigned cases with count
+    // Fetch assigned cases with count. SUPER_ADMIN is governance-only, but should
+    // still see the active cases that block termination.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: cases, count: caseCount } = await (supabase as any)
         .from('cases')
@@ -49,10 +55,13 @@ export default async function DCADetailPage({ params }: PageProps) {
         .eq('dca_id', id)
         .eq('is_active', true);
 
-    const statusColor = statusColors[dca.status] || { bg: 'bg-gray-100', text: 'text-gray-800' };
+    const statusColor = statusColors[dca.status] ?? { bg: 'bg-gray-100', text: 'text-gray-800' };
     const capacityPercent = dca.capacity_limit > 0
         ? Math.round((dca.capacity_used / dca.capacity_limit) * 100)
         : 0;
+    const activeCaseCount = cases?.filter((c: { status: string }) =>
+        !['CLOSED', 'WRITTEN_OFF', 'FULL_RECOVERY'].includes(c.status)
+    ).length ?? 0;
 
     return (
         <div className="space-y-6">
@@ -75,11 +84,13 @@ export default async function DCADetailPage({ params }: PageProps) {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <DCADeleteButton dcaId={id} dcaName={dca.name} />
+                    <DCADeleteButton dcaId={id} dcaName={dca.name} activeCaseCount={activeCaseCount} />
                     <Link href={`/dcas/${id}/edit`}>
                         <Button variant="outline">Edit DCA</Button>
                     </Link>
-                    <Button>Allocate Cases</Button>
+                    {!isGovernance && (
+                        <Button>Allocate Cases</Button>
+                    )}
                 </div>
             </div>
 
@@ -139,7 +150,7 @@ export default async function DCADetailPage({ params }: PageProps) {
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-gray-900">
-                                Assigned Cases {caseCount ? `(${caseCount})` : ''}
+                                Assigned Cases ({caseCount ?? 0})
                             </h2>
                             {caseCount && caseCount > 10 && (
                                 <Link href={`/cases?dca_id=${id}`} className="text-sm text-primary hover:underline">
@@ -167,7 +178,9 @@ export default async function DCADetailPage({ params }: PageProps) {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-gray-500 text-center py-8">No cases assigned yet.</p>
+                            <p className="text-gray-500 text-center py-8">
+                                No cases assigned to this DCA.
+                            </p>
                         )}
                     </div>
                 </div>

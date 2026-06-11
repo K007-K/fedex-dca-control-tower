@@ -31,8 +31,7 @@ interface DCAFormProps {
         contract_start_date?: string;
         contract_end_date?: string;
         license_expiry?: string;
-        license_number?: string;
-        license_authority?: string;
+        insurance_valid_until?: string;
         region_dca_assignments?: RegionAssignment[];
     };
 }
@@ -61,7 +60,20 @@ export function DCAEditForm({ dca }: DCAFormProps) {
                 const res = await fetch(`/api/dcas/${dca.id}/regions`);
                 if (res.ok) {
                     const data = await res.json();
-                    setRegionAssignments(data.data || []);
+                    setRegionAssignments((data.regions || []).map((assignment: {
+                        region_id: string;
+                        is_active: boolean;
+                        allocation_priority?: number;
+                        capacity?: number;
+                        capacity_allocation_pct?: number;
+                        regions?: { name?: string; region_code?: string };
+                    }) => ({
+                        region_id: assignment.region_id,
+                        region_name: assignment.regions?.name || assignment.regions?.region_code || assignment.region_id,
+                        capacity: assignment.capacity ?? dca.capacity_limit ?? 0,
+                        priority: assignment.allocation_priority ?? 0,
+                        is_active: assignment.is_active,
+                    })));
                 }
             } catch (error) {
                 console.error('Failed to fetch region assignments:', error);
@@ -82,7 +94,7 @@ export function DCAEditForm({ dca }: DCAFormProps) {
         primary_contact_phone: dca.primary_contact_phone ?? '',
         contract_end_date: dca.contract_end_date ?? '',
         license_expiry: dca.license_expiry ?? '',
-        license_authority: dca.license_authority ?? '',
+        insurance_valid_until: dca.insurance_valid_until ?? '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -95,7 +107,7 @@ export function DCAEditForm({ dca }: DCAFormProps) {
         // INACTIVE → ACTIVE requires valid license and capacity
         if (dca.status !== 'ACTIVE' && formData.status === 'ACTIVE') {
             const hasValidLicense = formData.license_expiry && new Date(formData.license_expiry) > new Date();
-            const hasCapacity = regionAssignments.some(r => r.capacity > 0);
+            const hasCapacity = dca.capacity_limit > 0 || regionAssignments.some(r => r.capacity > 0);
             return hasValidLicense && hasCapacity;
         }
         return true;
@@ -106,7 +118,7 @@ export function DCAEditForm({ dca }: DCAFormProps) {
 
         // Validate status transition
         if (!canActivate()) {
-            toast.error('Validation Error', 'Cannot activate DCA without valid license and capacity');
+            toast.error('Validation Error', 'Cannot activate DCA without valid license expiry and capacity');
             return;
         }
 
@@ -123,7 +135,7 @@ export function DCAEditForm({ dca }: DCAFormProps) {
                     primary_contact_phone: formData.primary_contact_phone || null,
                     contract_end_date: formData.contract_end_date || null,
                     license_expiry: formData.license_expiry || null,
-                    license_authority: formData.license_authority || null,
+                    insurance_valid_until: formData.insurance_valid_until || null,
                 };
 
                 const response = await fetch(`/api/dcas/${dca.id}`, {
@@ -262,7 +274,7 @@ export function DCAEditForm({ dca }: DCAFormProps) {
                         </select>
                         {formData.status === 'ACTIVE' && dca.status !== 'ACTIVE' && !canActivate() && (
                             <p className="mt-1 text-xs text-red-500">
-                                ⚠️ Cannot activate: Requires valid license and capacity
+                                ⚠️ Cannot activate: Requires valid license expiry and capacity
                             </p>
                         )}
                     </div>
@@ -272,28 +284,7 @@ export function DCAEditForm({ dca }: DCAFormProps) {
             {/* EDITABLE: License & Compliance */}
             <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">License & Compliance</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                            License Number <span className="text-xs">(Immutable)</span>
-                        </label>
-                        <div className="px-3 py-2 bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg text-gray-700 dark:text-gray-300">
-                            {dca.license_number || '—'}
-                        </div>
-                    </div>
-                    <div>
-                        <label htmlFor="license_authority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Issuing Authority
-                        </label>
-                        <input
-                            type="text"
-                            id="license_authority"
-                            name="license_authority"
-                            value={formData.license_authority}
-                            onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label htmlFor="license_expiry" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             License Expiry Date
@@ -309,6 +300,19 @@ export function DCAEditForm({ dca }: DCAFormProps) {
                         {formData.license_expiry && new Date(formData.license_expiry) < new Date() && (
                             <p className="mt-1 text-xs text-red-500">⚠️ License expired</p>
                         )}
+                    </div>
+                    <div>
+                        <label htmlFor="insurance_valid_until" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Insurance Valid Until
+                        </label>
+                        <input
+                            type="date"
+                            id="insurance_valid_until"
+                            name="insurance_valid_until"
+                            value={formData.insurance_valid_until}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                        />
                     </div>
                 </div>
             </div>

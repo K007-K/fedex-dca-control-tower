@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/dcas/[id]
@@ -15,7 +15,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 const handleGetDCA: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        const supabase = createAdminClient();
 
         const result = await (supabase as any)
             .from('dcas')
