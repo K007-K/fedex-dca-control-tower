@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface SLALogRecord {
     status: string;
@@ -17,7 +17,7 @@ interface SLALogRecord {
 const handleGetSla: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const { searchParams } = new URL(request.url);
 
         const includeLogs = searchParams.get('include_logs') === 'true';
@@ -97,7 +97,7 @@ const handleGetSla: ApiHandler = async (request, { params, user }) => {
 const handleUpdateSla: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const body = await request.json();
 
         const allowedFields = [
@@ -158,7 +158,7 @@ const handleUpdateSla: ApiHandler = async (request, { params, user }) => {
 const handleDeleteSla: ApiHandler = async (request, { params, user }) => {
     try {
         const { id } = await params;
-        const supabase = await createClient();
+        const supabase = createAdminClient();
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (supabase as any)

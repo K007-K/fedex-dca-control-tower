@@ -47,6 +47,14 @@ export default async function DCADetailPage({ params }: PageProps) {
         .order('created_at', { ascending: false })
         .limit(10);
 
+    // Exact active count used by governance actions such as termination.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count: activeCaseCount } = await (supabase as any)
+        .from('cases')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_dca_id', id)
+        .not('status', 'in', '("CLOSED","WRITTEN_OFF","FULL_RECOVERY")');
+
     // Fetch agents at this DCA
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: agents } = await (supabase as any)
@@ -59,9 +67,7 @@ export default async function DCADetailPage({ params }: PageProps) {
     const capacityPercent = dca.capacity_limit > 0
         ? Math.round((dca.capacity_used / dca.capacity_limit) * 100)
         : 0;
-    const activeCaseCount = cases?.filter((c: { status: string }) =>
-        !['CLOSED', 'WRITTEN_OFF', 'FULL_RECOVERY'].includes(c.status)
-    ).length ?? 0;
+    const exactActiveCaseCount = activeCaseCount ?? 0;
 
     return (
         <div className="space-y-6">
@@ -84,7 +90,7 @@ export default async function DCADetailPage({ params }: PageProps) {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <DCADeleteButton dcaId={id} dcaName={dca.name} activeCaseCount={activeCaseCount} />
+                    <DCADeleteButton dcaId={id} dcaName={dca.name} activeCaseCount={exactActiveCaseCount} />
                     <Link href={`/dcas/${id}/edit`}>
                         <Button variant="outline">Edit DCA</Button>
                     </Link>

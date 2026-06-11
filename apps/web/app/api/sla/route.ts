@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/sla - List SLA templates
@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 const handleGetSlaTemplates: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const { searchParams } = new URL(request.url);
 
         const slaType = searchParams.get('type');
@@ -59,7 +59,7 @@ const handleGetSlaTemplates: ApiHandler = async (request, { user }) => {
  */
 const handleCreateSlaTemplate: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const body = await request.json();
 
         // Validate required fields

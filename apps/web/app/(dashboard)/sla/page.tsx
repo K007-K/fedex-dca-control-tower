@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
-import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { guardPage } from '@/lib/auth/page-guard';
+import { createAdminClient } from '@/lib/supabase/server';
 
 type SLATemplate = {
     id: string;
@@ -64,7 +64,7 @@ export default async function SLAPage() {
     // GOVERNANCE: Block DCA_AGENT from accessing this page
     await guardPage('/sla');
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser();
     // GOVERNANCE: Only SUPER_ADMIN has sla:create permission (per ROLE_PERMISSIONS)
     const canManageSLA = user && user.role === 'SUPER_ADMIN';
@@ -204,7 +204,7 @@ export default async function SLAPage() {
             <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent SLA Activity</h2>
-                    <Link href="#" className="text-sm text-gray-600 dark:text-gray-300 hover:underline">View All →</Link>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Latest 20 logs</span>
                 </div>
                 {recentLogs && recentLogs.length > 0 ? (
                     <div className="overflow-x-auto">

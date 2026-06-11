@@ -135,6 +135,10 @@ const handleCreateDCA: ApiHandler = async (request, { user }) => {
         }
 
         const validatedData = validation.data;
+        const generatedCode = (
+            validatedData.code
+            || `${validatedData.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}${Date.now().toString().slice(-4)}`
+        ).slice(0, 10);
 
         // ============================================================
         // GOVERNANCE: Validate region_assignments
@@ -174,11 +178,11 @@ const handleCreateDCA: ApiHandler = async (request, { user }) => {
             .from('dcas')
             .insert({
                 name: validatedData.name,
-                code: validatedData.code,
+                code: generatedCode,
                 legal_name: validatedData.legal_name || null,
                 registration_number: validatedData.registration_number || null,
                 status: validatedData.status || 'PENDING_APPROVAL',
-                capacity_limit: 0, // Capacity is now per-region
+                capacity_limit: validatedData.capacity_limit,
                 capacity_used: 0,
                 max_case_value: validatedData.max_case_value || null,
                 min_case_value: validatedData.min_case_value || null,
@@ -186,6 +190,8 @@ const handleCreateDCA: ApiHandler = async (request, { user }) => {
                 primary_contact_name: validatedData.primary_contact_name || null,
                 primary_contact_email: validatedData.primary_contact_email || null,
                 primary_contact_phone: validatedData.primary_contact_phone || null,
+                license_expiry: validatedData.license_expiry || null,
+                insurance_valid_until: validatedData.insurance_valid_until || null,
                 contract_start_date: validatedData.contract_start_date || null,
                 contract_end_date: validatedData.contract_end_date || null,
                 performance_score: 50,

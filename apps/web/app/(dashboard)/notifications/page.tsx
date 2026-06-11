@@ -1,28 +1,12 @@
 import { NotificationsList } from '@/components/notifications';
 import { NotificationActions } from '@/components/notifications/NotificationActions';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export default async function NotificationsPage() {
-    const supabase = await createClient();
-
-    // Get current user
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-
-    let userId = authUser?.id || null;
-
-    // Get database user ID by email (important: auth.uid != users.id for seed data)
-    if (authUser?.email) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profile } = await (supabase as any)
-            .from('users')
-            .select('id')
-            .eq('email', authUser.email)
-            .single();
-
-        if (profile?.id) {
-            userId = profile.id;
-        }
-    }
+    const supabase = createAdminClient();
+    const currentUser = await getCurrentUser();
+    const userId = currentUser?.id || null;
 
     // Fetch notifications for the CURRENT user only
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

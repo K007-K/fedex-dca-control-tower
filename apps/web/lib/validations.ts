@@ -33,7 +33,7 @@ export const caseUpdateSchema = caseCreateSchema.partial();
  */
 export const dcaCreateSchema = z.object({
     name: z.string().min(1, 'DCA name is required'),
-    code: z.string().min(1, 'DCA code is required').max(10, 'Code must be 10 characters or less'),
+    code: z.string().min(1, 'DCA code is required').max(10, 'Code must be 10 characters or less').optional(),
     legal_name: z.string().optional(),
     status: z.enum(['ACTIVE', 'SUSPENDED', 'PENDING_APPROVAL', 'TERMINATED']).default('PENDING_APPROVAL'),
     primary_contact_name: z.string().optional(),
@@ -44,6 +44,8 @@ export const dcaCreateSchema = z.object({
     capacity_limit: z.number().positive('Capacity must be positive').or(z.string().transform(Number)),
     min_case_value: z.number().min(0).optional().or(z.string().transform(Number)),
     max_case_value: z.number().min(0).optional().or(z.string().transform(Number)),
+    license_expiry: z.string().optional(),
+    insurance_valid_until: z.string().optional(),
     contract_start_date: z.string().optional(),
     contract_end_date: z.string().optional(),
     region: regionCodeSchema,

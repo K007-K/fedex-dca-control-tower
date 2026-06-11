@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { AccessGuard } from '@/components/auth/AccessGuard';
 import { useToast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 
@@ -57,7 +58,8 @@ export default function NewSLATemplatePage() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <AccessGuard allowedRoles={['SUPER_ADMIN']}>
+            <div className="max-w-2xl mx-auto">
             {/* Header */}
             <div className="mb-6">
                 <Link href="/sla" className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 mb-2 inline-block">
@@ -205,6 +207,7 @@ export default function NewSLATemplatePage() {
                     </Link>
                 </div>
             </form>
-        </div>
+            </div>
+        </AccessGuard>
     );
 }

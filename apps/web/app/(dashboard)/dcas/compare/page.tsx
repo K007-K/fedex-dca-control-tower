@@ -2,10 +2,12 @@ import Link from 'next/link';
 
 import { DCAComparison } from '@/components/dcas/DCAComparison';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/server';
+import { guardPage } from '@/lib/auth/page-guard';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export default async function DCAComparePage() {
-    const supabase = await createClient();
+    await guardPage('/dcas');
+    const supabase = createAdminClient();
 
     // Fetch all active DCAs with their metrics
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { ReportCard } from '@/components/reports/ReportCard';
 import { ReportsPageHeader } from '@/components/reports/ReportsPageHeader';
 import { getCurrentUser } from '@/lib/auth';
@@ -257,9 +255,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             <div className="bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-[#222] p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Reports</h2>
-                    <Link href="#" className="text-sm text-gray-600 dark:text-gray-300 hover:underline">
-                        View All →
-                    </Link>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Generated reports appear here</span>
                 </div>
                 <div className="text-center py-12">
                     <div className="text-5xl mb-4">📄</div>

@@ -44,16 +44,18 @@ export function DCACreateForm() {
         primary_contact_name: '',
         primary_contact_email: '',
         primary_contact_phone: '',
-        // Compliance fields
-        license_number: '',
-        license_authority: '',
         license_expiry: '',
+        insurance_valid_until: '',
         contract_start_date: '',
         contract_end_date: '',
     });
 
     // Per-region capacity configuration
     const [regionCapacities, setRegionCapacities] = useState<RegionCapacity[]>([]);
+    const totalActiveCapacity = regionCapacities.reduce(
+        (sum, rc) => sum + (rc.is_active ? rc.capacity : 0),
+        0
+    );
 
     // Fetch available regions on mount
     useEffect(() => {
@@ -154,6 +156,11 @@ export function DCACreateForm() {
             return;
         }
 
+        if (totalActiveCapacity <= 0) {
+            toast.error('Validation Error', 'At least one active region must have capacity');
+            return;
+        }
+
         startTransition(async () => {
             try {
                 const response = await fetch('/api/dcas', {
@@ -165,15 +172,14 @@ export function DCACreateForm() {
                         registration_number: formData.registration_number.trim() || null,
                         status: formData.status,
                         commission_rate: parseFloat(String(formData.commission_rate)),
+                        capacity_limit: totalActiveCapacity,
                         min_case_value: formData.min_case_value ? parseFloat(String(formData.min_case_value)) : null,
                         max_case_value: formData.max_case_value ? parseFloat(String(formData.max_case_value)) : null,
                         primary_contact_name: formData.primary_contact_name.trim() || null,
                         primary_contact_email: formData.primary_contact_email.trim() || null,
                         primary_contact_phone: formData.primary_contact_phone.trim() || null,
-                        // Compliance fields
-                        license_number: formData.license_number.trim() || null,
-                        license_authority: formData.license_authority.trim() || null,
                         license_expiry: formData.license_expiry || null,
+                        insurance_valid_until: formData.insurance_valid_until || null,
                         contract_start_date: formData.contract_start_date || null,
                         contract_end_date: formData.contract_end_date || null,
                         // Region assignments with per-region capacity
@@ -466,35 +472,7 @@ export function DCACreateForm() {
                         COMPLIANCE
                     </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label htmlFor="license_number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            License Number
-                        </label>
-                        <input
-                            type="text"
-                            id="license_number"
-                            name="license_number"
-                            value={formData.license_number}
-                            onChange={handleChange}
-                            placeholder="e.g., DCA-LIC-2024-001"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="license_authority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Issuing Authority
-                        </label>
-                        <input
-                            type="text"
-                            id="license_authority"
-                            name="license_authority"
-                            value={formData.license_authority}
-                            onChange={handleChange}
-                            placeholder="e.g., State Regulatory Board"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label htmlFor="license_expiry" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             License Expiry Date
@@ -509,6 +487,22 @@ export function DCACreateForm() {
                         />
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             DCA cannot be ACTIVE with expired license
+                        </p>
+                    </div>
+                    <div>
+                        <label htmlFor="insurance_valid_until" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Insurance Valid Until
+                        </label>
+                        <input
+                            type="date"
+                            id="insurance_valid_until"
+                            name="insurance_valid_until"
+                            value={formData.insurance_valid_until}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Used for compliance visibility and governance review
                         </p>
                     </div>
                 </div>
@@ -621,7 +615,7 @@ export function DCACreateForm() {
                 </Button>
                 <Button
                     type="submit"
-                    disabled={isPending || regionCapacities.length === 0}
+                    disabled={isPending || regionCapacities.length === 0 || totalActiveCapacity <= 0}
                 >
                     {isPending ? 'Creating...' : 'Create DCA'}
                 </Button>
