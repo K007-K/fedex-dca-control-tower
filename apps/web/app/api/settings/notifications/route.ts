@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { logUserAction } from '@/lib/audit';
+import { UserRole } from '@/lib/auth/rbac';
 import {
     GOVERNED_NOTIFICATIONS,
     getNotificationsForRole,
     validatePreferenceUpdate
 } from '@/lib/notifications/governance';
-import { UserRole } from '@/lib/auth/rbac';
-import { logUserAction } from '@/lib/audit';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 // GET - Fetch notification preferences
 export async function GET() {

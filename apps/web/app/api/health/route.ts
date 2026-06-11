@@ -10,6 +10,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { NextResponse } from 'next/server';
+import { unstable_noStore as noStore } from 'next/cache';
+
 import { createAdminClient } from '@/lib/supabase/server';
 
 // Force dynamic rendering
@@ -86,7 +88,7 @@ async function checkDatabase(supabase: any): Promise<{ connected: boolean; laten
  */
 async function checkMLService(): Promise<{ connected: boolean; latency: number }> {
     const start = Date.now();
-    const mlUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const mlUrl = process.env.ML_SERVICE_URL || process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
     try {
         const response = await fetch(`${mlUrl}/health`, {
@@ -112,7 +114,7 @@ async function checkSLAJob(supabase: any): Promise<{ status: 'running' | 'stoppe
             .in('action', ['SLA_BREACH_CHECK', 'SLA_BREACH_CHECK_START'])
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (!data) {
             return { status: 'unknown', lastRun: null };
@@ -142,7 +144,7 @@ async function checkAllocationJob(supabase: any): Promise<{ status: 'running' | 
             .eq('action', 'CASE_ASSIGNED')
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (!data) {
             return { status: 'unknown', lastRun: null };
@@ -167,6 +169,8 @@ async function checkAllocationJob(supabase: any): Promise<{ status: 'running' | 
  * Returns comprehensive health status.
  */
 export async function GET() {
+    noStore();
+
     const startTime = Date.now();
 
     // Check environment

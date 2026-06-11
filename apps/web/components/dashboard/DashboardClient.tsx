@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRegion } from '@/lib/context/RegionContext';
+
+import { DemoPageMessage } from '@/components/demo/DemoModeComponents';
 import { MLInsightsPanel } from '@/components/ml';
 import { SLABreachAlerts } from '@/components/sla';
 import { GovernanceModeIndicator, GovernanceBadge } from '@/components/ui/GovernanceModeIndicator';
-import { DemoPageMessage } from '@/components/demo/DemoModeComponents';
 import { type UserRole, isGovernanceRole } from '@/lib/auth/rbac';
+import { useRegion } from '@/lib/context/RegionContext';
 
 interface DashboardMetrics {
     totalCases: number;
@@ -125,7 +126,7 @@ export function DashboardClient({ userRole = 'FEDEX_VIEWER' }: DashboardClientPr
                     Monitor debt collection performance, track SLA compliance, and manage DCA relationships.
                     {region !== 'ALL' && (
                         <span className="ml-2 px-2 py-0.5 bg-white/20 rounded text-sm">
-                            {region === 'INDIA' ? '🇮🇳 India' : region === 'AMERICA' ? '🇺🇸 America' : region}
+                            {region === 'INDIA' ? '🇮🇳 India' : region === 'AMERICAS' ? '🇺🇸 Americas' : region}
                         </span>
                     )}
                 </p>

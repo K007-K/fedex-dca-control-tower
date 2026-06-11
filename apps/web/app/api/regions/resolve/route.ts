@@ -11,10 +11,10 @@
  * Permission: regions:read
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { regionAssignmentEngine, type GeographyData } from '@/lib/region';
+import { NextResponse } from 'next/server';
+
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { regionAssignmentEngine, type GeographyData } from '@/lib/region';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';

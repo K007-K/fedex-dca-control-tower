@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth';
+
 import { logHumanAction, deriveRegionFromCase } from '@/lib/audit';
+import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * Manager Case Escalate API

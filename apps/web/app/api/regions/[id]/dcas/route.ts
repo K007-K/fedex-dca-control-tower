@@ -11,10 +11,11 @@
  * - DELETE: regions:assign-dcas
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { regionRBAC } from '@/lib/region';
+import { NextResponse } from 'next/server';
+
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { regionRBAC } from '@/lib/region';
+import { createClient } from '@/lib/supabase/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';

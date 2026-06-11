@@ -6,16 +6,6 @@ const nextConfig = {
     // Use standalone output for Docker production builds
     output: 'standalone',
 
-    // Ignore ESLint errors during production builds (for Docker)
-    eslint: {
-        ignoreDuringBuilds: true,
-    },
-
-    // Ignore TypeScript errors during production builds (for Docker)
-    typescript: {
-        ignoreBuildErrors: true,
-    },
-
     // Optimize images
     images: {
         remotePatterns: [

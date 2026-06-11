@@ -16,14 +16,15 @@
  * Required: justification_text (min 20 chars)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
+import { logUserAction } from '@/lib/audit';
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { isSystemRequest } from '@/lib/auth/system-auth';
 import {
     createManualCase,
     validateManualCasePayload,
 } from '@/lib/case/manual-case-creation';
-import { logUserAction } from '@/lib/audit';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';

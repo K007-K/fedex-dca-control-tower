@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+
 import {
     getCaseSummaryMetrics,
     getSLAMetrics,
@@ -15,6 +15,7 @@ import {
     getMetricsForExport,
     MetricFilters
 } from '@/lib/analytics/canonical-metrics';
+import { createClient } from '@/lib/supabase/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';

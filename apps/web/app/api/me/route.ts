@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { getCurrentUser } from '@/lib/auth';
 
 // Force dynamic rendering - this route uses cookies

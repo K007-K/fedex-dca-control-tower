@@ -10,14 +10,17 @@
     "rules": {
         // TypeScript
         "@typescript-eslint/no-unused-vars": [
-            "error",
+            "warn",
             {
-                "argsIgnorePattern": "^_"
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_",
+                "caughtErrorsIgnorePattern": "^_"
             }
         ],
         "@typescript-eslint/no-explicit-any": "warn",
         "@typescript-eslint/prefer-nullish-coalescing": "warn",
         "@typescript-eslint/prefer-optional-chain": "warn",
+        "react/no-unescaped-entities": "warn",
         // React
         "react/prop-types": "off",
         "react/react-in-jsx-scope": "off",

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * DCA_ADMIN Team API
@@ -53,11 +54,11 @@ export async function GET() {
 
         // Get case counts per agent
         const agentIds = (teamMembers || [])
-            .filter(m => m.role === 'DCA_AGENT')
-            .map(m => m.id);
+            .filter((m: { role: string }) => m.role === 'DCA_AGENT')
+            .map((m: { id: string }) => m.id);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let caseCounts: Record<string, number> = {};
+        const caseCounts: Record<string, number> = {};
 
         if (agentIds.length > 0) {
             const { data: agentCases } = await supabase
@@ -75,7 +76,7 @@ export async function GET() {
         }
 
         // Enrich with case counts
-        const enrichedMembers = (teamMembers || []).map(m => ({
+        const enrichedMembers = (teamMembers || []).map((m: { id: string }) => ({
             ...m,
             cases_assigned: caseCounts[m.id] || 0,
         }));

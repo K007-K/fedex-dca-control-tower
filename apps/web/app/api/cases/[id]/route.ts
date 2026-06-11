@@ -2,12 +2,12 @@
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-import { withPermission, withAnyPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { canAccessCase, isDCARole } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { withPermission, withAnyPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { CaseStateMachine, CaseActionService } from '@/lib/case';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/cases/[id]

@@ -3,10 +3,10 @@
   "project": "FedEx DCA Control Tower",
   "target_project_name": "AI-Powered DCA Control Tower - GenAI Workflow Automation Platform",
   "last_updated": "2026-06-11",
-  "last_agent": "Antigravity IDE (Gemini Code Assistant)",
+  "last_agent": "Codex",
   "coordination_mode": "repo_files_and_git",
   "current_phase": "Phase 2 - Runtime Bug Fixing",
-  "current_status": "database_stabilized_auth_working",
+  "current_status": "phase_2_web_stabilization_and_demo_data_seed_passed",
   "do_not_implement_ai_features_yet": true,
   "verified": {
     "git_remote": "https://github.com/K007-K/fedex-dca-control-tower.git",
@@ -15,16 +15,28 @@
     "python_ml_compile": "passed",
     "docker_fedex_images_exist": false,
     "supabase_env_project_ref": "ghrdpyxseangkikvdnxi",
-    "supabase_live_connection": "verified_login_ok"
+    "supabase_live_connection": "verified_login_ok",
+    "web_type_check": "passed on 2026-06-11 via cd apps/web && npm run type-check -- --pretty false",
+    "web_governance_tests": "passed on 2026-06-11: 6 suites, 104 tests",
+    "web_lint": "passed on 2026-06-11 with warnings remaining",
+    "web_build": "passed on 2026-06-11 after removing typescript.ignoreBuildErrors",
+    "runtime_homepage": "http://localhost:3000 returned 200",
+    "runtime_login_page": "http://localhost:3000/login returned 200",
+    "runtime_health_api": "http://localhost:3000/api/health returned status ok with database and ml_service connected",
+    "supabase_password_auth": "system.admin@fedex.com login returned access token",
+    "demo_cases_seeded": "6 DEMO-2026 cases inserted idempotently via scripts/seed-demo-cases.js",
+    "fresh_health_counts": "cases=6, dcas=2, users=11, regions=1"
   },
   "known_failures": {
-    "web_type_check": "fails with TypeScript errors",
-    "web_lint": "fails with about 60 lint errors"
+    "web_type_check": "passed",
+    "web_lint": "passes with warnings; cleanup debt remains for unused variables, nullish-coalescing suggestions, any usage, and console warnings",
+    "web_build": "passed"
   },
   "immediate_next_tasks": [
-    "Fix API runtime-class TypeScript errors involving request/user variable mismatches in apps/web",
-    "Regenerate Supabase database types after project connection is verified",
-    "Fix ESLint errors in apps/web"
+    "Do browser-based manual verification of login redirect and role dashboards",
+    "Do browser-based manual verification of dashboard pages with seeded demo cases",
+    "Consider seeding SLA/audit/activity data if dashboards still look too thin",
+    "Decide whether to clean remaining lint warnings now or defer them as cleanup debt before AI feature work"
   ],
   "safe_validation_commands": [
     "cd apps/web && npm run type-check",

@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
 import { withPermission } from '@/lib/auth/api-wrapper';
 import { getGlobalAnalytics } from '@/lib/governance';
 

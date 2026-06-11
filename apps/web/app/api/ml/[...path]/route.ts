@@ -4,7 +4,8 @@
  * 
  * Permission: analytics:read (for reading ML predictions/scores)
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 
 // Force dynamic rendering - this route uses cookies/headers

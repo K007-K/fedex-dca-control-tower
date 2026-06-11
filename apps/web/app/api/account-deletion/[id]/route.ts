@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth/permissions';
 import { UserRole } from '@/lib/auth/rbac';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 

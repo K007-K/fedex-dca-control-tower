@@ -17,10 +17,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
+import { allocateCaseById } from '@/lib/allocation';
 import { logSecurityEvent } from '@/lib/audit';
 import { getCurrentUser } from '@/lib/auth/permissions';
 import { isSystemRequest, authenticateSystemRequest } from '@/lib/auth/system-auth';
-import { allocateCaseById } from '@/lib/allocation';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';

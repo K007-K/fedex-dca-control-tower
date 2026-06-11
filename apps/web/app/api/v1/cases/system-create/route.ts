@@ -14,13 +14,14 @@
  * Required operation: cases:system-create
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
+import { logSecurityEvent } from '@/lib/audit';
 import { withSystemAuth, type SystemApiHandler } from '@/lib/auth/api-wrapper';
 import {
     createSystemCase,
     validateSystemCasePayload,
 } from '@/lib/case/system-case-creation';
-import { logSecurityEvent } from '@/lib/audit';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';

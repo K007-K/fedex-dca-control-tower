@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * DCA_ADMIN Dashboard API
@@ -51,14 +52,14 @@ export async function GET() {
 
         // Active cases (not closed)
         const terminalStatuses = ['CLOSED', 'FULL_RECOVERY', 'WRITTEN_OFF'];
-        const activeCases = cases.filter(c => !terminalStatuses.includes(c.status)).length;
+        const activeCases = cases.filter((c: { status: string }) => !terminalStatuses.includes(c.status)).length;
 
         // Calculate SLA metrics
         const now = new Date();
         let overdueCases = 0;
         let atRiskCases = 0;
 
-        cases.forEach(c => {
+        cases.forEach((c: { status: string; sla_due_at?: string | null }) => {
             if (terminalStatuses.includes(c.status)) return;
             if (c.sla_due_at) {
                 const dueAt = new Date(c.sla_due_at);
@@ -81,8 +82,8 @@ export async function GET() {
             .eq('is_active', true);
 
         const team = teamMembers || [];
-        const managers = team.filter(m => m.role === 'DCA_MANAGER').length;
-        const agents = team.filter(m => m.role === 'DCA_AGENT').length;
+        const managers = team.filter((m: { role: string }) => m.role === 'DCA_MANAGER').length;
+        const agents = team.filter((m: { role: string }) => m.role === 'DCA_AGENT').length;
 
         // Get escalations (cases escalated to admin)
         const { data: escalatedCases } = await supabase
@@ -94,7 +95,7 @@ export async function GET() {
             .limit(5);
 
         const escalationsReceived = escalatedCases?.length || 0;
-        const recentEscalations = (escalatedCases || []).map(c => ({
+        const recentEscalations = (escalatedCases || []).map((c: { id: string; case_number: string; updated_at: string }) => ({
             id: c.id,
             case_number: c.case_number,
             from_user: 'Manager',

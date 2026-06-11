@@ -84,7 +84,8 @@ export type AuditAction =
     | 'API_KEY_REGENERATED'
     // Notification events
     | 'NOTIFICATION_DELIVERED'
-    | 'NOTIFICATION_PREFERENCE_UPDATED';
+    | 'NOTIFICATION_PREFERENCE_UPDATED'
+    | (string & {});
 
 export type ActorType = 'SYSTEM' | 'HUMAN';
 export type AuditSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
@@ -205,7 +206,41 @@ export async function logSystemAction(
     resourceId: string,
     regionId: string,
     details?: Record<string, unknown>
+): Promise<string | null>;
+export async function logSystemAction(
+    action: AuditAction,
+    serviceName: keyof typeof SYSTEM_SERVICES | string,
+    resourceType: string,
+    resourceId: string,
+    details?: Record<string, unknown>
+): Promise<string | null>;
+export async function logSystemAction(
+    action: AuditAction,
+    serviceName: keyof typeof SYSTEM_SERVICES | string,
+    resourceType: string,
+    resourceId: string,
+    details?: Record<string, unknown>,
+    ipAddress?: string
+): Promise<string | null>;
+export async function logSystemAction(
+    serviceNameOrAction: keyof typeof SYSTEM_SERVICES | string,
+    actionOrServiceName: AuditAction | string,
+    resourceType: string,
+    resourceId: string,
+    regionIdOrDetails?: string | Record<string, unknown>,
+    details?: Record<string, unknown> | string
 ): Promise<string | null> {
+    const knownServiceNames = new Set<string>(Object.values(SYSTEM_SERVICES));
+    const usesCurrentOrder = knownServiceNames.has(serviceNameOrAction);
+    const serviceName = usesCurrentOrder ? serviceNameOrAction : actionOrServiceName;
+    const action = usesCurrentOrder ? actionOrServiceName : serviceNameOrAction;
+    const regionId = typeof regionIdOrDetails === 'string' ? regionIdOrDetails : 'SYSTEM';
+    const auditDetails = typeof regionIdOrDetails === 'object'
+        ? regionIdOrDetails
+        : typeof details === 'object'
+            ? details
+            : undefined;
+
     return writeAuditLog({
         actorType: 'SYSTEM',
         serviceName,
@@ -213,7 +248,7 @@ export async function logSystemAction(
         resourceType,
         resourceId,
         regionId,
-        details,
+        details: auditDetails,
         severity: 'INFO',
     });
 }
@@ -247,7 +282,7 @@ export async function logHumanAction(
         userRole: user.role,
         action,
         resourceType,
-        resourceId,
+        resourceId: resourceId || 'UNKNOWN',
         regionId,
         details,
         severity: 'INFO',
@@ -268,7 +303,58 @@ export async function logSecurityEvent(
     details: Record<string, unknown>,
     user?: { id: string; email: string; role: string },
     serviceName?: string
+): Promise<string | null>;
+export async function logSecurityEvent(
+    action: AuditAction,
+    userId: string | undefined,
+    details?: Record<string, unknown>,
+    ipAddress?: string
+): Promise<string | null>;
+export async function logSecurityEvent(
+    action: AuditAction,
+    details?: Record<string, unknown>,
+    ipAddress?: string,
+    userAgent?: string
+): Promise<string | null>;
+export async function logSecurityEvent(
+    actorTypeOrAction: ActorType | AuditAction,
+    actionOrUserId: AuditAction | string | Record<string, unknown> | undefined,
+    resourceTypeOrDetails?: string | Record<string, unknown>,
+    resourceIdOrIpAddress?: string,
+    regionId?: string,
+    details?: Record<string, unknown>,
+    user?: { id: string; email: string; role: string },
+    serviceName?: string
 ): Promise<string | null> {
+    if (actorTypeOrAction !== 'SYSTEM' && actorTypeOrAction !== 'HUMAN') {
+        const userId = typeof actionOrUserId === 'string' ? actionOrUserId : 'UNKNOWN';
+        const legacyDetails =
+            typeof actionOrUserId === 'object'
+                ? actionOrUserId
+                : ((resourceTypeOrDetails as Record<string, unknown>) || {});
+
+        return writeAuditLog({
+            actorType: 'HUMAN',
+            userId,
+            userEmail: user?.email || 'UNKNOWN',
+            userRole: user?.role || 'UNKNOWN',
+            action: actorTypeOrAction,
+            resourceType: 'security',
+            resourceId: userId,
+            regionId: regionId || 'SECURITY',
+            details: {
+                ...legacyDetails,
+                ipAddress: resourceIdOrIpAddress,
+            },
+            severity: 'CRITICAL',
+        });
+    }
+
+    const actorType = actorTypeOrAction;
+    const action = actionOrUserId as AuditAction;
+    const resourceType = resourceTypeOrDetails as string;
+    const resourceId = resourceIdOrIpAddress as string;
+
     if (actorType === 'SYSTEM') {
         return writeAuditLog({
             actorType: 'SYSTEM',
@@ -276,8 +362,8 @@ export async function logSecurityEvent(
             action,
             resourceType,
             resourceId,
-            regionId,
-            details,
+            regionId: regionId || 'SECURITY',
+            details: details || {},
             severity: 'CRITICAL',
         });
     } else {
@@ -289,8 +375,8 @@ export async function logSecurityEvent(
             action,
             resourceType,
             resourceId,
-            regionId,
-            details,
+            regionId: regionId || 'SECURITY',
+            details: details || {},
             severity: 'CRITICAL',
         });
     }
@@ -425,6 +511,59 @@ export async function logAudit(entry: {
     } as AuditEntry);
 }
 
-// Legacy exports for backward compatibility
-export { logAudit as logUserAction };
+export async function logUserAction(entry: {
+    action: AuditAction;
+    actorType?: ActorType;
+    serviceName?: string;
+    userId?: string;
+    userEmail?: string;
+    resourceType?: string;
+    resourceId?: string;
+    details?: Record<string, unknown>;
+    ipAddress?: string;
+    userAgent?: string;
+    severity?: AuditSeverity;
+    requestSource?: RequestSource;
+}): Promise<void>;
+export async function logUserAction(
+    action: AuditAction | string,
+    userId: string,
+    userEmail: string | undefined,
+    resourceType: string,
+    resourceId: string,
+    details?: Record<string, unknown>,
+    request?: Request
+): Promise<void>;
+export async function logUserAction(
+    entryOrUserId: Parameters<typeof logAudit>[0] | string,
+    userId?: string,
+    userEmailOrResourceType?: string,
+    resourceTypeOrResourceId?: string,
+    resourceIdOrDetails?: string | Record<string, unknown>,
+    detailsOrRequest?: Record<string, unknown> | Request,
+    request?: Request
+): Promise<void> {
+    if (typeof entryOrUserId === 'object') {
+        await logAudit(entryOrUserId);
+        return;
+    }
+
+    const actualDetails = typeof resourceIdOrDetails === 'object'
+        ? resourceIdOrDetails
+        : detailsOrRequest instanceof Request
+            ? undefined
+            : detailsOrRequest;
+    const actualRequest = detailsOrRequest instanceof Request ? detailsOrRequest : request;
+    const metadata = actualRequest ? getRequestMetadata(actualRequest) : { ipAddress: undefined, userAgent: undefined };
+    await logAudit({
+        userId,
+        userEmail: userEmailOrResourceType,
+        action: entryOrUserId as AuditAction,
+        resourceType: resourceTypeOrResourceId,
+        resourceId: typeof resourceIdOrDetails === 'string' ? resourceIdOrDetails : 'UNKNOWN',
+        details: actualDetails,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+    });
+}
 export { logSecurityEvent as logCriticalEvent };

@@ -9,8 +9,8 @@
  * @module lib/region/RegionRBAC
  */
 
-import { createClient } from '@/lib/supabase/server';
 import type { UserRole } from '@/lib/auth/rbac';
+import { createClient } from '@/lib/supabase/server';
 
 // ===========================================
 // TYPES
@@ -217,18 +217,21 @@ export class RegionRBAC {
             .eq('user_id', userId)
             .is('revoked_at', null);
 
-        return (access || []).map((a: {
+        return ((access || []) as {
             region_id: string;
             access_level: string;
             is_primary_region: boolean;
-            region: { region_code: string; name: string } | null;
-        }) => ({
+            region: { region_code: string; name: string } | { region_code: string; name: string }[] | null;
+        }[]).map((a) => {
+            const region = Array.isArray(a.region) ? a.region[0] : a.region;
+            return {
             region_id: a.region_id,
-            region_code: a.region?.region_code || '',
-            region_name: a.region?.name || '',
+            region_code: region?.region_code || '',
+            region_name: region?.name || '',
             access_level: a.access_level as 'READ' | 'WRITE' | 'ADMIN',
             is_primary: a.is_primary_region,
-        }));
+            };
+        });
     }
 
     /**

@@ -4,7 +4,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
 
 export const CORRELATION_ID_HEADER = 'x-correlation-id';
 export const REQUEST_ID_HEADER = 'x-request-id';
@@ -20,7 +19,7 @@ export function getCorrelationId(request: NextRequest): string {
     }
 
     // Generate new correlation ID
-    return `req_${uuidv4().replace(/-/g, '').substring(0, 16)}`;
+    return `req_${crypto.randomUUID().replace(/-/g, '').substring(0, 16)}`;
 }
 
 /**

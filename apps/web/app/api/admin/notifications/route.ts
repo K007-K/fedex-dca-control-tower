@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * DCA_ADMIN Notifications API
@@ -52,7 +53,7 @@ export async function GET() {
             .order('updated_at', { ascending: false })
             .limit(10);
 
-        (escalatedCases || []).forEach(c => {
+        (escalatedCases || []).forEach((c: { id: string; case_number: string; customer_name: string; updated_at: string }) => {
             notifications.push({
                 id: `esc-${c.id}`,
                 type: 'escalation',
@@ -75,7 +76,7 @@ export async function GET() {
             .order('sla_due_at', { ascending: true })
             .limit(20);
 
-        (slaCases || []).forEach(c => {
+        (slaCases || []).forEach((c: { id: string; case_number: string; customer_name: string; sla_due_at?: string | null; updated_at: string }) => {
             if (!c.sla_due_at) return;
             const dueAt = new Date(c.sla_due_at);
             const hoursRemaining = (dueAt.getTime() - now.getTime()) / (1000 * 60 * 60);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * DCA_ADMIN Cases API
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
         // Apply at-risk filter post-query
         let finalCases = enrichedCases;
         if (filter === 'at-risk') {
-            finalCases = enrichedCases.filter(c => c.sla_hours_remaining > 0 && c.sla_hours_remaining < 24);
+            finalCases = enrichedCases.filter((c: { sla_hours_remaining: number }) => c.sla_hours_remaining > 0 && c.sla_hours_remaining < 24);
         }
 
         return NextResponse.json({

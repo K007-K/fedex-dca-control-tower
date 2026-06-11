@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 // Force dynamic rendering - this route uses cookies

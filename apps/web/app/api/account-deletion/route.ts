@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth/permissions';
 import { UserRole } from '@/lib/auth/rbac';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,14 +101,14 @@ export async function POST(request: NextRequest) {
         // Log the action
         try {
             const { logUserAction } = await import('@/lib/audit');
-            await logUserAction(
-                'ACCOUNT_DELETION_REQUESTED',
-                user.id,
-                user.email,
-                'account_deletion_requests',
-                newRequest.id,
-                { reason }
-            );
+            await logUserAction({
+                action: 'USER_DELETED',
+                userId: user.id,
+                userEmail: user.email,
+                resourceType: 'account_deletion_requests',
+                resourceId: newRequest.id,
+                details: { reason },
+            });
         } catch { }
 
         return NextResponse.json({

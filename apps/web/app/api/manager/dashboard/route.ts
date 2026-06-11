@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * Manager Dashboard API
@@ -82,7 +83,7 @@ export async function GET() {
 
         let slaDueSoon = 0;
         let slaBreached = 0;
-        let atRiskCases: Array<{
+        const atRiskCases: Array<{
             id: string;
             case_number: string;
             customer_name: string;

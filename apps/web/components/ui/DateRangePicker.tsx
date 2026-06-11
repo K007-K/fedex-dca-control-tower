@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { format } from 'date-fns';
-import { DayPicker } from 'react-day-picker';
+import { useState } from 'react';
+import { DayPicker, type DateRange } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 
 interface DateRangePickerProps {
@@ -14,18 +14,18 @@ interface DateRangePickerProps {
 
 export function DateRangePicker({ from, to, onSelect, className = '' }: DateRangePickerProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const [range, setRange] = useState<{ from?: Date; to?: Date }>({ from, to });
+    const [range, setRange] = useState<DateRange | undefined>({ from, to });
 
-    const handleSelect = (selectedRange: { from?: Date; to?: Date } | undefined) => {
+    const handleSelect = (selectedRange: DateRange | undefined) => {
         if (selectedRange) {
             setRange(selectedRange);
             onSelect(selectedRange.from, selectedRange.to);
         }
     };
 
-    const displayText = range.from && range.to
+    const displayText = range?.from && range.to
         ? `${format(range.from, 'MMM dd, yyyy')} - ${format(range.to, 'MMM dd, yyyy')}`
-        : range.from
+        : range?.from
             ? `${format(range.from, 'MMM dd, yyyy')} - ...`
             : 'Select date range';
 
@@ -60,7 +60,7 @@ export function DateRangePicker({ from, to, onSelect, className = '' }: DateRang
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setRange({});
+                                    setRange(undefined);
                                     onSelect(undefined, undefined);
                                     setIsOpen(false);
                                 }}

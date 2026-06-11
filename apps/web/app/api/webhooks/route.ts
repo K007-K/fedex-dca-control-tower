@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
-import { createClient } from '@/lib/supabase/server';
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/webhooks - List all webhooks

@@ -135,17 +135,17 @@ export function useFormValidation<T extends Record<string, unknown>>(
         const fieldRules = schema[field];
         if (!fieldRules) return null;
 
-        for (const rule of fieldRules) {
+        for (const rule of fieldRules as ValidationRule[]) {
             // Handle matches rule
             if (rule.message.startsWith('Must match') && allData) {
                 const matchField = rule.message.replace('Must match ', '') as keyof T;
-                if (value !== allData[matchField]) {
+                if (String(value) !== String(allData[matchField])) {
                     return rule.message;
                 }
                 continue;
             }
 
-            if (!rule.validate(value as string)) {
+            if (!rule.validate(String(value))) {
                 return rule.message;
             }
         }

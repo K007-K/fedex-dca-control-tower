@@ -8,9 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
+import { logUserAction } from '@/lib/audit';
 import { withPermission } from '@/lib/auth/api-wrapper';
 import { createAdminClient } from '@/lib/supabase/server';
-import { logUserAction } from '@/lib/audit';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';

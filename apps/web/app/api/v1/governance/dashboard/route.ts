@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
+
 import { withPermission } from '@/lib/auth/api-wrapper';
 import { getGovernanceDashboard } from '@/lib/governance';
 

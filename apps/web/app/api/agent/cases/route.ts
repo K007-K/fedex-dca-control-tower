@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * Agent Cases API
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
 
         // Try to get SLA data from sla_logs - but don't fail if table doesn't exist
         const caseIds = cases?.map((c: { id: string }) => c.id) || [];
-        let slaMap: Record<string, { due_at: string; hours_remaining: number; status: string }> = {};
+        const slaMap: Record<string, { due_at: string; hours_remaining: number; status: string }> = {};
 
         if (caseIds.length > 0) {
             const { data: slaLogs, error: slaError } = await supabase

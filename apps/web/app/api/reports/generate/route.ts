@@ -3,12 +3,12 @@ import { NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
-import { withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { createClient } from '@/lib/supabase/server';
-import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
 import { logUserAction } from '@/lib/audit';
-import { GOVERNED_REPORTS, canAccessReport, canExportReport } from '@/lib/reports/governance';
+import { withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { UserRole } from '@/lib/auth/rbac';
+import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
+import { GOVERNED_REPORTS, canAccessReport, canExportReport } from '@/lib/reports/governance';
+import { createClient } from '@/lib/supabase/server';
 
 interface ReportRequest {
     reportType: string;
@@ -221,7 +221,7 @@ const handleGenerateReport: ApiHandler = async (request, { user }) => {
 
             case 'sla-compliance': {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                let slaQuery = (supabase as any)
+                const slaQuery = (supabase as any)
                     .from('sla_logs')
                     .select('*, cases!inner(region)')
                     .order('created_at', { ascending: false })

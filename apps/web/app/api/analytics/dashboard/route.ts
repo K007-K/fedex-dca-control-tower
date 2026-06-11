@@ -5,8 +5,8 @@
  */
 import { NextResponse } from 'next/server';
 
-import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { isDCARole } from '@/lib/auth';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { createClient } from '@/lib/supabase/server';
 
 // Force dynamic rendering - this route uses cookies/headers

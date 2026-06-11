@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logUserAction } from '@/lib/audit';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export interface IntegrationStatus {
     name: string;

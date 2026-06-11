@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 interface BulkRequest {
     case_ids: string[];

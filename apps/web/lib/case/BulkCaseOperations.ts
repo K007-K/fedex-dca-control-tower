@@ -10,12 +10,13 @@
  * @module lib/case/BulkCaseOperations
  */
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { CaseStateMachine } from './CaseStateMachine';
-import { CaseActionService, type UserContext } from './CaseActionService';
-import { dcaAllocationEngine } from '@/lib/region/DCAAllocationEngine';
 import { logUserAction } from '@/lib/audit';
+import { dcaAllocationEngine } from '@/lib/region/DCAAllocationEngine';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import type { CaseStatus } from '@/lib/types/case';
+
+import { CaseActionService, type UserContext } from './CaseActionService';
+import { CaseStateMachine } from './CaseStateMachine';
 
 // ===========================================
 // TYPES
@@ -91,7 +92,9 @@ export class BulkCaseOperations {
                 };
             }
 
-            const caseMap = new Map(cases.map((c: any) => [c.id, c]));
+            const caseMap = new Map<string, { id: string; status: CaseStatus }>(
+                cases.map((c: any) => [c.id, c])
+            );
 
             // Pre-validate all transitions
             for (const caseId of input.caseIds) {

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logUserAction } from '@/lib/audit';
+import { UserRole } from '@/lib/auth/rbac';
 import {
     validateProfileUpdate,
     getEditableFields,
@@ -11,7 +11,7 @@ import {
     canRevokeSessions,
     RESTRICTED_FIELDS
 } from '@/lib/profile/governance';
-import { UserRole } from '@/lib/auth/rbac';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 // GET - Fetch user profile with role-aware security visibility
 export async function GET() {

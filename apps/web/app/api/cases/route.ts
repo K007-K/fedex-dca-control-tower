@@ -2,14 +2,14 @@
 
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { isDCARole } from '@/lib/auth';
+import { allocateCase } from '@/lib/allocation';
 import { logUserAction, logSecurityEvent } from '@/lib/audit';
+import { isDCARole } from '@/lib/auth';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { secureQuery } from '@/lib/auth/secure-query';
 import { createClient } from '@/lib/supabase/server';
-import { allocateCase } from '@/lib/allocation';
 
 /**
  * GET /api/cases
@@ -128,15 +128,19 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
     // ============================================================
     if (user.role !== 'FEDEX_ADMIN') {
         await logSecurityEvent(
+            'HUMAN',
             'PERMISSION_DENIED',
-            user.id,
+            'case',
+            'N/A',
+            'N/A',
             {
                 action: 'CASE_CREATE_BLOCKED',
                 reason: 'Only FEDEX_ADMIN can create cases manually',
                 user_role: user.role,
                 user_email: user.email,
+                ip_address: ipAddress,
             },
-            ipAddress
+            { id: user.id, email: user.email, role: user.role }
         );
 
         return NextResponse.json(
@@ -186,8 +190,11 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
         // These fields are ALWAYS set by SYSTEM allocation
         if (body.assigned_dca_id || body.assigned_agent_id) {
             await logSecurityEvent(
+                'HUMAN',
                 'PERMISSION_DENIED',
-                user.id,
+                'case',
+                'N/A',
+                'N/A',
                 {
                     action: 'ASSIGNMENT_FIELD_STRIPPED',
                     reason: 'Human attempted to set SYSTEM-only assignment fields',
@@ -195,23 +202,32 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
                         assigned_dca_id: body.assigned_dca_id,
                         assigned_agent_id: body.assigned_agent_id,
                     },
+                    ip_address: ipAddress,
                 },
-                ipAddress
+                { id: user.id, email: user.email, role: user.role }
             );
         }
 
         // Generate case number
         const caseNumber = `CASE-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-        // Determine region (default to user's region or AMERICAS)
-        const region = body.region || 'AMERICAS';
+        // Determine region (default to INDIA - primary region)
+        const region = body.region || 'INDIA';
 
         // Get region_id from region code
-        const { data: regionData } = await (supabase as any)
+        const { data: regionData, error: regionError } = await (supabase as any)
             .from('regions')
             .select('id')
-            .eq('code', region)
+            .eq('region_code', region)
             .single();
+
+        if (regionError || !regionData) {
+            console.error('Region lookup failed:', regionError?.message || 'Region not found');
+            return NextResponse.json(
+                { error: { code: 'INVALID_REGION', message: `Region '${region}' not found. Please provide a valid region.` } },
+                { status: 400 }
+            );
+        }
 
         // ============================================================
         // CREATE CASE (HUMAN/MANUAL)
@@ -229,7 +245,7 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
                 priority: body.priority || 'MEDIUM',
                 status: 'PENDING_ALLOCATION', // Always pending - SYSTEM will allocate
                 region: region,
-                region_id: regionData?.id || null,
+                region_id: regionData.id,
                 // GOVERNANCE: Mark as human-created
                 actor_type: 'HUMAN',
                 created_source: 'MANUAL',
@@ -254,13 +270,13 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
         // ============================================================
         // AUDIT LOG: HUMAN CASE CREATION
         // ============================================================
-        await logUserAction(
-            'CASE_CREATED',
-            user.id,
-            user.email,
-            'case',
-            newCase.id,
-            {
+        await logUserAction({
+            action: 'CASE_CREATED',
+            userId: user.id,
+            userEmail: user.email,
+            resourceType: 'case',
+            resourceId: newCase.id,
+            details: {
                 case_number: caseNumber,
                 actor_type: 'HUMAN',
                 created_source: 'MANUAL',
@@ -269,7 +285,7 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
                 original_amount: body.original_amount,
                 region: region,
             }
-        );
+        });
 
         // ============================================================
         // SYSTEM AUTO-ALLOCATION (ASYNC)
@@ -278,7 +294,7 @@ const handleCreateCase: ApiHandler = async (request, { user }) => {
         allocateCase({
             id: newCase.id,
             case_number: caseNumber,
-            region_id: regionData?.id || '',
+            region_id: regionData.id,
             region_code: region,
             priority: body.priority || 'MEDIUM',
             total_due: parseFloat(body.original_amount),

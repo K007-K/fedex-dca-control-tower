@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+
 import { getCurrentUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * Agent Dashboard API
@@ -47,7 +48,7 @@ export async function GET() {
         // 2. Get SLA data for agent's active cases
         const caseIds = activeCases.map((c: { id: string }) => c.id);
 
-        let slaDueSoon: Array<{
+        const slaDueSoon: Array<{
             id: string;
             case_number: string;
             customer_name: string;
@@ -58,7 +59,7 @@ export async function GET() {
             sla_due_at: string;
         }> = [];
 
-        let slaBreached: typeof slaDueSoon = [];
+        const slaBreached: typeof slaDueSoon = [];
         let dueToday = 0;
         let overdueCases = 0;
 

@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic';
  * SECURITY: Requires authentication and appropriate permissions
  * Region filtering is SERVER-ENFORCED via SecureQueryBuilder
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
-import { isDCARole } from '@/lib/auth';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { dcaCreateSchema, validateFormData } from '@/lib/validations';
 import { logHumanAction } from '@/lib/audit';
+import { isDCARole } from '@/lib/auth';
+import { withPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { secureQuery } from '@/lib/auth/secure-query';
+import { createAdminClient } from '@/lib/supabase/server';
+import { dcaCreateSchema, validateFormData } from '@/lib/validations';
 
 /**
  * GET /api/dcas

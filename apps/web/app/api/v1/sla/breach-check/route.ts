@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
 import { logSecurityEvent, logSystemAction } from '@/lib/audit';
 import { getCurrentUser } from '@/lib/auth/permissions';
 import { isSystemRequest, authenticateSystemRequest } from '@/lib/auth/system-auth';
