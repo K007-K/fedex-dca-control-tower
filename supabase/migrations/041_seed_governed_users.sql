@@ -412,6 +412,21 @@ BEGIN
     VALUES (v_infosol_agent2_id, 'agent2@infosolcollections.in', 'InfoSol Agent 2', 'DCA_AGENT', true, v_infosol_dca_id, v_india_region_id, 'DL', v_infosol_manager_id, NOW())
     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, full_name = EXCLUDED.full_name, role = EXCLUDED.role, is_active = EXCLUDED.is_active, dca_id = EXCLUDED.dca_id, primary_region_id = EXCLUDED.primary_region_id, state_code = EXCLUDED.state_code, created_by_user_id = EXCLUDED.created_by_user_id;
 
+    -- ===========================================
+    -- STEP 12: Insert identities for all auth users
+    -- ===========================================
+    INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    SELECT 
+        id::text,
+        id,
+        jsonb_build_object('sub', id::text, 'email', email),
+        'email',
+        NOW(),
+        NOW(),
+        NOW()
+    FROM auth.users
+    ON CONFLICT DO NOTHING;
+
     RAISE NOTICE '=== GOVERNED USERS CREATED SUCCESSFULLY ===';
     RAISE NOTICE 'Created 11 users:';
     RAISE NOTICE '  - 1 SUPER_ADMIN';
