@@ -1,0 +1,59 @@
+{
+  "bridge_version": "1.0.0",
+  "project": "FedEx DCA Control Tower",
+  "target_project_name": "AI-Powered DCA Control Tower - GenAI Workflow Automation Platform",
+  "last_updated": "2026-06-11",
+  "last_agent": "Antigravity IDE (Gemini Code Assistant)",
+  "coordination_mode": "repo_files_and_git",
+  "current_phase": "Phase 2 - Runtime Bug Fixing",
+  "current_status": "database_stabilized_auth_working",
+  "do_not_implement_ai_features_yet": true,
+  "verified": {
+    "git_remote": "https://github.com/K007-K/fedex-dca-control-tower.git",
+    "branch_at_inspection": "master",
+    "jest_tests": "104 passed",
+    "python_ml_compile": "passed",
+    "docker_fedex_images_exist": false,
+    "supabase_env_project_ref": "ghrdpyxseangkikvdnxi",
+    "supabase_live_connection": "verified_login_ok"
+  },
+  "known_failures": {
+    "web_type_check": "fails with TypeScript errors",
+    "web_lint": "fails with about 60 lint errors"
+  },
+  "immediate_next_tasks": [
+    "Fix API runtime-class TypeScript errors involving request/user variable mismatches in apps/web",
+    "Regenerate Supabase database types after project connection is verified",
+    "Fix ESLint errors in apps/web"
+  ],
+  "safe_validation_commands": [
+    "cd apps/web && npm run type-check",
+    "cd apps/web && npm run lint",
+    "cd apps/web && npm test -- --runInBand",
+    "python3 -m py_compile apps/ml-service/main.py apps/ml-service/config.py apps/ml-service/database.py apps/ml-service/routers/*.py"
+  ],
+  "handoff_files": [
+    "AGENT_HANDOFF.md",
+    "PRODUCTION_READINESS_PLAN.md",
+    "agent-bridge/status.json"
+  ],
+  "rules_for_next_agent": [
+    "Read AGENT_HANDOFF.md first",
+    "Do not delete Docker volumes",
+    "Do not reset Git history",
+    "Do not run destructive Supabase reset commands against remote projects",
+    "Do not expose service-role keys to frontend or unnecessary services",
+    "Update this status.json before handing work back"
+  ],
+  "mvp_ai_scope": [
+    "document upload",
+    "document classification",
+    "structured JSON extraction",
+    "LangGraph workflow",
+    "AI SLA risk analysis",
+    "manager approval for high risk",
+    "workflow monitoring dashboard",
+    "audit log",
+    "webhook event emission"
+  ]
+}
