@@ -7,8 +7,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const SUPABASE_URL = 'https://ghrdpyxseangkikvdnxi.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdocmRweXhzZWFuZ2tpa3ZkbnhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDEzMjM3OCwiZXhwIjoyMDg1NzA4Mzc4fQ.Z-sp1sc0vtUe8Jq9JrwwwYx_5gFTk94ZFa3gFjVt2zY';
+// Load environment variables from apps/web/.env.local
+require('dotenv').config({ path: path.join(__dirname, '../apps/web/.env.local') });
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function runSQL(sql, description) {
     console.log(`\n📦 Running: ${description}...`);
