@@ -39,7 +39,7 @@ DO $$
 DECLARE
     -- Valid bcrypt hash for 'Password123!' (cost=10)
     -- Generated using: SELECT crypt('Password123!', gen_salt('bf', 10));
-    v_password_hash TEXT := '$2a$10$zXzGR5zV8qY5Jz2X0Y3X4O5jH6kL7mN8pQ9rS0tU1vW2xY3zA4B5C';
+    v_password_hash TEXT := '$2a$10$7OwF0Nm/cQyR/Ha.VbryKO7iWV4JW11SQHJ3BFlRDjm.E7Bpbh2zm';
     v_india_region_id UUID;
     v_tata_dca_id UUID;
     v_infosol_dca_id UUID;
@@ -427,6 +427,28 @@ BEGIN
         NOW()
     FROM auth.users
     ON CONFLICT DO NOTHING;
+
+    -- ===========================================
+    -- STEP 13: Fix NULL token/change columns for GoTrue compat
+    -- ===========================================
+    UPDATE auth.users
+    SET 
+        confirmation_token = COALESCE(confirmation_token, ''),
+        email_change = COALESCE(email_change, ''),
+        email_change_token_new = COALESCE(email_change_token_new, ''),
+        email_change_token_current = COALESCE(email_change_token_current, ''),
+        recovery_token = COALESCE(recovery_token, ''),
+        phone_change = COALESCE(phone_change, ''),
+        phone_change_token = COALESCE(phone_change_token, ''),
+        reauthentication_token = COALESCE(reauthentication_token, '')
+    WHERE confirmation_token IS NULL 
+       OR email_change IS NULL 
+       OR email_change_token_new IS NULL 
+       OR email_change_token_current IS NULL 
+       OR recovery_token IS NULL 
+       OR phone_change IS NULL 
+       OR phone_change_token IS NULL
+       OR reauthentication_token IS NULL;
 
     RAISE NOTICE '=== GOVERNED USERS CREATED SUCCESSFULLY ===';
     RAISE NOTICE 'Created 11 users:';
