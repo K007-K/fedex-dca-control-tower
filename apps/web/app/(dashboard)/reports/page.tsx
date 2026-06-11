@@ -2,9 +2,9 @@ import Link from 'next/link';
 
 import { ReportCard } from '@/components/reports/ReportCard';
 import { ReportsPageHeader } from '@/components/reports/ReportsPageHeader';
-import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { guardPage } from '@/lib/auth/page-guard';
+import { createAdminClient } from '@/lib/supabase/server';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {
@@ -54,7 +54,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
     const params = await searchParams;
     const region = params.region;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser();
 
     // GOVERNANCE: Check export permission

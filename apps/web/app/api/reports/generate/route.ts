@@ -8,7 +8,7 @@ import { withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapp
 import { UserRole } from '@/lib/auth/rbac';
 import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
 import { GOVERNED_REPORTS, canAccessReport, canExportReport } from '@/lib/reports/governance';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface ReportRequest {
     reportType: string;
@@ -31,7 +31,7 @@ interface ReportRequest {
  */
 const handleGenerateReport: ApiHandler = async (request, { user }) => {
     try {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const body: ReportRequest = await request.json();
 
         const { reportType, format = 'json', region, startDate, endDate } = body;
@@ -342,7 +342,7 @@ const handleGetReport: ApiHandler = async (request, { user }) => {
         const days = searchParams.get('days') || '30';
         const reportType = searchParams.get('reportType') || 'recovery-summary';
 
-        const supabase = await createClient();
+        const supabase = createAdminClient();
 
         // Calculate date filter
         let dateFilter: Date | null = null;
@@ -397,4 +397,3 @@ const handleGetReport: ApiHandler = async (request, { user }) => {
 // Export with RBAC and rate limiting for both GET and POST
 export const GET = withRateLimitedPermission('analytics:export', handleGetReport, RATE_LIMIT_CONFIGS.export);
 export const POST = withRateLimitedPermission('analytics:export', handleGenerateReport, RATE_LIMIT_CONFIGS.export);
-

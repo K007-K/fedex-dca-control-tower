@@ -9,10 +9,10 @@
  * @module lib/auth/secure-query
  */
 
-import { createClient } from '@/lib/supabase/server';
-import { regionRBAC, type RegionAccess } from '@/lib/region';
-import { isDCARole, isFedExRole, type UserRole } from '@/lib/auth/rbac';
 import { logSecurityEvent } from '@/lib/audit';
+import { isDCARole, isFedExRole, type UserRole } from '@/lib/auth/rbac';
+import { regionRBAC, type RegionAccess } from '@/lib/region';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export interface SecureUser {
     id: string;
@@ -137,7 +137,7 @@ export class SecureQueryBuilder {
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async execute(): Promise<{ data: any[]; error: any; count?: number }> {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         const regionColumn = this.options.regionColumn || 'region_id';
         const dcaColumn = this.options.dcaColumn || 'assigned_dca_id';
 

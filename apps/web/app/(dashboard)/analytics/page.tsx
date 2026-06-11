@@ -1,8 +1,7 @@
-import { Suspense } from 'react';
 import { AnalyticsCharts } from '@/components/analytics';
 import { AnalyticsPageHeader } from '@/components/analytics/AnalyticsPageHeader';
-import { createClient } from '@/lib/supabase/server';
 import { guardPage } from '@/lib/auth/page-guard';
+import { createAdminClient } from '@/lib/supabase/server';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Case = {
@@ -35,7 +34,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
     const params = await searchParams;
     const days = params.days ?? '30';
     const region = params.region ?? 'ALL';
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Calculate date filter
     let dateFilter: Date | null = null;
