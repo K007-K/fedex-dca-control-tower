@@ -24,10 +24,12 @@ TRUNCATE TABLE users CASCADE;
 DELETE FROM auth.users WHERE true;
 
 -- ===========================================
--- DISABLE ALL TRIGGERS during seeding
--- This prevents audit_log triggers from failing
+-- DISABLE USER-DEFINED TRIGGERS during seeding
+-- This prevents audit_log and immutability triggers from failing
 -- ===========================================
-SET session_replication_role = 'replica';
+ALTER TABLE users DISABLE TRIGGER users_identity_immutable;
+ALTER TABLE users DISABLE TRIGGER trigger_log_creation_rights;
+ALTER TABLE users DISABLE TRIGGER update_users_updated_at;
 
 -- Password for all users: Password123!
 -- Supabase uses bcrypt with cost 10
@@ -422,9 +424,11 @@ BEGIN
 END $$;
 
 -- ===========================================
--- RE-ENABLE TRIGGERS after seeding
+-- RE-ENABLE USER-DEFINED TRIGGERS after seeding
 -- ===========================================
-SET session_replication_role = 'origin';
+ALTER TABLE users ENABLE TRIGGER users_identity_immutable;
+ALTER TABLE users ENABLE TRIGGER trigger_log_creation_rights;
+ALTER TABLE users ENABLE TRIGGER update_users_updated_at;
 
 -- Recreate immutability rules on audit_logs
 CREATE RULE audit_logs_no_update AS ON UPDATE TO audit_logs DO INSTEAD NOTHING;

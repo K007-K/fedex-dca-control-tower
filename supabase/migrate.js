@@ -7,8 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const SUPABASE_URL = 'https://tmksoivitpmysjprbhxg.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRta3NvaXZpdHBteXNqcHJiaHhnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjgzMjEwNSwiZXhwIjoyMDgyNDA4MTA1fQ.FNvLhSSzHNh0UTmlg-aBMCdOA4X2-kHU0Mjw0iy6tyM';
+const SUPABASE_URL = 'https://ghrdpyxseangkikvdnxi.supabase.co';
+const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdocmRweXhzZWFuZ2tpa3ZkbnhpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDEzMjM3OCwiZXhwIjoyMDg1NzA4Mzc4fQ.Z-sp1sc0vtUe8Jq9JrwwwYx_5gFTk94ZFa3gFjVt2zY';
 
 async function runSQL(sql, description) {
     console.log(`\n📦 Running: ${description}...`);
@@ -56,7 +56,7 @@ async function main() {
     console.log('📋 MANUAL MIGRATION STEPS');
     console.log('='.repeat(60));
     console.log('\n1. Open Supabase SQL Editor:');
-    console.log('   https://supabase.com/dashboard/project/tmksoivitpmysjprbhxg/sql/new');
+    console.log('   https://supabase.com/dashboard/project/ghrdpyxseangkikvdnxi/sql/new');
     console.log('\n2. Run Schema Migration:');
     console.log('   - Open: supabase/migrations/001_initial_schema.sql');
     console.log('   - Copy all contents');
