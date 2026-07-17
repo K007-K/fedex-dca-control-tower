@@ -22,8 +22,8 @@
  * - 25%: Best recovery rate
  */
 
-import { createAdminClient } from '@/lib/supabase/server';
 import { logSystemAction } from '@/lib/audit';
+import { createAdminClient } from '@/lib/supabase/server';
 import { fireWebhookEvent } from '@/lib/webhooks';
 
 // ===========================================
@@ -287,7 +287,7 @@ export async function allocateCase(
             await (supabase as any)
                 .from('cases')
                 .update({
-                    status: 'ALLOCATION_PENDING',
+                    status: 'PENDING_ALLOCATION',
                     metadata: updatedMetadata,
                     updated_at: now,
                 })
@@ -356,7 +356,7 @@ export async function allocateCase(
             .from('cases')
             .update({
                 assigned_dca_id: selectedDCA.dca_id,
-                status: 'PENDING_CONTACT',
+                status: 'ALLOCATED',
                 updated_at: now,
                 metadata: updatedMetadata,
             })
