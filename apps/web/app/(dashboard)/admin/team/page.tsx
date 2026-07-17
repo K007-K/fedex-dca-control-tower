@@ -68,7 +68,7 @@ export default function AdminTeamPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Team Management</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Manage your DCA's managers and agents</p>
+                    <p className="text-gray-500 dark:text-gray-400">Manage your DCA&apos;s managers and agents</p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
@@ -166,8 +166,8 @@ export default function AdminTeamPage() {
                                     <td className="px-5 py-4">{getRoleBadge(member.role)}</td>
                                     <td className="px-5 py-4">
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.is_active
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-red-100 text-red-700'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700'
                                             }`}>
                                             {member.is_active ? 'Active' : 'Inactive'}
                                         </span>

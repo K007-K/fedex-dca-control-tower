@@ -9,6 +9,7 @@
  */
 
 import { redirect } from 'next/navigation';
+
 import { getCurrentUser } from '@/lib/auth';
 import { hasPermission, type Permission, type UserRole } from '@/lib/auth/rbac';
 

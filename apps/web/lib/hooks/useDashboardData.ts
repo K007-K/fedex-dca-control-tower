@@ -1,7 +1,8 @@
 'use client';
 
-import { useRegion } from '@/lib/context/RegionContext';
 import { useEffect, useState } from 'react';
+
+import { useRegion } from '@/lib/context/RegionContext';
 
 interface DashboardData {
     metrics: {

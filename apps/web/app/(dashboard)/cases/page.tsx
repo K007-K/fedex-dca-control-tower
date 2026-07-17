@@ -1,14 +1,14 @@
-import { Suspense } from 'react';
 import { cookies } from 'next/headers';
+import { Suspense } from 'react';
 
 import { CaseFilters, CaseTableWithSelection } from '@/components/cases';
+import { CasesDemoMessage } from '@/components/demo/CaseDemoMessages';
 import { Pagination } from '@/components/ui/pagination';
-import { secureQuery, type SecureUser } from '@/lib/auth/secure-query';
 import { getCurrentUser } from '@/lib/auth';
 import { guardPage } from '@/lib/auth/page-guard';
-import { regionRBAC } from '@/lib/region';
+import { secureQuery, type SecureUser } from '@/lib/auth/secure-query';
 import { REGION_COOKIE_NAME } from '@/lib/context/RegionContext';
-import { CasesDemoMessage } from '@/components/demo/CaseDemoMessages';
+import { regionRBAC } from '@/lib/region';
 
 interface PageProps {
     searchParams: Promise<{

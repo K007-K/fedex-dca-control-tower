@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Users, Mail, Phone, Calendar, MoreVertical, Shield } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+
 import { CreateAgentModal } from '@/components/manager/CreateAgentModal';
 
 interface Agent {
@@ -123,7 +124,7 @@ export default function ManagerUsersPage() {
                     <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
                         <Shield className="w-5 h-5" />
                         <p className="text-sm">
-                            <strong>Permission Required:</strong> You don't have permission to create agents.
+                            <strong>Permission Required:</strong> You don&apos;t have permission to create agents.
                             Contact your DCA Admin to enable agent creation rights.
                         </p>
                     </div>
@@ -160,8 +161,8 @@ export default function ManagerUsersPage() {
                                             {agent.full_name}
                                         </h3>
                                         <span className={`text-xs px-2 py-0.5 rounded-full ${agent.is_active
-                                                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                                             }`}>
                                             {agent.is_active ? 'Active' : 'Inactive'}
                                         </span>

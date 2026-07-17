@@ -6,8 +6,9 @@
  * Managers can view and handle deletion requests from their team members.
  */
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+
 import { useToast } from '@/components/ui';
 
 interface DeletionRequest {

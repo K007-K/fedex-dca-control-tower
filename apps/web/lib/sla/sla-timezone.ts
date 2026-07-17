@@ -8,7 +8,6 @@
  * - Region timezone stored for traceability
  */
 
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/server';
 
 // ===========================================
@@ -89,7 +88,7 @@ export function getNowInRegion(timezone: string): Date {
     const now = new Date();
     const parts = formatter.formatToParts(now);
 
-    const getPart = (type: string) => parts.find(p => p.type === type)?.value || '0';
+    const _getPart = (type: string) => parts.find(p => p.type === type)?.value || '0';
 
     // Return the equivalent UTC time that represents "now" in the region
     return now; // For SLA, we always store in UTC

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { useState, useEffect, useCallback } from 'react';
 
 interface TeamMember {
     id: string;

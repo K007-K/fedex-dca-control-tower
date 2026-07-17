@@ -3,8 +3,9 @@
  * Fires HTTP POST requests to registered webhooks when events occur
  */
 
-import { createAdminClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
+
+import { createAdminClient } from '@/lib/supabase/server';
 
 interface WebhookPayload {
     event: string;

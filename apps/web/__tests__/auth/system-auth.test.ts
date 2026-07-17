@@ -58,16 +58,34 @@ describe('System Authentication - isSystemRequest', () => {
 });
 
 describe('System Authentication - serviceCanPerform', () => {
+    const createMockActor = (serviceName: string, allowedOps: string[] = []): any => ({
+        actor_type: 'SYSTEM',
+        actor_id: 'test-id',
+        actor_role: null,
+        region_scope: null,
+        service_name: serviceName,
+        allowed_operations: allowedOps,
+        is_active: true,
+    });
+
     it('DCA_ALLOCATOR can perform cases:system-create', () => {
-        expect(serviceCanPerform('DCA_ALLOCATOR', 'cases:system-create')).toBe(true);
+        const actor = createMockActor('DCA_ALLOCATOR', ['cases:system-create']);
+        expect(serviceCanPerform(actor, 'cases:system-create')).toBe(true);
     });
 
     it('RPA_BOT can perform cases:system-create', () => {
-        expect(serviceCanPerform('RPA_BOT', 'cases:system-create')).toBe(true);
+        const actor = createMockActor('RPA_BOT', ['cases:system-create', 'cases:bulk-create']);
+        expect(serviceCanPerform(actor, 'cases:system-create')).toBe(true);
     });
 
-    it('unknown service is denied by default', () => {
-        expect(serviceCanPerform('UNKNOWN_SERVICE', 'cases:system-create')).toBe(false);
+    it('service with empty allowed_operations has full access', () => {
+        const actor = createMockActor('SUPER_SERVICE', []);
+        expect(serviceCanPerform(actor, 'any:operation')).toBe(true);
+    });
+
+    it('service cannot perform operations not in allowed list', () => {
+        const actor = createMockActor('LIMITED_SERVICE', ['cases:read']);
+        expect(serviceCanPerform(actor, 'cases:system-create')).toBe(false);
     });
 });
 

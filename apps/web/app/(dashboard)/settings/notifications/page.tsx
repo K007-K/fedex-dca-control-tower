@@ -6,13 +6,13 @@ import { useState, useEffect } from 'react';
 
 import { useToast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
+import { type UserRole } from '@/lib/auth/rbac';
 import {
     GOVERNED_NOTIFICATIONS,
     getNotificationsForRole,
     getTierBadgeColor,
     type NotificationConfig
 } from '@/lib/notifications/governance';
-import { type UserRole } from '@/lib/auth/rbac';
 
 interface NotificationPreference extends NotificationConfig {
     email: boolean;

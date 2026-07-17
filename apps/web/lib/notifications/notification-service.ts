@@ -3,8 +3,8 @@
  * Creates in-app notifications and sends emails based on user preferences
  */
 
-import { createClient } from '@/lib/supabase/server';
 import { sendEscalationEmail, sendSlaBreachEmail } from '@/lib/email';
+import { createClient } from '@/lib/supabase/server';
 
 // Notification types mapping to preference keys
 const NOTIFICATION_TYPE_MAP: Record<string, string> = {

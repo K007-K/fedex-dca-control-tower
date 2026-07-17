@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { X, AlertCircle, Check, Copy, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 
 interface CreateAgentModalProps {
     isOpen: boolean;

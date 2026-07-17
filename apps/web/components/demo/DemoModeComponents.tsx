@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
+
 import { useDemoMode, DEMO_STEPS, getDemoStepFromPath } from '@/lib/context/DemoModeContext';
 
 /**

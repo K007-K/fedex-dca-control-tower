@@ -7,9 +7,9 @@
  * SCOPE: Only for cases assigned to the current agent
  */
 
-import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
 
 interface Activity {
     id: string;

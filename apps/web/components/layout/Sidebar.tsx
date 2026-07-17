@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useMemo } from 'react';
-import { DemoModeToggle } from '@/components/demo/DemoModeComponents';
+
 import { AgentDemoModeToggle } from '@/components/demo/AgentDemoComponents';
+import { DemoModeToggle } from '@/components/demo/DemoModeComponents';
 import { ManagerDemoModeToggle } from '@/components/demo/ManagerDemoComponents';
 import type { UserRole } from '@/lib/auth/rbac';
 

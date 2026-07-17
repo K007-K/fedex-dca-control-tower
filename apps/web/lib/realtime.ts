@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { useEffect, useRef, useCallback } from 'react';
 
 interface RealtimeOptions {
     table: string;

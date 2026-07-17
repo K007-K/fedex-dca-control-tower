@@ -116,8 +116,14 @@ export async function middleware(request: NextRequest) {
             const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
             if (mfaData?.currentLevel === 'aal1' && mfaData?.nextLevel === 'aal2') {
-                // User needs to verify MFA
-                return NextResponse.redirect(new URL('/mfa-verify?redirect=/overview', request.url));
+                // Only redirect to MFA verify if user has enrolled factors.
+                // If no factors are enrolled, skip MFA (enrollment UI not yet built).
+                // TODO: Implement MFA enrollment flow at /settings/security/mfa-enroll
+                const { data: factors } = await supabase.auth.mfa.listFactors();
+                const verifiedFactors = factors?.totp?.filter(f => f.status === 'verified') ?? [];
+                if (verifiedFactors.length > 0) {
+                    return NextResponse.redirect(new URL('/mfa-verify?redirect=/overview', request.url));
+                }
             }
         }
 

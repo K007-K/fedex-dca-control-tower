@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 interface SessionTimeoutProps {
@@ -108,7 +109,7 @@ export function SessionTimeoutWarning({
                         <span className="font-bold text-red-600">{formatTime(remainingSeconds)}</span>
                     </p>
                     <p className="text-sm text-gray-500 mb-6">
-                        Click "Stay Logged In" to continue your session.
+                        Click &quot;Stay Logged In&quot; to continue your session.
                     </p>
 
                     <div className="flex gap-3 justify-center">

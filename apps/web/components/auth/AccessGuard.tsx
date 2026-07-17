@@ -7,8 +7,9 @@
  * Redirects unauthorized users to dashboard with error message.
  */
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
 import type { UserRole } from '@/lib/auth/rbac';
 
 interface AccessGuardProps {

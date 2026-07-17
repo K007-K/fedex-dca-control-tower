@@ -97,7 +97,7 @@ export function calculateSlaDueDate(
 
     let remainingHours = durationHours;
     const current = new Date(startDate);
-    const workHoursPerDay = getWorkHoursPerDay(config);
+    const _workHoursPerDay = getWorkHoursPerDay(config);
 
     // Safety limit to prevent infinite loops
     const maxIterations = 365;
@@ -161,7 +161,7 @@ export function calculateRemainingBusinessHours(
 
     let totalHours = 0;
     const current = new Date(currentDate);
-    const workHoursPerDay = getWorkHoursPerDay(config);
+    const _workHoursPerDay = getWorkHoursPerDay(config);
 
     const maxIterations = 365;
     let iterations = 0;

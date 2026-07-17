@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Globe, ChevronDown, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export type Region = 'ALL' | 'INDIA' | 'AMERICAS' | 'EMEA' | 'APAC';
 

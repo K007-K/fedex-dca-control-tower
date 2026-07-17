@@ -21,8 +21,9 @@ import {
     UserCheck,
     Eye,
 } from 'lucide-react';
-import { DemoPageMessage } from '@/components/demo/DemoModeComponents';
+
 import { AccessGuard } from '@/components/auth/AccessGuard';
+import { DemoPageMessage } from '@/components/demo/DemoModeComponents';
 
 function OverviewContent() {
     return (

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { useState } from 'react';
 
 /**
  * DCA_ADMIN Overview Page
@@ -174,7 +174,7 @@ export default function AdminOverviewPage() {
                         <span className="text-green-500 mt-1">•</span>
                         <div>
                             <p className="font-medium text-gray-900 dark:text-white">Monitor SLA Adherence</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Track your DCA's SLA compliance</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Track your DCA&apos;s SLA compliance</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">

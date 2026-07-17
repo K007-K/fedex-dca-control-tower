@@ -16,10 +16,11 @@
  * - case.status NOT IN ('RECOVERED', 'CLOSED')
  */
 
-import { createAdminClient } from '@/lib/supabase/server';
 import { logSystemAction } from '@/lib/audit';
+import { createAdminClient } from '@/lib/supabase/server';
 import { fireWebhookEvent } from '@/lib/webhooks';
-import { getRegionTimezone, getBreachAuditContext, formatInRegionTimezone } from './sla-timezone';
+
+import { getRegionTimezone, getBreachAuditContext } from './sla-timezone';
 
 // ===========================================
 // TYPES

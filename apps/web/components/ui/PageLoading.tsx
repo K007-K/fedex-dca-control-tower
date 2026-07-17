@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext, useCallback } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useState, createContext, useContext, useCallback } from 'react';
 
 interface PageLoadingContextType {
     isLoading: boolean;

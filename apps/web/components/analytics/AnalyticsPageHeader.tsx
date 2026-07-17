@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+
 import { RegionFilterDropdown } from '@/components/ui/RegionFilterDropdown';
 
 interface AnalyticsPageHeaderProps {

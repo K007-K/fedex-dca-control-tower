@@ -9,8 +9,6 @@
  * NO governance, NO analytics, NO system-wide metrics
  */
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
     FileText,
     Clock,
@@ -19,6 +17,8 @@ import {
     Phone,
     ArrowRight,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 interface AgentStats {
     assignedCases: number;

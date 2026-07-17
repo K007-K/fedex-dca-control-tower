@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 
 import '@/styles/globals.css';
-import { ThemeProvider } from '@/components/theme/ThemeProvider';
-import { QueryProvider } from '@/components/providers/QueryProvider';
 import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { Providers } from '@/components/Providers';
+import { QueryProvider } from '@/components/providers/QueryProvider';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { RegionProvider } from '@/lib/context/RegionContext';
 
 const inter = Inter({

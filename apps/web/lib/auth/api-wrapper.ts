@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 
+import { NextRequest, NextResponse } from 'next/server';
+
+import { logSecurityEvent, logSystemAction, getRequestMetadata } from '@/lib/audit';
 import { getCurrentUser, type AuthUser } from '@/lib/auth/permissions';
 import { hasPermission, type Permission } from '@/lib/auth/rbac';
-import { checkRateLimit, getRateLimitHeaders, RATE_LIMIT_CONFIGS, type RateLimitConfig } from '@/lib/rate-limit';
-import { logSecurityEvent, logSystemAction, getRequestMetadata } from '@/lib/audit';
-import { regionRBAC } from '@/lib/region';
 import { isGlobalRole } from '@/lib/config';
+import { checkRateLimit, getRateLimitHeaders, RATE_LIMIT_CONFIGS, type RateLimitConfig } from '@/lib/rate-limit';
+import { regionRBAC } from '@/lib/region';
 
 // SYSTEM Actor imports
 import {

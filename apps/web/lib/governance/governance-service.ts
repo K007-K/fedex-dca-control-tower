@@ -190,12 +190,12 @@ export async function getSystemHealth(): Promise<SystemHealth> {
     // Check ML service health
     let mlStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
     try {
-        const mlResponse = await fetch('http://localhost:8000/health', {
+        const mlResponse = await fetch(`${process.env.ML_SERVICE_URL || 'http://localhost:8000'}/health`, {
             method: 'GET',
             signal: AbortSignal.timeout(5000),
         }).catch(() => null);
 
-        if (!mlResponse || !mlResponse.ok) {
+        if (!mlResponse?.ok) {
             mlStatus = 'degraded';
         }
     } catch {

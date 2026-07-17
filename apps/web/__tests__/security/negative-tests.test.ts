@@ -8,6 +8,21 @@
  * - DCA override attempts
  */
 
+// Mock jose to avoid ESM import issues in Jest
+jest.mock('jose', () => ({
+    jwtVerify: jest.fn(),
+    SignJWT: jest.fn().mockReturnValue({
+        setProtectedHeader: jest.fn().mockReturnThis(),
+        setIssuedAt: jest.fn().mockReturnThis(),
+        setExpirationTime: jest.fn().mockReturnThis(),
+        sign: jest.fn().mockResolvedValue('mock-jwt-token'),
+    }),
+    errors: {
+        JWTExpired: class JWTExpired extends Error { },
+        JWTInvalid: class JWTInvalid extends Error { },
+    },
+}));
+
 import {
     hasPermission,
     canManageRole,
@@ -33,7 +48,7 @@ describe('Security - Privilege Escalation Prevention', () => {
         it('DCA_ADMIN cannot escalate to FEDEX_ADMIN permissions', () => {
             expect(hasPermission('DCA_ADMIN', 'dcas:create')).toBe(false);
             expect(hasPermission('DCA_ADMIN', 'admin:settings')).toBe(false);
-            expect(hasPermission('DCA_ADMIN', 'regions:manage')).toBe(false);
+            expect(hasPermission('DCA_ADMIN', 'regions:create')).toBe(false);
         });
 
         it('FEDEX_ADMIN cannot escalate to SUPER_ADMIN permissions', () => {

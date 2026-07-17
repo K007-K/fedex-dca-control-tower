@@ -1,6 +1,8 @@
-import { createAdminClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
+
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * Validate an API key from the Authorization header

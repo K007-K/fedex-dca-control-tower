@@ -1,7 +1,7 @@
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 import { getCurrentUser } from '@/lib/auth';
-import { type UserRole } from '@/lib/auth/rbac';
 import { guardPage } from '@/lib/auth/page-guard';
+import { type UserRole } from '@/lib/auth/rbac';
 
 export default async function DashboardPage() {
     // GOVERNANCE: Redirect DCA_AGENT to /agent/dashboard

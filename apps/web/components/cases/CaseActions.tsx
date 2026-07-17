@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { useToast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { DisabledActionHint, DISABLED_ACTIONS } from '@/components/ui/DisabledActionHint';
-import { parsePermissionError, isForbiddenResponse } from '@/lib/utils/permission-error';
 import { isGovernanceRole, type UserRole } from '@/lib/auth/rbac';
+import { parsePermissionError, isForbiddenResponse } from '@/lib/utils/permission-error';
 
 import { EscalationDialog } from './EscalationDialog';
 

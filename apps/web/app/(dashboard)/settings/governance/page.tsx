@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useToast } from '@/components/ui';
+import { useEffect, useState } from 'react';
+
 import { AccessGuard } from '@/components/auth/AccessGuard';
+import { useToast } from '@/components/ui';
 
 interface Region {
     id: string;

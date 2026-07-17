@@ -3,14 +3,16 @@
  * Sends emails for various system events (SLA breaches, escalations, case assignments)
  */
 
-import { sendEmail } from './send-email';
+import { createAdminClient } from '@/lib/supabase/server';
+
 import {
     caseEscalatedEmail,
     slaBreachEmail,
     caseAssignmentEmail,
     weeklyReportEmail,
 } from '../email-templates';
-import { createAdminClient } from '@/lib/supabase/server';
+
+import { sendEmail } from './send-email';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 

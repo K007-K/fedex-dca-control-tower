@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+
 import { useRegion } from '@/lib/context/RegionContext';
 
 interface PortfolioSummary {

@@ -10,10 +10,11 @@
  * @module lib/case/CaseActionService
  */
 
-import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { CaseStateMachine, CaseStateError, type TransitionContext } from './CaseStateMachine';
 import { logUserAction } from '@/lib/audit';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import type { CaseStatus } from '@/lib/types/case';
+
+import { CaseStateMachine, CaseStateError, type TransitionContext } from './CaseStateMachine';
 
 // ===========================================
 // TYPES

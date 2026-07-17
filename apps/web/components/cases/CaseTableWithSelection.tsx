@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 
-import { BulkActionBar } from './BulkActionBar';
-import { formatCurrencyByRegion } from '@/lib/utils/formatting';
 import { type UserRole } from '@/lib/auth/rbac';
+import { formatCurrencyByRegion } from '@/lib/utils/formatting';
+
+import { BulkActionBar } from './BulkActionBar';
 
 interface CaseData {
     id: string;

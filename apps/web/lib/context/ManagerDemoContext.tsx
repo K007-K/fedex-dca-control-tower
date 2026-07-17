@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 /**
  * Manager Demo Context

@@ -1,6 +1,5 @@
 'use client';
 
-import { useTheme } from '@/components/theme/ThemeProvider';
 import {
     BarChart,
     Bar,
@@ -16,6 +15,8 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
+
+import { useTheme } from '@/components/theme/ThemeProvider';
 
 interface AnalyticsChartsProps {
     recoveryTrend: { month: string; recovered: number; target: number }[];

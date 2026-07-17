@@ -1,7 +1,8 @@
 'use client';
 
-import { useTheme } from './ThemeProvider';
 import { Tooltip } from '@/components/ui/Tooltip';
+
+import { useTheme } from './ThemeProvider';
 
 export function ThemeToggle() {
     const { theme, setTheme, resolvedTheme } = useTheme();

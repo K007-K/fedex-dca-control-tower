@@ -1,4 +1,5 @@
 import Link from 'next/link';
+
 import { formatCurrencyByRegion } from '@/lib/utils/formatting';
 
 interface CaseData {

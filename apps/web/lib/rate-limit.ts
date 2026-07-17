@@ -134,7 +134,7 @@ export function rateLimitedResponse(): Response {
 /**
  * Wrapper for rate-limited API handlers
  */
-export function withRateLimit<T>(
+export function withRateLimit(
     handler: (request: Request) => Promise<Response>,
     config: RateLimitConfig = RATE_LIMIT_CONFIGS.standard
 ) {

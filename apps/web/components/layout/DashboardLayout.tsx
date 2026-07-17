@@ -2,14 +2,15 @@
 
 import { ReactNode, useState } from 'react';
 
+import { AgentDemoStepIndicator } from '@/components/demo/AgentDemoComponents';
+import { DemoStepIndicator } from '@/components/demo/DemoModeComponents';
+import { ManagerDemoStepIndicator } from '@/components/demo/ManagerDemoComponents';
+import { AgentDemoProvider } from '@/lib/context/AgentDemoContext';
+import { DemoModeProvider } from '@/lib/context/DemoModeContext';
+import { ManagerDemoProvider } from '@/lib/context/ManagerDemoContext';
+
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { DemoModeProvider } from '@/lib/context/DemoModeContext';
-import { DemoStepIndicator } from '@/components/demo/DemoModeComponents';
-import { AgentDemoProvider } from '@/lib/context/AgentDemoContext';
-import { AgentDemoStepIndicator } from '@/components/demo/AgentDemoComponents';
-import { ManagerDemoProvider } from '@/lib/context/ManagerDemoContext';
-import { ManagerDemoStepIndicator } from '@/components/demo/ManagerDemoComponents';
 
 interface DashboardLayoutProps {
     children: ReactNode;

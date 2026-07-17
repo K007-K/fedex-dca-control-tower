@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-interface FormStateOptions<T> {
+interface FormStateOptions {
     /** Storage key for persisting form data */
     storageKey?: string;
     /** Debounce time in ms for auto-save */
@@ -15,7 +15,7 @@ interface FormStateOptions<T> {
  */
 export function useFormState<T extends Record<string, unknown>>(
     initialValues: T,
-    options: FormStateOptions<T> = {}
+    options: FormStateOptions = {}
 ) {
     const { storageKey, debounceMs = 500 } = options;
 

@@ -12,7 +12,9 @@
  */
 
 import * as jose from 'jose';
+
 import { createAdminClient } from '@/lib/supabase/server';
+
 import {
     type SystemActor,
     type ServiceActorRecord,
@@ -177,7 +179,7 @@ export function isSystemRequest(request: Request): boolean {
 export function extractServiceToken(request: Request): string | null {
     const authHeader = request.headers.get(SYSTEM_AUTH_HEADER);
 
-    if (!authHeader || !authHeader.startsWith(SYSTEM_AUTH_PREFIX)) {
+    if (!authHeader?.startsWith(SYSTEM_AUTH_PREFIX)) {
         return null;
     }
 
@@ -336,8 +338,8 @@ export function validateIpWhitelist(
  * @returns true if operation is allowed
  */
 export function serviceCanPerform(actor: SystemActor, operation: string): boolean {
-    // Empty allowed_operations means all operations allowed
-    if (actor.allowed_operations.length === 0) {
+    // Handle missing or undefined allowed_operations
+    if (!actor?.allowed_operations || actor.allowed_operations.length === 0) {
         return true;
     }
 
