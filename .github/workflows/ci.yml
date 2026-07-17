@@ -3,9 +3,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, develop]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 env:
   NODE_VERSION: '20'
@@ -16,14 +16,17 @@ jobs:
   lint-web:
     name: Lint Web App
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
-          
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -32,12 +35,13 @@ jobs:
           
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: .
         
       - name: Run ESLint
-        run: pnpm --filter web lint
+        run: pnpm run lint
         
       - name: Run TypeScript check
-        run: pnpm --filter web tsc --noEmit
+        run: npx tsc --noEmit
 
   # Lint the ML service
   lint-ml:
@@ -68,14 +72,17 @@ jobs:
     name: Test Web App (Governance)
     runs-on: ubuntu-latest
     needs: lint-web
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
-          
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -84,9 +91,10 @@ jobs:
           
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: .
         
       - name: Run Governance Tests
-        run: pnpm --filter web test --coverage
+        run: pnpm test -- --coverage
         env:
           NODE_ENV: test
           NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co'
@@ -108,14 +116,17 @@ jobs:
     name: Build Web App
     runs-on: ubuntu-latest
     needs: lint-web
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
-          
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -124,19 +135,20 @@ jobs:
           
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: .
         
       - name: Build application
-        run: pnpm --filter web build
+        run: pnpm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
 
-  # Build Docker images (on main branch only)
+  # Build Docker images (on master branch only)
   build-docker:
     name: Build Docker Images
     runs-on: ubuntu-latest
     needs: [lint-web, lint-ml]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
       

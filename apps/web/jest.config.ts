@@ -31,6 +31,11 @@ const config: Config = {
         '<rootDir>/.next/',
     ],
 
+    // Transform ESM modules that Jest can't handle by default
+    transformIgnorePatterns: [
+        '/node_modules/(?!(jose)/)',
+    ],
+
     // Module path aliases (match tsconfig.json)
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
