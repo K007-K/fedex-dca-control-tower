@@ -60,11 +60,6 @@ export async function GET(request: NextRequest) {
 
         let agentIds = Object.keys(agentMap);
 
-        // Apply agent filter
-        if (agentFilter && agentIds.includes(agentFilter)) {
-            agentIds = [agentFilter];
-        }
-
         // Build query
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let query = (supabase as any)
@@ -80,8 +75,17 @@ export async function GET(request: NextRequest) {
                 created_at,
                 updated_at
             `)
-            .in('assigned_agent_id', agentIds.length > 0 ? agentIds : ['null'])
+            .eq('assigned_dca_id', dcaId)
             .order('updated_at', { ascending: false });
+
+        // Apply specific agent filter if provided
+        if (agentFilter) {
+            if (agentFilter === 'unassigned') {
+                query = query.is('assigned_agent_id', null);
+            } else {
+                query = query.eq('assigned_agent_id', agentFilter);
+            }
+        }
 
         // Status filter
         if (history) {

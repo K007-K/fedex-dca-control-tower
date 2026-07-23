@@ -55,7 +55,7 @@ export async function GET() {
         const { data: teamCases } = await (supabase as any)
             .from('cases')
             .select('id, status, outstanding_amount, currency, assigned_agent_id')
-            .in('assigned_agent_id', agentIds.length > 0 ? agentIds : ['null'])
+            .eq('assigned_dca_id', dcaId)
             .not('status', 'in', '(CLOSED,FULL_RECOVERY)');
 
         const totalCases = teamCases?.length ?? 0;

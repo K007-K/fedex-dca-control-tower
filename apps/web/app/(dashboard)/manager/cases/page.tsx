@@ -137,6 +137,7 @@ export default function ManagerCasesPage() {
                         className="w-full px-3 py-2 border border-gray-200 dark:border-[#222] rounded-lg bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white text-sm"
                     >
                         <option value="">All Agents</option>
+                        <option value="unassigned">Unassigned (Agency Queue)</option>
                         {agents.map((agent) => (
                             <option key={agent.id} value={agent.id}>{agent.name}</option>
                         ))}
