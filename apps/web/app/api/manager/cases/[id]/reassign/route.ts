@@ -59,7 +59,7 @@ export async function POST(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: targetAgent } = await (supabase as any)
             .from('users')
-            .select('id, full_name, dca_id, role, status')
+            .select('id, full_name, dca_id, role, is_active')
             .eq('id', target_agent_id)
             .single();
 
@@ -75,7 +75,7 @@ export async function POST(
             return NextResponse.json({ error: 'Can only reassign to DCA_AGENT role' }, { status: 400 });
         }
 
-        if (targetAgent.status !== 'ACTIVE') {
+        if (!targetAgent.is_active) {
             return NextResponse.json({ error: 'Target agent is not active' }, { status: 400 });
         }
 
