@@ -105,7 +105,7 @@ export default function ManagerCaseDetailPage() {
             const res = await fetch(`/api/manager/cases/${caseId}/reassign`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ new_agent_id: selectedAgent }),
+                body: JSON.stringify({ target_agent_id: selectedAgent }),
             });
             if (!res.ok) {
                 const err = await res.json();
