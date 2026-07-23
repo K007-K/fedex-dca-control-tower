@@ -249,7 +249,7 @@ export default function AgentCaseDetailPage() {
     const availableTransitions = STATUS_TRANSITIONS[caseData.status] || [];
 
     // Check if case is completed (no actions allowed)
-    const isCompleted = ['FULL_RECOVERY', 'PARTIAL_RECOVERY', 'CLOSED', 'WRITTEN_OFF'].includes(caseData.status);
+    const isCompleted = ['FULL_RECOVERY', 'CLOSED', 'WRITTEN_OFF'].includes(caseData.status);
 
     return (
         <div className="space-y-6">
