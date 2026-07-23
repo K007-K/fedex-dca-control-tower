@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
             agentMap[a.id] = { name: a.full_name || 'Unknown', email: a.email };
         });
 
-        let agentIds = Object.keys(agentMap);
+        const agentIds = Object.keys(agentMap);
 
         // Build query
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
