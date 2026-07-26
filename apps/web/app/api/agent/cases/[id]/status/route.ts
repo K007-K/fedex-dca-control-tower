@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getCurrentUser } from '@/lib/auth';
+import { CASE_STATUS_TRANSITIONS } from '@/lib/case/CaseStateMachine';
 import { createAdminClient } from '@/lib/supabase/server';
+import type { CaseStatus } from '@/lib/types/case';
 
 /**
  * Agent Case Status Update API
@@ -10,14 +12,22 @@ import { createAdminClient } from '@/lib/supabase/server';
  * Uses admin client to bypass RLS (user auth is handled separately)
  */
 
-const VALID_TRANSITIONS: Record<string, string[]> = {
-    'ALLOCATED': ['IN_PROGRESS', 'CUSTOMER_CONTACTED'],
-    'IN_PROGRESS': ['CUSTOMER_CONTACTED', 'DISPUTED'],
-    'CUSTOMER_CONTACTED': ['PAYMENT_PROMISED', 'DISPUTED', 'IN_PROGRESS'],
-    'PAYMENT_PROMISED': ['PARTIAL_RECOVERY', 'FULL_RECOVERY', 'DISPUTED'],
-    'PARTIAL_RECOVERY': ['FULL_RECOVERY', 'PAYMENT_PROMISED'],
-    'DISPUTED': ['IN_PROGRESS', 'CUSTOMER_CONTACTED'],
-};
+/**
+ * Transitions are validated against CASE_STATUS_TRANSITIONS, the canonical state
+ * machine. This route previously carried its own copy which had drifted: it
+ * permitted three transitions the machine forbids (ALLOCATED -> CUSTOMER_CONTACTED,
+ * PAYMENT_PROMISED -> DISPUTED, DISPUTED -> CUSTOMER_CONTACTED) and blocked
+ * ESCALATED from four states, so agents could not escalate a case at all.
+ *
+ * Terminal and allocation states are excluded: an agent advances their own work,
+ * they do not close cases or send them back for re-allocation.
+ */
+const AGENT_FORBIDDEN_TARGETS: readonly string[] = ['PENDING_ALLOCATION', 'CLOSED'];
+
+function agentAllowedTransitions(from: string): string[] {
+    const allowed = CASE_STATUS_TRANSITIONS[from as CaseStatus] ?? [];
+    return allowed.filter(s => !AGENT_FORBIDDEN_TARGETS.includes(s));
+}
 
 export async function POST(
     request: NextRequest,
@@ -58,7 +68,7 @@ export async function POST(
         }
 
         // Validate transition
-        const validTransitions = VALID_TRANSITIONS[caseData.status] || [];
+        const validTransitions = agentAllowedTransitions(caseData.status);
         if (!validTransitions.includes(newStatus)) {
             return NextResponse.json({
                 error: `Invalid status transition from ${caseData.status} to ${newStatus}`

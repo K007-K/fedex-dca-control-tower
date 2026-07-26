@@ -60,14 +60,11 @@ export async function GET() {
         const terminalStatuses = ['CLOSED', 'FULL_RECOVERY', 'WRITTEN_OFF'];
         const activeCases = cases.filter((c: { status: string }) => !terminalStatuses.includes(c.status)).length;
 
-        // Calculate SLA metrics
-        const now = new Date();
-        let overdueCases = 0;
-        let atRiskCases = 0;
-
-        // No SLA due date is persisted on cases today, so overdue/at-risk cannot be
-        // derived. Report null rather than a fabricated 100% compliance.
-        void now;
+        // SLA metrics: no SLA due date is persisted on cases today, so overdue and
+        // at-risk counts cannot be derived. Report null for the rate rather than the
+        // fabricated 100% this endpoint used to return.
+        const overdueCases = 0;
+        const atRiskCases = 0;
         const slaComplianceRate: number | null = null;
 
         // Get team size
