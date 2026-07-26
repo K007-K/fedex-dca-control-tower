@@ -157,10 +157,14 @@ async function writeAuditLog(entry: AuditEntry): Promise<string | null> {
             resource_type: entry.resourceType,
             resource_id: entry.resourceId,
             region_id: entry.regionId,
-            changes: entry.details || {},
+            // Column names must match the audit_logs table exactly. These were
+            // previously written as `changes` and `user_ip`, which do not exist —
+            // every insert failed, the error was swallowed below, and the audit
+            // trail silently recorded nothing at all.
+            details: entry.details || {},
             severity: entry.severity || 'INFO',
             request_source: entry.actorType === 'SYSTEM' ? 'SYSTEM' : 'MANUAL',
-            user_ip: entry.actorType === 'HUMAN' ? entry.ipAddress || null : null,
+            ip_address: entry.actorType === 'HUMAN' ? entry.ipAddress || null : null,
             user_agent: entry.actorType === 'HUMAN' ? entry.userAgent || null : null,
             created_at: new Date().toISOString(),
         };
