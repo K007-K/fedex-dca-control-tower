@@ -62,10 +62,14 @@ const handleCreateSlaTemplate: ApiHandler = async (request, { user }) => {
         const supabase = createAdminClient();
         const body = await request.json();
 
-        // Validate required fields
+        // Validate required fields.
+        // Uses `== null` rather than a falsy check: duration_hours of 0 is present
+        // but invalid, and the falsy test reported it as "missing", so the
+        // positive-duration check below was unreachable and the caller got a
+        // misleading message.
         const requiredFields = ['name', 'sla_type', 'duration_hours'];
         for (const field of requiredFields) {
-            if (!body[field]) {
+            if (body[field] == null || body[field] === '') {
                 return NextResponse.json(
                     { error: `Missing required field: ${field}` },
                     { status: 400 }

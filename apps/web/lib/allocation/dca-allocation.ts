@@ -187,28 +187,17 @@ function rankDCAs(dcas: EligibleDCA[]): EligibleDCA[] {
 // CAPACITY UPDATE
 // ===========================================
 
-async function incrementDCACapacity(
-    supabase: ReturnType<typeof createAdminClient>,
-    dcaId: string,
-    currentUsed: number
-): Promise<boolean> {
-    // Direct update with incremented value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
-        .from('dcas')
-        .update({
-            capacity_used: currentUsed + 1,
-            updated_at: new Date().toISOString(),
-        })
-        .eq('id', dcaId);
-
-    if (error) {
-        console.error('Failed to increment DCA capacity:', error);
-        return false;
-    }
-
-    return true;
-}
+// capacity_used is maintained by the `update_dca_capacity` trigger on cases, which
+// does `capacity_used = capacity_used + 1` — atomic under the row lock. A previous
+// incrementDCACapacity() helper lived here and did a read-modify-write from a value
+// read earlier in the request; it was never called, but wiring it up would have
+// introduced a lost-update race against the trigger. Removed deliberately: let the
+// database own this counter.
+//
+// NOTE: nothing enforces capacity_used <= capacity_limit. Eligibility is filtered in
+// findEligibleDCAs() before insert, so two concurrent allocations can both observe
+// the last free slot and overshoot the limit. Enforcing it needs a decision about
+// failure behaviour (reject the case vs. allow overflow), so it is left as-is.
 
 // ===========================================
 // TIMELINE & AUDIT
