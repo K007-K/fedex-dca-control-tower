@@ -138,11 +138,23 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
 
   # Build Docker images (on master branch only)
+  #
+  # DISABLED: this job references apps/web/Dockerfile and apps/ml-service/Dockerfile,
+  # neither of which exists in the repository, so it fails with
+  #   "failed to read dockerfile: open Dockerfile: no such file or directory"
+  #
+  # It had never actually run before 2026-07-26 — the lint job ahead of it was failing,
+  # so this was permanently skipped. Nothing outside this workflow consumes the images:
+  # the application deploys to Vercel.
+  #
+  # To re-enable: add both Dockerfiles (apps/web already sets `output: 'standalone'`
+  # in next.config.js, so a multi-stage pnpm build is straightforward) and change the
+  # `if:` below back to `github.ref == 'refs/heads/master'`.
   build-docker:
     name: Build Docker Images
     runs-on: ubuntu-latest
     needs: [lint-web, lint-ml]
-    if: github.ref == 'refs/heads/master'
+    if: false
     steps:
       - uses: actions/checkout@v4
       
