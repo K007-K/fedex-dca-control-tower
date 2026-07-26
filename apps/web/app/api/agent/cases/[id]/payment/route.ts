@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getCurrentUser } from '@/lib/auth';
+import { CASE_STATUS_TRANSITIONS } from '@/lib/case/CaseStateMachine';
 import { createAdminClient } from '@/lib/supabase/server';
+import type { CaseStatus } from '@/lib/types/case';
 
 /**
  * Agent Case Payment API
@@ -38,7 +40,7 @@ export async function POST(
         // Verify case is assigned to this agent
         const { data: caseData, error: caseError } = await supabase
             .from('cases')
-            .select('id, outstanding_amount, original_amount, currency, case_number, status')
+            .select('id, outstanding_amount, original_amount, recovered_amount, currency, case_number, status')
             .eq('id', id)
             .eq('assigned_agent_id', user.id)
             .single();
@@ -49,6 +51,18 @@ export async function POST(
         }
 
         const currencySymbol = caseData.currency === 'USD' ? '$' : '₹';
+
+        // A payment cannot exceed what is owed. Previously the arithmetic below
+        // clamped with Math.max(0, ...), so a payment of any size was accepted and
+        // reported as success while silently writing off the excess.
+        const outstanding = caseData.outstanding_amount || 0;
+        if (amount > outstanding) {
+            return NextResponse.json({
+                error: 'Payment exceeds the outstanding balance',
+                outstanding,
+                attempted: amount,
+            }, { status: 400 });
+        }
 
         // Log payment activity
         const { error: activityError } = await supabase
@@ -71,16 +85,32 @@ export async function POST(
         }
 
         // Update outstanding amount
-        const newOutstanding = Math.max(0, (caseData.outstanding_amount || 0) - amount);
-        const currentStatus = caseData.status || 'ALLOCATED';
-        const newStatus = newOutstanding === 0 ? 'FULL_RECOVERY' :
+        const newOutstanding = outstanding - amount;
+        const currentStatus = (caseData.status || 'ALLOCATED') as CaseStatus;
+
+        const derivedStatus = newOutstanding === 0 ? 'FULL_RECOVERY' :
             newOutstanding < caseData.original_amount * 0.5 ? 'PARTIAL_RECOVERY' :
                 currentStatus;
+
+        // Only move status if the state machine permits it from where we are. This
+        // endpoint used to write FULL_RECOVERY/PARTIAL_RECOVERY unconditionally,
+        // which let a payment jump a case straight from ALLOCATED to FULL_RECOVERY —
+        // a transition CASE_STATUS_TRANSITIONS forbids.
+        const allowed = CASE_STATUS_TRANSITIONS[currentStatus] ?? [];
+        const newStatus = derivedStatus === currentStatus || allowed.includes(derivedStatus as CaseStatus)
+            ? derivedStatus
+            : currentStatus;
+
+        // recovered_amount was never maintained here, so every recovery report and
+        // analytics figure derived from it read zero no matter how much was collected.
+        const newRecovered = (caseData.recovered_amount || 0) + amount;
 
         const { error: updateError } = await supabase
             .from('cases')
             .update({
                 outstanding_amount: newOutstanding,
+                recovered_amount: newRecovered,
+                last_payment_date: new Date().toISOString(),
                 status: newStatus,
                 updated_at: new Date().toISOString()
             })

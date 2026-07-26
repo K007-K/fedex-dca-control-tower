@@ -32,6 +32,20 @@ export async function POST(
         return NextResponse.json({ error: 'Activity type and description are required' }, { status: 400 });
     }
 
+    // Mirrors the case_activities_activity_type_check constraint. Without this an
+    // unrecognised type reached Postgres and surfaced as a 500 constraint violation
+    // rather than a 400 telling the caller what is wrong.
+    const ALLOWED_ACTIVITY_TYPES = [
+        'NOTE', 'CONTACT_ATTEMPT', 'STATUS_CHANGE', 'PAYMENT',
+        'ESCALATION', 'DOCUMENT', 'ASSIGNMENT', 'SYSTEM',
+    ];
+    if (!ALLOWED_ACTIVITY_TYPES.includes(activity_type)) {
+        return NextResponse.json({
+            error: 'Invalid activity type',
+            allowed: ALLOWED_ACTIVITY_TYPES,
+        }, { status: 400 });
+    }
+
     // Use admin client to bypass RLS - we handle auth ourselves
     const supabase = createAdminClient();
 
