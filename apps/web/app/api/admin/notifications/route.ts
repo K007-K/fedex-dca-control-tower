@@ -48,7 +48,7 @@ export async function GET() {
         const { data: escalatedCases } = await supabase
             .from('cases')
             .select('id, case_number, customer_name, updated_at')
-            .eq('dca_id', dcaId)
+            .eq('assigned_dca_id', dcaId)
             .eq('status', 'ESCALATED')
             .order('updated_at', { ascending: false })
             .limit(10);
@@ -66,15 +66,17 @@ export async function GET() {
             });
         });
 
-        // Get SLA breaches
+        // SLA breach notifications are disabled: cases has no sla_due_at column, so
+        // selecting or ordering by it failed the query and silently produced no
+        // notifications at all. Restore this block once SLA due dates are persisted.
         const now = new Date();
-        const { data: slaCases } = await supabase
-            .from('cases')
-            .select('id, case_number, customer_name, sla_due_at, updated_at')
-            .eq('dca_id', dcaId)
-            .not('status', 'in', '(CLOSED,FULL_RECOVERY,WRITTEN_OFF)')
-            .order('sla_due_at', { ascending: true })
-            .limit(20);
+        const slaCases: Array<{
+            id: string;
+            case_number: string;
+            customer_name: string;
+            sla_due_at?: string | null;
+            updated_at: string;
+        }> = [];
 
         (slaCases || []).forEach((c: { id: string; case_number: string; customer_name: string; sla_due_at?: string | null; updated_at: string }) => {
             if (!c.sla_due_at) return;

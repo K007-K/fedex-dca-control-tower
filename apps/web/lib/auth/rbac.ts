@@ -142,7 +142,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // - Cannot assign DCA (SYSTEM-only)
     FEDEX_MANAGER: [
         // Case operations within assigned region
-        'cases:read', 'cases:create', 'cases:update', 'cases:bulk', 'cases:export',
+        // NOTE: no cases:create — every creation path (POST /api/cases and
+        // /api/v1/cases/manual-create) rejects any role but FEDEX_ADMIN, so granting
+        // it here only made the UI advertise a capability the backend denies.
+        'cases:read', 'cases:update', 'cases:bulk', 'cases:export',
         // DCA visibility only (no management)
         'dcas:read', 'dcas:performance',
         // User visibility only (no management)
@@ -222,6 +225,41 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
         'analytics:read',
     ],
 };
+
+/**
+ * Roles that actually exist in the Postgres `user_role` enum.
+ *
+ * FEDEX_AUDITOR and FEDEX_VIEWER are declared in the UserRole union above and
+ * carry permission sets, but they were never added to the database enum. Sending
+ * either of them to Postgres raises `22P02 invalid input value for enum
+ * user_role`, which fails the ENTIRE query — this is what took down GET /api/users
+ * for SUPER_ADMIN and FEDEX_ADMIN.
+ *
+ * Until a migration adds them, every role list that reaches the database must be
+ * filtered through `toDbRoles()`. The legacy AUDITOR and READONLY roles are the
+ * working equivalents and are already in the enum.
+ */
+export const DB_USER_ROLES: readonly UserRole[] = [
+    'SUPER_ADMIN',
+    'FEDEX_ADMIN',
+    'FEDEX_MANAGER',
+    'FEDEX_ANALYST',
+    'DCA_ADMIN',
+    'DCA_MANAGER',
+    'DCA_AGENT',
+    'AUDITOR',
+    'READONLY',
+] as const;
+
+/** True if the role can be persisted to the database. */
+export function isDbRole(role: UserRole): boolean {
+    return DB_USER_ROLES.includes(role);
+}
+
+/** Drop roles the database enum cannot represent, so a query cannot 22P02. */
+export function toDbRoles(roles: UserRole[]): UserRole[] {
+    return roles.filter(isDbRole);
+}
 
 /**
  * Check if a role has a specific permission

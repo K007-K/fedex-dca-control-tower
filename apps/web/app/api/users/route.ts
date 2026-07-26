@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 // Force dynamic rendering - this route uses cookies/headers
 export const dynamic = 'force-dynamic';
 
-import { isFedExRole, isDCARole, canManageRole, type UserRole } from '@/lib/auth';
+import { isFedExRole, isDCARole, canManageRole, toDbRoles, type UserRole } from '@/lib/auth';
 import { withPermission, withRateLimitedPermission, type ApiHandler } from '@/lib/auth/api-wrapper';
 import { RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
 import { createClient } from '@/lib/supabase/server';
@@ -39,12 +39,14 @@ function generateTempPassword(): string {
 // DCA_MANAGER: Can create DCA_AGENT ONLY (within own DCA, same state, if can_create_agents=true)
 // All others: CANNOT create users
 
-const SUPER_ADMIN_CAN_CREATE: UserRole[] = [
+// Filtered through toDbRoles(): offering a role the DB enum cannot store would
+// fail the insert with 22P02 after the operator has filled in the whole form.
+const SUPER_ADMIN_CAN_CREATE: UserRole[] = toDbRoles([
     'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'READONLY', 'DCA_ADMIN'
-];
-const FEDEX_ADMIN_CAN_CREATE: UserRole[] = [
+]);
+const FEDEX_ADMIN_CAN_CREATE: UserRole[] = toDbRoles([
     'FEDEX_MANAGER', 'FEDEX_ANALYST', 'READONLY', 'FEDEX_AUDITOR', 'DCA_ADMIN'
-];
+]);
 const DCA_ADMIN_CAN_CREATE: UserRole[] = ['DCA_MANAGER', 'DCA_AGENT'];
 const DCA_MANAGER_CAN_CREATE: UserRole[] = ['DCA_AGENT'];  // Delegated creation
 
@@ -249,14 +251,14 @@ const handleGetUsers: ApiHandler = async (request, { user }) => {
         // DCA: Can only see internal DCA users in their own DCA
         // =====================================================
         const DCA_INTERNAL_ROLES = ['DCA_MANAGER', 'DCA_AGENT'];
-        const FEDEX_ROLES = ['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'];
+        const FEDEX_ROLES = toDbRoles(['SUPER_ADMIN', 'FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'AUDITOR']);
 
         if (user.role === 'SUPER_ADMIN') {
             // SUPER_ADMIN: Can see all FedEx roles + DCA_ADMIN; NOT DCA internal
             query = query.in('role', [...FEDEX_ROLES, 'DCA_ADMIN']);
         } else if (user.role === 'FEDEX_ADMIN') {
             // FEDEX_ADMIN: Cannot see SUPER_ADMIN or DCA internal users
-            query = query.in('role', ['FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'DCA_ADMIN']);
+            query = query.in('role', toDbRoles(['FEDEX_ADMIN', 'FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER', 'AUDITOR', 'DCA_ADMIN']));
         } else if (['FEDEX_MANAGER', 'FEDEX_ANALYST', 'FEDEX_AUDITOR', 'FEDEX_VIEWER'].includes(user.role)) {
             // Other FedEx roles: Can only see FedEx users + DCA_ADMIN (not DCA internal)
             query = query.in('role', [...FEDEX_ROLES, 'DCA_ADMIN']);

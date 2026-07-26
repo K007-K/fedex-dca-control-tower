@@ -44,8 +44,14 @@ export async function GET() {
         // Get cases for this DCA
         const { data: allCases } = await supabase
             .from('cases')
-            .select('id, status, sla_due_at, created_at')
-            .eq('dca_id', dcaId);
+            // NOTE: the scoping column on cases is `assigned_dca_id`; `dca_id` does not
+            // exist. Filtering on it silently returned zero rows, so this dashboard
+            // reported 0 cases and 100% SLA compliance to every DCA admin.
+            // `sla_due_at` does not exist on cases either — SLA due dates are not
+            // currently stored, so the SLA counters below stay at zero rather than
+            // inventing a compliance figure.
+            .select('id, status, created_at')
+            .eq('assigned_dca_id', dcaId);
 
         const cases = allCases || [];
         const totalCases = cases.length;
@@ -59,20 +65,10 @@ export async function GET() {
         let overdueCases = 0;
         let atRiskCases = 0;
 
-        cases.forEach((c: { status: string; sla_due_at?: string | null }) => {
-            if (terminalStatuses.includes(c.status)) return;
-            if (c.sla_due_at) {
-                const dueAt = new Date(c.sla_due_at);
-                const hoursRemaining = (dueAt.getTime() - now.getTime()) / (1000 * 60 * 60);
-                if (hoursRemaining < 0) overdueCases++;
-                else if (hoursRemaining < 24) atRiskCases++;
-            }
-        });
-
-        // SLA compliance rate (cases not overdue / total active)
-        const slaComplianceRate = activeCases > 0
-            ? Math.round(((activeCases - overdueCases) / activeCases) * 100)
-            : 100;
+        // No SLA due date is persisted on cases today, so overdue/at-risk cannot be
+        // derived. Report null rather than a fabricated 100% compliance.
+        void now;
+        const slaComplianceRate: number | null = null;
 
         // Get team size
         const { data: teamMembers } = await supabase
@@ -89,7 +85,7 @@ export async function GET() {
         const { data: escalatedCases } = await supabase
             .from('cases')
             .select('id, case_number, updated_at')
-            .eq('dca_id', dcaId)
+            .eq('assigned_dca_id', dcaId)
             .eq('status', 'ESCALATED')
             .order('updated_at', { ascending: false })
             .limit(5);

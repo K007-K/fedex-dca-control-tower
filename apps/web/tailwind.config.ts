@@ -138,6 +138,13 @@ const config: Config = {
                 'slide-down': 'slideDown 0.3s ease-out',
                 'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                 'spin-slow': 'spin 3s linear infinite',
+                // Landing page motion
+                'marquee': 'marquee 40s linear infinite',
+                'flow': 'flow 1.6s linear infinite',
+                'float': 'float 6s ease-in-out infinite',
+                'blink': 'blink 2s ease-in-out infinite',
+                'halo': 'halo 4s ease-in-out infinite',
+                'sweep': 'sweep 8s linear infinite',
             },
             keyframes: {
                 fadeIn: {
@@ -151,6 +158,30 @@ const config: Config = {
                 slideDown: {
                     '0%': { transform: 'translateY(-10px)', opacity: '0' },
                     '100%': { transform: 'translateY(0)', opacity: '1' },
+                },
+                marquee: {
+                    '0%': { transform: 'translateX(0)' },
+                    '100%': { transform: 'translateX(-50%)' },
+                },
+                flow: {
+                    '0%': { strokeDashoffset: '24' },
+                    '100%': { strokeDashoffset: '0' },
+                },
+                float: {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-8px)' },
+                },
+                blink: {
+                    '0%, 100%': { opacity: '1' },
+                    '50%': { opacity: '0.35' },
+                },
+                halo: {
+                    '0%, 100%': { opacity: '0.35', transform: 'scale(1)' },
+                    '50%': { opacity: '0.7', transform: 'scale(1.06)' },
+                },
+                sweep: {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
                 },
             },
             // Max Width

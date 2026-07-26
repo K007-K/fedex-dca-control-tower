@@ -122,8 +122,11 @@ async function findEligibleDCAs(
 
     for (const row of data) {
         const dca = row.dcas;
-        const capacityLimit = dca.capacity_limit || 100;
-        const capacityUsed = dca.capacity_used || 0;
+        // NOTE: `?? 100` not `|| 100` — capacity_limit of 0 means "accept no work",
+        // and `||` silently promoted that to a limit of 100, making a deliberately
+        // drained DCA the most attractive candidate in the pool.
+        const capacityLimit = dca.capacity_limit ?? 100;
+        const capacityUsed = dca.capacity_used ?? 0;
         const capacityAvailable = capacityLimit - capacityUsed;
 
         // Skip if no capacity

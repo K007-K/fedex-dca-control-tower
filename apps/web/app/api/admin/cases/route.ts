@@ -52,20 +52,18 @@ export async function GET(request: NextRequest) {
                 outstanding_amount,
                 currency,
                 status,
-                sla_due_at,
                 updated_at,
                 assigned_agent_id,
                 users!cases_assigned_agent_id_fkey(full_name)
             `)
-            .eq('dca_id', dcaId)
+            .eq('assigned_dca_id', dcaId)
             .order('updated_at', { ascending: false });
 
         // Apply filters
         if (filter === 'escalated') {
             query = query.eq('status', 'ESCALATED');
-        } else if (filter === 'overdue') {
-            query = query.lt('sla_due_at', new Date().toISOString());
         }
+        // 'overdue' filter dropped: cases has no sla_due_at column to compare against.
 
         const { data: cases, error } = await query;
 
@@ -78,11 +76,8 @@ export async function GET(request: NextRequest) {
         const now = new Date();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const enrichedCases = (cases || []).map((c: any) => {
-            let sla_hours_remaining = 0;
-            if (c.sla_due_at) {
-                const dueAt = new Date(c.sla_due_at);
-                sla_hours_remaining = (dueAt.getTime() - now.getTime()) / (1000 * 60 * 60);
-            }
+            // sla_due_at is not stored on cases; leave remaining time unknown.
+            const sla_hours_remaining = 0;
 
             return {
                 id: c.id,
